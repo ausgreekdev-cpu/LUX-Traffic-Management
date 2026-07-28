@@ -27,8 +27,14 @@
     "files": [
       "electron/**/*",
       "frontend/dist/**/*",
-      "backend/**/*",
-      "!backend/node_modules/.cache"
+      "backend/src/**/*",
+      "backend/package.json",
+      "backend/.env",
+      "backend/node_modules/**/*",
+      "!backend/node_modules/.cache",
+      "!backend/node_modules/**/{test,tests,__tests__}/**",
+      "!backend/node_modules/**/*.{md,ts,txt,map}",
+      "!backend/node_modules/**/LICENSE*"
     ],
     "extraResources": [
       {
@@ -39,15 +45,12 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
-          "arch": ["x64"]
-        },
-        {
           "target": "portable",
           "arch": ["x64"]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
