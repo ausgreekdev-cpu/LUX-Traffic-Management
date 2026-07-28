@@ -1,0 +1,181 @@
+import { Router } from 'express';
+import { v4 as uuid } from 'uuid';
+import db from '../db.js';
+import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+
+const router = Router();
+router.use(authenticate);
+
+function calculateSLA(authorityId, complexity, submissionDate) {
+  const rule = db.prepare('SELECT * FROM sla_rules WHERE authority_id = ? AND complexity = ?').get(authorityId, complexity);
+  if (!rule) return null;
+  const totalDays = rule.assessment_days + rule.buffer_days + (rule.requires_public_notice ? rule.public_notice_days : 0);
+  const submission = new Date(submissionDate);
+  const expected = new Date(submission);
+  expected.setDate(expected.getDate() + totalDays);
+  return {
+    assessment_days: rule.assessment_days,
+    public_notice_days: rule.public_notice_days,
+    buffer_days: rule.buffer_days,
+    total_days: totalDays,
+    expected_date: expected.toISOString().slice(0, 10),
+    requires_public_notice: !!rule.requires_public_notice
+  };
+}
+
+function checkTriggers(permitId, tmpId) {
+  const triggers = [];
+  const tmp = db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(tmpId);
+  if (!tmp || !tmp.site_id) return triggers;
+
+  const withinSignals = db.prepare('SELECT COUNT(*) as c FROM signalised_intersections si LEFT JOIN permits p ON p.authority_id = si.authority_id WHERE p.id = ?').get(permitId);
+  if (withinSignals && withinSignals.c > 0) {
+    const existing = db.prepare("SELECT id FROM workflow_triggers WHERE permit_id = ? AND trigger_type = 'signalised_intersection_30m' AND is_resolved = 0").get(permitId);
+    if (!existing) {
+      const id = uuid();
+      db.prepare("INSERT INTO workflow_triggers (id, permit_id, trigger_type, description) VALUES (?, ?, ?, ?)").run(id, permitId, 'signalised_intersection_30m', 'Site within 30m of signalised intersection - MRWA referral required');
+      triggers.push({ id, type: 'signalised_intersection_30m' });
+    }
+  }
+
+  const existingMrwa = db.prepare("SELECT id FROM workflow_triggers WHERE permit_id = ? AND trigger_type = 'mrwa_referral_required' AND is_resolved = 0").get(permitId);
+  if (!existingMrwa) {
+    const mrwaPermits = db.prepare("SELECT COUNT(*) as c FROM permits WHERE tmp_id = ? AND authority_id IN (SELECT id FROM authorities WHERE type = 'mrwa')").get(tmpId);
+    if (mrwaPermits && mrwaPermits.c === 0) {
+      const permit = db.prepare('SELECT * FROM permits WHERE id = ?').get(permitId);
+      if (permit && permit.requires_mrwa) {
+        const id = uuid();
+        db.prepare("INSERT INTO workflow_triggers (id, permit_id, trigger_type, description) VALUES (?, ?, ?, ?)").run(id, permitId, 'mrwa_referral_required', 'MRWA referral required but no MRWA permit exists');
+        triggers.push({ id, type: 'mrwa_referral_required' });
+      }
+    }
+  }
+
+  return triggers;
+}
+
+router.get('/', (req, res) => {
+  let q = `SELECT p.*, au.name as authority_name, au.short_name as authority_short, au.type as authority_type,
+    t.title as tmp_title, t.reference as tmp_reference, t.status as tmp_status
+    FROM permits p
+    LEFT JOIN authorities au ON p.authority_id = au.id
+    LEFT JOIN traffic_management_plans t ON p.tmp_id = t.id`;
+  const params = [];
+  const conditions = [];
+  if (req.query.status) { conditions.push('p.status = ?'); params.push(req.query.status); }
+  if (req.query.authority_id) { conditions.push('p.authority_id = ?'); params.push(req.query.authority_id); }
+  if (req.query.tmp_id) { conditions.push('p.tmp_id = ?'); params.push(req.query.tmp_id); }
+  if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
+  q += ' ORDER BY p.created_at DESC';
+  res.json(db.prepare(q).all(...params));
+});
+
+router.get('/:id', (req, res) => {
+  const permit = db.prepare(`
+    SELECT p.*, au.name as authority_name, au.short_name as authority_short, au.type as authority_type, au.email as authority_email,
+    t.title as tmp_title, t.reference as tmp_reference, t.site_id
+    FROM permits p
+    LEFT JOIN authorities au ON p.authority_id = au.id
+    LEFT JOIN traffic_management_plans t ON p.tmp_id = t.id WHERE p.id = ?
+  `).get(req.params.id);
+  if (!permit) return res.status(404).json({ error: 'Permit not found' });
+  const fees = db.prepare('SELECT * FROM permit_fees WHERE permit_id = ?').all(req.params.id);
+  const triggers = db.prepare('SELECT * FROM workflow_triggers WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id);
+  const subTasks = db.prepare('SELECT pt.*, au.name as authority_name FROM permit_sub_tasks pt LEFT JOIN authorities au ON pt.authority_id = au.id WHERE pt.permit_id = ?').all(req.params.id);
+  let slaInfo = null;
+  if (permit.submission_date && permit.complexity) {
+    slaInfo = calculateSLA(permit.authority_id, permit.complexity, permit.submission_date);
+  }
+  res.json({ ...permit, fees, triggers, sub_tasks: subTasks, sla: slaInfo });
+});
+
+router.post('/', validate('permit'), (req, res) => {
+  const id = uuid();
+  const { tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa } = req.validated;
+  const subDate = submission_date || new Date().toISOString().slice(0, 10);
+  db.prepare('INSERT INTO permits (id, tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, tmp_id, authority_id, status || 'draft', complexity || 'standard', subDate, approval_date || null, expiry_date || null, rejection_reason || null, is_within_30m_signals ? 1 : 0, requires_mrwa ? 1 : 0, req.user.id);
+
+  if (status === 'submitted' || status === 'under_review') {
+    const sla = calculateSLA(authority_id, complexity || 'standard', subDate);
+    if (sla) {
+      db.prepare('UPDATE permits SET assessment_days = ?, expiry_date = ? WHERE id = ?').run(sla.total_days, sla.expected_date, id);
+    }
+  }
+
+  const triggers = checkTriggers(id, tmp_id);
+  res.status(201).json({ id, status: status || 'draft', triggers });
+});
+
+router.put('/:id', validate('permit'), (req, res) => {
+  const existing = db.prepare('SELECT * FROM permits WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Permit not found' });
+  const { tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa } = req.validated;
+
+  db.prepare('UPDATE permits SET tmp_id=?, authority_id=?, status=?, complexity=?, submission_date=?, approval_date=?, expiry_date=?, rejection_reason=?, is_within_30m_signals=?, requires_mrwa=?, updated_at=datetime("now") WHERE id=?').run(
+    tmp_id || existing.tmp_id, authority_id || existing.authority_id, status || existing.status, complexity || existing.complexity,
+    submission_date || existing.submission_date, approval_date || existing.approval_date, expiry_date || existing.expiry_date,
+    rejection_reason || existing.rejection_reason, is_within_30m_signals !== undefined ? (is_within_30m_signals ? 1 : 0) : existing.is_within_30m_signals,
+    requires_mrwa !== undefined ? (requires_mrwa ? 1 : 0) : existing.requires_mrwa, req.params.id
+  );
+
+  if (status && status !== existing.status) {
+    db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), existing.tmp_id, req.user.id, 'permit_status_changed', `Permit ${existing.status} → ${status}`);
+  }
+
+  if (status === 'submitted' || status === 'under_review') {
+    const subDate = submission_date || existing.submission_date || new Date().toISOString().slice(0, 10);
+    const sla = calculateSLA(authority_id || existing.authority_id, complexity || existing.complexity, subDate);
+    if (sla) db.prepare('UPDATE permits SET assessment_days = ?, expiry_date = ? WHERE id = ?').run(sla.total_days, sla.expected_date, req.params.id);
+  }
+
+  if (status === 'approved') {
+    db.prepare('UPDATE permits SET approval_date = datetime("now") WHERE id = ? AND approval_date IS NULL').run(req.params.id);
+  }
+
+  const triggers = checkTriggers(req.params.id, existing.tmp_id);
+  const updated = db.prepare('SELECT * FROM permits WHERE id = ?').get(req.params.id);
+  res.json({ ...updated, triggers });
+});
+
+router.delete('/:id', (req, res) => {
+  const result = db.prepare('DELETE FROM permits WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Permit not found' });
+  res.json({ success: true });
+});
+
+// Fees
+router.get('/:id/fees', (req, res) => {
+  const fees = db.prepare('SELECT * FROM permit_fees WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id);
+  res.json(fees);
+});
+
+router.post('/:id/fees', validate('permitFee'), (req, res) => {
+  const id = uuid();
+  const { fee_type, amount, status, bond_returned, due_date, paid_date } = req.validated;
+  db.prepare('INSERT INTO permit_fees (id, permit_id, fee_type, amount, status, bond_returned, due_date, paid_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, req.params.id, fee_type, amount, status || 'pending', bond_returned ? 1 : 0, due_date || null, paid_date || null);
+  res.status(201).json({ id, fee_type, amount });
+});
+
+// Triggers
+router.get('/:id/triggers', (req, res) => {
+  const triggers = db.prepare('SELECT * FROM workflow_triggers WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id);
+  res.json(triggers);
+});
+
+router.put('/:permitId/triggers/:triggerId/resolve', (req, res) => {
+  const result = db.prepare('UPDATE workflow_triggers SET is_resolved = 1, resolved_at = datetime("now"), resolved_by = ? WHERE id = ? AND permit_id = ?').run(req.user.id, req.params.triggerId, req.params.permitId);
+  if (result.changes === 0) return res.status(404).json({ error: 'Trigger not found' });
+  res.json({ success: true });
+});
+
+// SLA calculation endpoint
+router.get('/calculate-sla/:authorityId', (req, res) => {
+  const complexity = req.query.complexity || 'standard';
+  const submissionDate = req.query.submission_date || new Date().toISOString().slice(0, 10);
+  const sla = calculateSLA(req.params.authorityId, complexity, submissionDate);
+  if (!sla) return res.status(404).json({ error: 'No SLA rule found for this authority and complexity' });
+  res.json(sla);
+});
+
+export default router;
