@@ -9,12 +9,14 @@ export default function Analytics() {
   const [rejection, setRejection] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const load = (tab) => {
+  const load = async (tab) => {
     setLoading(true);
     const params = { period_days: period };
-    if (tab === 'overview' || tab === 'approval') api.analytics.approvalTimes(params).then(setApproval);
-    if (tab === 'overview' || tab === 'financial') api.analytics.financialSummary(params).then(setFinancial);
-    if (tab === 'overview' || tab === 'rejection') api.analytics.rejectionAnalysis({ period_days: 180 }).then(setRejection);
+    const promises = [];
+    if (tab === 'overview' || tab === 'approval') promises.push(api.analytics.approvalTimes(params).then(setApproval));
+    if (tab === 'overview' || tab === 'financial') promises.push(api.analytics.financialSummary(params).then(setFinancial));
+    if (tab === 'overview' || tab === 'rejection') promises.push(api.analytics.rejectionAnalysis({ period_days: 180 }).then(setRejection));
+    await Promise.all(promises);
     setLoading(false);
   };
 

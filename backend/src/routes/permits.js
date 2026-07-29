@@ -66,9 +66,18 @@ router.get('/', (req, res) => {
   if (req.query.status) { conditions.push('p.status = ?'); params.push(req.query.status); }
   if (req.query.authority_id) { conditions.push('p.authority_id = ?'); params.push(req.query.authority_id); }
   if (req.query.tmp_id) { conditions.push('p.tmp_id = ?'); params.push(req.query.tmp_id); }
+  if (req.query.search) { conditions.push('(t.reference LIKE ? OR t.title LIKE ? OR au.name LIKE ?)'); const s = `%${req.query.search}%`; params.push(s, s, s); }
   if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
   q += ' ORDER BY p.created_at DESC';
-  res.json(db.prepare(q).all(...params));
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+  const offset = (page - 1) * limit;
+  const countQ = `SELECT COUNT(*) as total FROM permits p LEFT JOIN authorities au ON p.authority_id = au.id LEFT JOIN traffic_management_plans t ON p.tmp_id = t.id` + (conditions.length ? ' WHERE ' + conditions.join(' AND ') : '');
+  const total = db.prepare(countQ).get(...params).total;
+  q += ' LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+  const data = db.prepare(q).all(...params);
+  res.json({ data, total, page, limit, pages: Math.ceil(total / limit) });
 });
 
 router.get('/:id', (req, res) => {

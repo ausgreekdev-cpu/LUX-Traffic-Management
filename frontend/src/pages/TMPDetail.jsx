@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 
@@ -7,8 +7,11 @@ export default function TMPDetail() {
   const navigate = useNavigate();
   const [tmp, setTmp] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef();
 
-  useEffect(() => { api.tmps.get(id).then(setTmp).finally(() => setLoading(false)); }, [id]);
+  const loadTmp = () => api.tmps.get(id).then(setTmp);
+  useEffect(() => { loadTmp().finally(() => setLoading(false)); }, [id]);
 
   const handleDelete = async () => {
     if (confirm('Delete this TMP?')) { await api.tmps.delete(id); navigate('/tmps'); }
@@ -21,6 +24,26 @@ export default function TMPDetail() {
     const a = document.createElement('a');
     a.href = url; a.download = `${tmp.reference || 'TMP'}.pdf`; a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await api.documents.upload(id, file);
+      await loadTmp();
+    } catch (err) { alert(err.message); }
+    setUploading(false);
+    fileRef.current.value = '';
+  };
+
+  const handleDeleteDoc = async (docId) => {
+    if (!confirm('Delete this document?')) return;
+    try {
+      await api.documents.delete(docId);
+      await loadTmp();
+    } catch (err) { alert(err.message); }
   };
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
@@ -68,19 +91,24 @@ export default function TMPDetail() {
               </div>
             </div>
           )}
-          {tmp.documents && tmp.documents.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-              <h2 className="font-semibold mb-2">Documents ({tmp.documents.length})</h2>
-              <div className="space-y-1">
-                {tmp.documents.map(d => (
-                  <div key={d.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded text-sm">
-                    <span>{d.original_name}</span>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h2 className="font-semibold mb-2">Documents ({(tmp.documents||[]).length})</h2>
+            <div className="space-y-1 mb-3">
+              {(tmp.documents||[]).map(d => (
+                <div key={d.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded text-sm">
+                  <a href={api.documents.download(d.id)} className="text-amber-600 hover:underline truncate">{d.original_name}</a>
+                  <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-gray-400">{(d.size / 1024).toFixed(1)} KB</span>
+                    <button onClick={() => handleDeleteDoc(d.id)} className="text-red-500 hover:text-red-700 text-xs">Delete</button>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <input ref={fileRef} type="file" onChange={handleUpload} className="text-sm" disabled={uploading} />
+              {uploading && <span className="text-xs text-gray-500">Uploading...</span>}
+            </div>
+          </div>
         </div>
         <div className="space-y-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">

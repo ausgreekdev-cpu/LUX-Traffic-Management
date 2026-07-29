@@ -39,9 +39,19 @@ router.post('/upload/:tmpId', upload.single('file'), (req, res) => {
   res.status(201).json({ id, filename: req.file.filename, original_name: req.file.originalname });
 });
 
+router.get('/download/:id', (req, res) => {
+  const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
+  if (!doc) return res.status(404).json({ error: 'Document not found' });
+  const filePath = path.join(uploadDir, doc.filename);
+  if (!require('fs').existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
+  res.download(filePath, doc.original_name);
+});
+
 router.delete('/:id', (req, res) => {
   const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
+  const filePath = path.join(uploadDir, doc.filename);
+  try { require('fs').unlinkSync(filePath); } catch {}
   db.prepare('DELETE FROM documents WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });

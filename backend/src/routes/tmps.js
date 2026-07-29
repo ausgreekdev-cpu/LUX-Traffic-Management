@@ -22,9 +22,20 @@ router.get('/', (req, res) => {
     LEFT JOIN tmp_projects p ON t.project_id = p.id
     LEFT JOIN users u ON t.created_by = u.id`;
   const params = [];
-  if (req.query.status) { q += ' WHERE t.status = ?'; params.push(req.query.status); }
+  const conditions = [];
+  if (req.query.status) { conditions.push('t.status = ?'); params.push(req.query.status); }
+  if (req.query.search) { conditions.push('(t.title LIKE ? OR t.reference LIKE ? OR s.name LIKE ?)'); const s = `%${req.query.search}%`; params.push(s, s, s); }
+  if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
   q += ' ORDER BY t.created_at DESC';
-  res.json(db.prepare(q).all(...params));
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+  const offset = (page - 1) * limit;
+  const countQ = q.replace(/SELECT t\.\*.*?FROM/, 'SELECT COUNT(*) as total FROM');
+  const total = db.prepare(countQ).get(...params).total;
+  q += ' LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+  const data = db.prepare(q).all(...params);
+  res.json({ data, total, page, limit, pages: Math.ceil(total / limit) });
 });
 
 router.get('/:id', (req, res) => {

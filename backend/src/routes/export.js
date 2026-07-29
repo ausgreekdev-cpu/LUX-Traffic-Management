@@ -63,4 +63,36 @@ router.get('/permits-summary', (req, res) => {
   doc.end();
 });
 
+function csvEscape(v) { const s = String(v || ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; }
+
+router.get('/tmps-csv', (req, res) => {
+  const tmps = db.prepare(`
+    SELECT t.reference, t.title, t.status, t.plan_type, s.name as site_name, p.name as project_name, t.created_at
+    FROM traffic_management_plans t
+    LEFT JOIN sites s ON t.site_id = s.id
+    LEFT JOIN tmp_projects p ON t.project_id = p.id
+    ORDER BY t.created_at DESC
+  `).all();
+  const header = 'Reference,Title,Status,Type,Site,Project,Created';
+  const rows = tmps.map(t => [t.reference, t.title, t.status, t.plan_type, t.site_name, t.project_name, t.created_at].map(csvEscape).join(','));
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="tmps.csv"');
+  res.send([header, ...rows].join('\n'));
+});
+
+router.get('/permits-csv', (req, res) => {
+  const permits = db.prepare(`
+    SELECT t.reference as tmp_ref, au.name as authority, p.status, p.complexity, p.submission_date, p.approval_date
+    FROM permits p
+    LEFT JOIN traffic_management_plans t ON p.tmp_id = t.id
+    LEFT JOIN authorities au ON p.authority_id = au.id
+    ORDER BY p.created_at DESC
+  `).all();
+  const header = 'TMP Reference,Authority,Status,Complexity,Submitted,Approved';
+  const rows = permits.map(p => [p.tmp_ref, p.authority, p.status, p.complexity, p.submission_date, p.approval_date].map(csvEscape).join(','));
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="permits.csv"');
+  res.send([header, ...rows].join('\n'));
+});
+
 export default router;

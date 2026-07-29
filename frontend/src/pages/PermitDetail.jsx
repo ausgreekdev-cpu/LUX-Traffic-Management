@@ -7,25 +7,34 @@ export default function PermitDetail() {
   const navigate = useNavigate();
   const [permit, setPermit] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [feeForm, setFeeForm] = useState({ fee_type: 'application_fee', amount: '', status: 'pending' });
 
-  useEffect(() => { api.permits.get(id).then(setPermit).finally(() => setLoading(false)); }, [id]);
+  const loadPermit = () => api.permits.get(id).then(setPermit);
+  useEffect(() => { loadPermit().finally(() => setLoading(false)); }, [id]);
 
   const handleStatusChange = async (newStatus) => {
     await api.permits.update(id, { status: newStatus });
-    const updated = await api.permits.get(id);
-    setPermit(updated);
+    await loadPermit();
   };
 
   const handleResolveTrigger = async (triggerId) => {
     await api.permits.resolveTrigger(id, triggerId);
-    const updated = await api.permits.get(id);
-    setPermit(updated);
+    await loadPermit();
   };
 
   const handleDelete = async () => {
     if (!confirm('Delete this permit?')) return;
     await api.permits.delete(id);
     navigate('/permits');
+  };
+
+  const handleAddFee = async (e) => {
+    e.preventDefault();
+    try {
+      await api.permits.createFee(id, { ...feeForm, amount: parseFloat(feeForm.amount) });
+      setFeeForm({ fee_type: 'application_fee', amount: '', status: 'pending' });
+      await loadPermit();
+    } catch (err) { alert(err.message); }
   };
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
@@ -87,17 +96,39 @@ export default function PermitDetail() {
             </div>
           )}
 
-          {permit.fees?.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-              <h2 className="font-semibold mb-2">Fees</h2>
-              <table className="w-full text-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h2 className="font-semibold mb-2">Fees ({(permit.fees||[]).length})</h2>
+            {(permit.fees||[]).length > 0 && (
+              <table className="w-full text-sm mb-3">
                 <thead><tr className="border-b"><th className="text-left py-2">Type</th><th className="text-left py-2">Amount</th><th className="text-left py-2">Status</th></tr></thead>
                 <tbody>{permit.fees.map(f => (
                   <tr key={f.id} className="border-b"><td className="py-2">{f.fee_type.replace(/_/g, ' ')}</td><td>${f.amount.toFixed(2)}</td><td><span className={`text-xs px-2 py-0.5 rounded ${f.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{f.status}</span></td></tr>
                 ))}</tbody>
               </table>
-            </div>
-          )}
+            )}
+            <form onSubmit={handleAddFee} className="flex items-end gap-2 border-t pt-3">
+              <div>
+                <label className="text-xs text-gray-500 block">Type</label>
+                <select value={feeForm.fee_type} onChange={e => setFeeForm(f => ({...f, fee_type: e.target.value}))} className="border rounded px-2 py-1 text-sm" required>
+                  {['application_fee','assessment_fee','daily_occupancy_fee','lane_usage_fee','bond','other'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block">Amount ($)</label>
+                <input type="number" step="0.01" min="0" value={feeForm.amount} onChange={e => setFeeForm(f => ({...f, amount: e.target.value}))} className="border rounded px-2 py-1 text-sm w-28" required />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block">Status</label>
+                <select value={feeForm.status} onChange={e => setFeeForm(f => ({...f, status: e.target.value}))} className="border rounded px-2 py-1 text-sm">
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                  <option value="refunded">Refunded</option>
+                  <option value="waived">Waived</option>
+                </select>
+              </div>
+              <button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm">Add Fee</button>
+            </form>
+          </div>
         </div>
 
         <div className="space-y-4">

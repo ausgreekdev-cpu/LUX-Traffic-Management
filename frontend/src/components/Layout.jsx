@@ -10,7 +10,8 @@ const navItems = [
   { to: '/time-tracking', label: 'Time Tracking', icon: '⏱️' },
   { to: '/analytics', label: 'Analytics', icon: '📈' },
   { to: '/clients', label: 'Clients', icon: '👥' },
-  { to: '/sites', label: 'Sites', icon: '📍' }
+  { to: '/sites', label: 'Sites', icon: '📍' },
+  { to: '/users', label: 'Users', icon: '🔐', admin: true }
 ];
 
 export default function Layout({ user, onLogout }) {
@@ -27,7 +28,7 @@ export default function Layout({ user, onLogout }) {
           </button>
         </div>
         <nav className="flex-1 mt-4">
-          {navItems.map(item => (
+          {navItems.filter(i => !i.admin || user?.role === 'admin').map(item => (
             <Link key={item.to} to={item.to}
               className={`flex items-center px-4 py-3 text-sm transition-colors ${location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to)) ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}>
               <span className="mr-3">{item.icon}</span>

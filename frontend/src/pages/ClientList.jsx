@@ -4,16 +4,29 @@ import api from '../api';
 export default function ClientList() {
   const [clients, setClients] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', address: '', abn: '' });
 
   useEffect(() => { api.clients.list().then(setClients); }, []);
 
+  const resetForm = () => { setForm({ name: '', company: '', email: '', phone: '', address: '', abn: '' }); setEditId(null); setShowForm(false); };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await api.clients.create(form);
-    setClients([res, ...clients]);
-    setForm({ name: '', company: '', email: '', phone: '', address: '', abn: '' });
-    setShowForm(false);
+    if (editId) {
+      await api.clients.update(editId, form);
+    } else {
+      const res = await api.clients.create(form);
+      setClients([res, ...clients]);
+    }
+    resetForm();
+    api.clients.list().then(setClients);
+  };
+
+  const handleEdit = (c) => {
+    setEditId(c.id);
+    setForm({ name: c.name, company: c.company || '', email: c.email || '', phone: c.phone || '', address: c.address || '', abn: c.abn || '' });
+    setShowForm(true);
   };
 
   const handleDelete = async (id) => {
@@ -37,8 +50,8 @@ export default function ClientList() {
             <input placeholder="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="px-3 py-2 border rounded-lg" />
           </div>
           <div className="flex gap-2">
-            <button type="submit" className="bg-green-500 text-white px-3 py-2 rounded text-sm">Save</button>
-            <button type="button" onClick={() => setShowForm(false)} className="bg-gray-300 px-3 py-2 rounded text-sm">Cancel</button>
+            <button type="submit" className="bg-green-500 text-white px-3 py-2 rounded text-sm">{editId ? 'Update' : 'Save'}</button>
+            <button type="button" onClick={resetForm} className="bg-gray-300 px-3 py-2 rounded text-sm">Cancel</button>
           </div>
         </form>
       )}
@@ -49,7 +62,10 @@ export default function ClientList() {
             {clients.map(c => (
               <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-4 py-3 font-medium">{c.name}</td><td className="px-4 py-3 text-gray-500">{c.company || '-'}</td><td className="px-4 py-3 text-gray-500">{c.email || '-'}</td><td className="px-4 py-3 text-gray-500">{c.phone || '-'}</td>
-                <td className="px-4 py-3"><button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700 text-xs">Delete</button></td>
+                <td className="px-4 py-3 text-right space-x-2">
+                  <button onClick={() => handleEdit(c)} className="text-amber-600 hover:underline text-xs">Edit</button>
+                  <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700 text-xs">Delete</button>
+                </td>
               </tr>
             ))}
           </tbody>

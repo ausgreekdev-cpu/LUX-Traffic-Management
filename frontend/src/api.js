@@ -59,6 +59,7 @@ const api = {
       if (!res.ok) throw new Error('Upload failed');
       return res.json();
     },
+    download: (id) => `${BASE}/documents/download/${id}`,
     delete: (id) => request(`/documents/${id}`, { method: 'DELETE' })
   },
   dashboard: () => request('/dashboard'),
@@ -110,7 +111,14 @@ const api = {
   },
   export: {
     tmpPDF: (id) => fetch(`${BASE}/export/tmp/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-    permitsPDF: () => fetch(`${BASE}/export/permits-summary`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+    permitsPDF: () => fetch(`${BASE}/export/permits-summary`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+    downloadCSV: async (url, filename) => {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${BASE}${url}`, { headers: { Authorization: `Bearer ${token}` } });
+      const blob = await res.blob();
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+      URL.revokeObjectURL(blob);
+    }
   }
 };
 

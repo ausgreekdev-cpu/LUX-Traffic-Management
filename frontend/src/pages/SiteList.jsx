@@ -4,16 +4,29 @@ import api from '../api';
 export default function SiteList() {
   const [sites, setSites] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: '', road_name: '', suburb: '', state: 'WA', postcode: '', description: '' });
 
   useEffect(() => { api.sites.list().then(setSites); }, []);
 
+  const resetForm = () => { setForm({ name: '', road_name: '', suburb: '', state: 'WA', postcode: '', description: '' }); setEditId(null); setShowForm(false); };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await api.sites.create(form);
-    setSites([res, ...sites]);
-    setForm({ name: '', road_name: '', suburb: '', state: 'WA', postcode: '', description: '' });
-    setShowForm(false);
+    if (editId) {
+      await api.sites.update(editId, form);
+    } else {
+      const res = await api.sites.create(form);
+      setSites([res, ...sites]);
+    }
+    resetForm();
+    api.sites.list().then(setSites);
+  };
+
+  const handleEdit = (s) => {
+    setEditId(s.id);
+    setForm({ name: s.name, road_name: s.road_name || '', suburb: s.suburb || '', state: s.state || 'WA', postcode: s.postcode || '', description: s.description || '' });
+    setShowForm(true);
   };
 
   return (
@@ -30,16 +43,16 @@ export default function SiteList() {
             <input placeholder="Suburb" value={form.suburb} onChange={e => setForm({ ...form, suburb: e.target.value })} className="px-3 py-2 border rounded-lg" />
           </div>
           <div className="flex gap-2">
-            <button type="submit" className="bg-green-500 text-white px-3 py-2 rounded text-sm">Save</button>
-            <button type="button" onClick={() => setShowForm(false)} className="bg-gray-300 px-3 py-2 rounded text-sm">Cancel</button>
+            <button type="submit" className="bg-green-500 text-white px-3 py-2 rounded text-sm">{editId ? 'Update' : 'Save'}</button>
+            <button type="button" onClick={resetForm} className="bg-gray-300 px-3 py-2 rounded text-sm">Cancel</button>
           </div>
         </form>
       )}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-100 dark:bg-gray-700"><tr><th className="text-left px-4 py-3">Name</th><th className="text-left px-4 py-3">Road</th><th className="text-left px-4 py-3">Suburb</th><th className="text-left px-4 py-3">State</th></tr></thead>
+          <thead className="bg-gray-100 dark:bg-gray-700"><tr><th className="text-left px-4 py-3">Name</th><th className="text-left px-4 py-3">Road</th><th className="text-left px-4 py-3">Suburb</th><th className="text-left px-4 py-3">State</th><th className="px-4 py-3"></th></tr></thead>
           <tbody className="divide-y dark:divide-gray-700">
-            {sites.map(s => (<tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-700"><td className="px-4 py-3 font-medium">{s.name}</td><td className="px-4 py-3 text-gray-500">{s.road_name || '-'}</td><td className="px-4 py-3 text-gray-500">{s.suburb || '-'}</td><td className="px-4 py-3 text-gray-500">{s.state}</td></tr>))}
+            {sites.map(s => (<tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-700"><td className="px-4 py-3 font-medium">{s.name}</td><td className="px-4 py-3 text-gray-500">{s.road_name || '-'}</td><td className="px-4 py-3 text-gray-500">{s.suburb || '-'}</td><td className="px-4 py-3 text-gray-500">{s.state}</td><td className="px-4 py-3 text-right space-x-2"><button onClick={() => handleEdit(s)} className="text-amber-600 hover:underline text-xs">Edit</button></td></tr>))}
           </tbody>
         </table>
       </div>
