@@ -25,9 +25,11 @@ function startBackend() {
 
   const scriptPath = path.join(backendDir, 'src', 'index.js');
 
+  const userDataPath = app.getPath('userData');
+
   backendProcess = spawn('node', [scriptPath], {
     cwd: backendDir,
-    env: { ...process.env, PORT: String(BACKEND_PORT), NODE_ENV: 'production' },
+    env: { ...process.env, PORT: String(BACKEND_PORT), NODE_ENV: 'production', DB_PATH: path.join(userDataPath, 'tmpcms.db') },
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
@@ -70,8 +72,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    const indexPath = path.join(__dirname, '..', 'frontend', 'dist', 'index.html');
-    mainWindow.loadFile(indexPath);
+    mainWindow.loadURL('http://localhost:' + BACKEND_PORT);
   }
 
   mainWindow.on('closed', () => { mainWindow = null; });
