@@ -36,6 +36,11 @@
       "!backend/node_modules/**/*.{md,ts,txt,map}",
       "!backend/node_modules/**/LICENSE*"
     ],
+    "asarUnpack": [
+      "backend/src/**/*",
+      "backend/package.json",
+      "backend/node_modules/**/*"
+    ],
     "extraResources": [
       {
         "from": "assets",

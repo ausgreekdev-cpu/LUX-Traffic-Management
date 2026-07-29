@@ -21,15 +21,19 @@ function startBackend() {
   const isDev = !app.isPackaged;
   const backendDir = isDev
     ? path.join(__dirname, '..', '..', 'backend')
-    : path.join(process.resourcesPath, 'backend');
+    : path.join(process.resourcesPath, 'app.asar.unpacked', 'backend');
 
   const scriptPath = path.join(backendDir, 'src', 'index.js');
 
   const userDataPath = app.getPath('userData');
 
-  backendProcess = spawn('node', [scriptPath], {
+  const runtime = isDev ? 'node' : process.execPath;
+  const env = { ...process.env, PORT: String(BACKEND_PORT), NODE_ENV: 'production', DB_PATH: path.join(userDataPath, 'tmpcms.db') };
+  if (!isDev) env.ELECTRON_RUN_AS_NODE = '1';
+
+  backendProcess = spawn(runtime, [scriptPath], {
     cwd: backendDir,
-    env: { ...process.env, PORT: String(BACKEND_PORT), NODE_ENV: 'production', DB_PATH: path.join(userDataPath, 'tmpcms.db') },
+    env,
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
