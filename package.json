@@ -1,0 +1,71 @@
+{
+  "name": "lux-traffic-management",
+  "version": "1.0.0",
+  "description": "WA Traffic Management System - TMP & Permit Management",
+  "main": "electron/main.js",
+  "author": "LUX Traffic Management",
+  "license": "MIT",
+  "homepage": "https://luxtraffic.com.au",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "seed": "cd backend && npm run seed",
+    "start": "cd backend && npm start",
+    "electron:dev": "npm run build:frontend && electron .",
+    "electron:build": "npm run build:frontend && electron-builder build --windows",
+    "electron:portable": "npm run build:frontend && electron-builder build --win portable"
+  },
+  "build": {
+    "appId": "com.luxtraffic.management",
+    "productName": "LUX Traffic Management",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*",
+      "backend/src/**/*",
+      "backend/package.json",
+      "backend/.env",
+      "backend/node_modules/**/*",
+      "!backend/node_modules/.cache",
+      "!backend/node_modules/**/{test,tests,__tests__}/**",
+      "!backend/node_modules/**/*.{md,ts,txt,map}",
+      "!backend/node_modules/**/LICENSE*"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LUX Traffic Management"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}
