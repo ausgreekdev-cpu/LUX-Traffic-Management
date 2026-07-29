@@ -22,17 +22,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
+app.use(cors({ origin: process.env.CORS_ORIGIN || ['http://localhost:5173', 'http://localhost:3001'] }));
 app.use(express.json());
 
-if (process.env.NODE_ENV === 'production') {
-  const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
-  app.use(express.static(frontendDist));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/')) return next();
-    res.sendFile(path.join(frontendDist, 'index.html'));
-  });
-}
+const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
+app.use(express.static(frontendDist));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(frontendDist, 'index.html'));
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
