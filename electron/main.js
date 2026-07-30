@@ -24,54 +24,29 @@ function findAvailablePort(startPort) {
   });
 }
 
-function startBackend() {
-  return new Promise((resolve, reject) => {
-    const isDev = !app.isPackaged;
-    const backendDir = isDev
-      ? path.join(__dirname, '..', '..', 'backend')
-      : path.join(process.resourcesPath, 'backend');
+async function startBackend() {
+  const isDev = !app.isPackaged;
+  const backendDir = isDev
+    ? path.join(__dirname, '..', '..', 'backend')
+    : path.join(process.resourcesPath, 'backend');
 
-    const scriptPath = path.join(backendDir, 'src', 'index.js');
+  const userDataPath = app.getPath('userData');
+  process.env.PORT = String(BACKEND_PORT);
+  process.env.NODE_ENV = isDev ? 'development' : 'production';
+  process.env.DB_PATH = path.join(userDataPath, 'tmpcms.db');
+  process.chdir(backendDir);
 
-    const userDataPath = app.getPath('userData');
+  const backendPath = path.join(backendDir, 'src', 'index.js');
+  const backendUrl = require('url').pathToFileURL(backendPath).href;
 
-    const runtime = isDev ? 'node' : process.execPath;
-    const env = { ...process.env, PORT: String(BACKEND_PORT), NODE_ENV: 'production', DB_PATH: path.join(userDataPath, 'tmpcms.db') };
-    if (!isDev) env.ELECTRON_RUN_AS_NODE = '1';
-
-    backendProcess = spawn(runtime, [scriptPath], {
-      cwd: backendDir,
-      env,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-
-    backendProcess.stdout.on('data', (data) => {
-      const msg = data.toString().trim();
-      log(`Backend: ${msg}`);
-      if (msg.includes('running on http://localhost:' + BACKEND_PORT)) {
-        resolve();
-      }
-    });
-
-    backendProcess.stderr.on('data', (data) => {
-      log(`Backend Error: ${data.toString().trim()}`);
-    });
-
-    backendProcess.on('error', (err) => {
-      log(`Failed to start backend: ${err.message}`);
-      dialog.showErrorBox('Backend Error', `Failed to start backend: ${err.message}`);
-      reject(err);
-    });
-
-    backendProcess.on('exit', (code) => {
-      log(`Backend exited with code ${code}`);
-      reject(new Error(`Backend exited with code ${code}`));
-    });
-
-    setTimeout(() => {
-      resolve();
-    }, 8000);
-  });
+  try {
+    await import(backendUrl);
+    log('Backend module loaded');
+  } catch (err) {
+    log(`Backend failed to load: ${err.message}`);
+    dialog.showErrorBox('Backend Error', `Backend failed to load: ${err.message}`);
+    throw err;
+  }
 }
 
 function waitForHealth(port, retries) {
@@ -144,20 +119,8 @@ app.whenReady().then(async () => {
   createWindow();
 });
 
-app.on('window-all-closed', () => {
-  if (backendProcess) {
-    backendProcess.kill();
-    backendProcess = null;
-  }
-  app.quit();
-});
-
-app.on('before-quit', () => {
-  if (backendProcess) {
-    backendProcess.kill();
-    backendProcess = null;
-  }
-});
+app.on('window-all-closed', () => { app.quit(); });
+app.on('before-quit', () => {});
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();

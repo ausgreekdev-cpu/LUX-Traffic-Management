@@ -15,8 +15,8 @@
     "seed": "cd backend && npm run seed",
     "start": "cd backend && npm start",
     "electron:dev": "npm run build:frontend && electron .",
-    "electron:build": "npm run build:frontend && electron-builder build --windows",
-    "electron:portable": "npm run build:frontend && electron-builder build --win portable"
+    "electron:build": "npm run build:frontend && set ELECTRON_SKIP_REBUILD=1&& electron-builder build --windows",
+    "electron:portable": "npm run build:frontend && set ELECTRON_SKIP_REBUILD=1&& electron-builder build --win portable"
   },
   "build": {
     "appId": "com.luxtraffic.management",
