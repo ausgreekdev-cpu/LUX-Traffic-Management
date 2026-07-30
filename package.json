@@ -26,29 +26,36 @@
     },
     "files": [
       "electron/**/*",
-      "frontend/dist/**/*",
-      "backend/src/**/*",
-      "backend/package.json",
-      "backend/.env",
-      "backend/node_modules/**/*",
-      "!backend/node_modules/.cache",
-      "!backend/node_modules/**/{test,tests,__tests__}/**",
-      "!backend/node_modules/**/*.{md,ts,txt,map}",
-      "!backend/node_modules/**/LICENSE*"
+      "package.json"
     ],
-    "asarUnpack": [
-      "backend/src/**/*",
-      "backend/package.json",
-      "backend/node_modules/**/*"
-    ],
+    "asarUnpack": [],
     "extraResources": [
       {
         "from": "assets",
         "to": "assets"
+      },
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!node_modules/.cache",
+          "!node_modules/**/{test,tests,__tests__}/**",
+          "!node_modules/**/*.{md,ts,txt,map}",
+          "!node_modules/**/LICENSE*"
+        ]
+      },
+      {
+        "from": "frontend/dist",
+        "to": "frontend/dist"
       }
     ],
     "win": {
       "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
         {
           "target": "portable",
           "arch": ["x64"]
@@ -58,12 +65,15 @@
       "signAndEditExecutable": false
     },
     "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "LUX Traffic Management"
+      "shortcutName": "LUX Traffic Management",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico"
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.exe"
