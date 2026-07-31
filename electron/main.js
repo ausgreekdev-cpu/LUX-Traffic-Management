@@ -38,6 +38,7 @@ async function startBackend() {
       delete process.env.DB_PATH;
     } else {
       process.env.DB_PATH = path.join(userDataPath, 'tmpcms.db');
+      process.env.UPLOADS_DIR = path.join(userDataPath, 'uploads');
     }
   }
   process.chdir(backendDir);

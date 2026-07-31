@@ -1,13 +1,19 @@
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { v4 as uuid } from 'uuid';
 import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadDir = path.resolve(__dirname, '..', '..', 'uploads');
+const uploadDir = process.env.UPLOADS_DIR || path.resolve(__dirname, '..', '..', 'uploads');
+try {
+  fs.mkdirSync(uploadDir, { recursive: true });
+} catch (err) {
+  console.warn('Could not create uploads dir at ' + uploadDir + ': ' + err.message);
+}
 
 const storage = multer.diskStorage({
   destination: uploadDir,
@@ -43,7 +49,7 @@ router.get('/download/:id', (req, res) => {
   const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
   const filePath = path.join(uploadDir, doc.filename);
-  if (!require('fs').existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
   res.download(filePath, doc.original_name);
 });
 
@@ -55,7 +61,7 @@ router.get('/preview/:id', (req, res) => {
     return res.status(400).json({ error: 'Preview not available for this file type' });
   }
   const filePath = path.join(uploadDir, doc.filename);
-  if (!require('fs').existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
   res.setHeader('Content-Disposition', 'inline');
   res.sendFile(filePath);
 });
@@ -64,7 +70,7 @@ router.delete('/:id', (req, res) => {
   const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
   const filePath = path.join(uploadDir, doc.filename);
-  try { require('fs').unlinkSync(filePath); } catch {}
+  try { fs.unlinkSync(filePath); } catch {}
   db.prepare('DELETE FROM documents WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
