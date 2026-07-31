@@ -82,15 +82,17 @@ const upsert = db.prepare(`
     updated_at = datetime('now')
 `);
 
+const findById = db.prepare('SELECT id FROM authorities WHERE id = ?');
+const findByName = db.prepare('SELECT id FROM authorities WHERE name = ? COLLATE NOCASE');
+
 export function upsertDirectoryEntries(entries, source) {
   let inserted = 0;
   let updated = 0;
-  const byName = db.prepare('SELECT id FROM authorities WHERE name = ? COLLATE NOCASE');
   const tx = db.transaction(() => {
     for (const entry of entries) {
       const row = toRow(entry, source);
-      let existing = db.prepare('SELECT id FROM authorities WHERE id = ?').get(row.id);
-      if (!existing) existing = byName.get(entry.name);
+      let existing = findById.get(row.id);
+      if (!existing) existing = findByName.get(entry.name);
       if (existing && existing.id !== row.id) {
         row.id = existing.id;
         upsert.run(row);

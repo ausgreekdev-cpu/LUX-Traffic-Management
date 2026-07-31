@@ -280,9 +280,10 @@ export function extractZones(text) {
   let carry = null;
   const zoneRe = /^(.+?Zone)\s*\((\d+)\)\s*$/;
   for (const raw of lines) {
-    if (zoneRe.test(raw)) {
+    const zoneM = zoneRe.exec(raw);
+    if (zoneM) {
       carry = null;
-      current = { zone: raw.match(zoneRe)[1], members: [] };
+      current = { zone: zoneM[1], members: [] };
       zones.push(current);
       continue;
     }

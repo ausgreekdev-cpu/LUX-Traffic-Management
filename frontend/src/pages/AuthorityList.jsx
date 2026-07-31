@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../api';
 
 const EMPTY_FORM = {
@@ -25,11 +25,17 @@ export default function AuthorityList() {
   const [user, setUser] = useState(null);
   const [importing, setImporting] = useState(false);
   const [slaForm, setSlaForm] = useState({ complexity: 'simple', assessment_days: 14, public_notice_days: 0, buffer_days: 0, requires_public_notice: false });
+  const detailsCache = useRef({});
 
   useEffect(() => { api.authorities.list().then(setAuthorities); api.auth.me().then(setUser).catch(() => {}); }, []);
 
   const loadDetail = async (id) => {
+    if (detailsCache.current[id]) {
+      setSelected(detailsCache.current[id]);
+      return;
+    }
     const detail = await api.authorities.get(id);
+    detailsCache.current[id] = detail;
     setSelected(detail);
   };
 
@@ -44,7 +50,7 @@ export default function AuthorityList() {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete authority and all its SLA rules?')) return;
-    try { await api.authorities.delete(id); setAuthorities(authorities.filter(a => a.id !== id)); if (selected?.id === id) setSelected(null); } catch (err) { alert(err.message); }
+    try { await api.authorities.delete(id); setAuthorities(authorities.filter(a => a.id !== id)); delete detailsCache.current[id]; if (selected?.id === id) setSelected(null); } catch (err) { alert(err.message); }
   };
 
   const handleImport = async (e) => {
@@ -54,6 +60,7 @@ export default function AuthorityList() {
     try {
       const res = await api.authorities.importDirectory(file);
       alert(`Directory imported: ${res.inserted} new, ${res.updated} updated (${res.total} local governments)`);
+      detailsCache.current = {};
       const list = await api.authorities.list();
       setAuthorities(list);
       if (selected) loadDetail(selected.id);
@@ -68,18 +75,20 @@ export default function AuthorityList() {
   const handleAddSLA = async (e) => {
     e.preventDefault();
     await api.authorities.createSLA(selected.id, { ...slaForm, authority_id: selected.id });
+    delete detailsCache.current[selected.id];
     await loadDetail(selected.id);
   };
 
   const handleDeleteSLA = async (ruleId) => {
     await api.authorities.deleteSLA(selected.id, ruleId);
+    delete detailsCache.current[selected.id];
     await loadDetail(selected.id);
   };
 
-  const filtered = authorities.filter(a => {
+  const filtered = useMemo(() => authorities.filter(a => {
     const q = search.toLowerCase();
     return !q || a.name.toLowerCase().includes(q) || (a.short_name || '').toLowerCase().includes(q) || (a.zone || '').toLowerCase().includes(q);
-  });
+  }), [authorities, search]);
 
   return (
     <div className="space-y-4">
