@@ -26,16 +26,20 @@ router.post('/', validate('site'), (req, res) => {
 });
 
 router.put('/:id', validate('site'), (req, res) => {
-  const existing = db.prepare('SELECT id FROM sites WHERE id = ?').get(req.params.id);
+  const existing = db.prepare('SELECT * FROM sites WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Site not found' });
   const { name, road_name, suburb, state, postcode, latitude, longitude, description } = req.validated;
-  db.prepare('UPDATE sites SET name=?, road_name=?, suburb=?, state=?, postcode=?, latitude=?, longitude=?, description=?, updated_at=datetime(\'now\') WHERE id=?').run(name, road_name || null, suburb || null, state || 'WA', postcode || null, latitude || null, longitude || null, description || null, req.params.id);
+  db.prepare('UPDATE sites SET name=?, road_name=?, suburb=?, state=?, postcode=?, latitude=?, longitude=?, description=?, updated_at=datetime(\'now\') WHERE id=?').run(name, road_name !== undefined ? (road_name || null) : existing.road_name, suburb !== undefined ? (suburb || null) : existing.suburb, state !== undefined ? (state || 'WA') : existing.state, postcode !== undefined ? (postcode || null) : existing.postcode, latitude !== undefined ? latitude : existing.latitude, longitude !== undefined ? longitude : existing.longitude, description !== undefined ? (description || null) : existing.description, req.params.id);
   res.json(db.prepare('SELECT * FROM sites WHERE id = ?').get(req.params.id));
 });
 
 router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM sites WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: 'Site not found' });
+  const existing = db.prepare('SELECT id FROM sites WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Site not found' });
+  const tmpCount = db.prepare('SELECT COUNT(*) as c FROM traffic_management_plans WHERE site_id = ?').get(req.params.id).c;
+  const projectCount = db.prepare('SELECT COUNT(*) as c FROM tmp_projects WHERE site_id = ?').get(req.params.id).c;
+  if (tmpCount || projectCount) return res.status(400).json({ error: `Site is used by ${tmpCount} TMPs and ${projectCount} projects - delete them first` });
+  db.prepare('DELETE FROM sites WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
 

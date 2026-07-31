@@ -35,16 +35,19 @@ router.post('/', validate('project'), (req, res) => {
 });
 
 router.put('/:id', validate('project'), (req, res) => {
-  const existing = db.prepare('SELECT id FROM tmp_projects WHERE id = ?').get(req.params.id);
+  const existing = db.prepare('SELECT * FROM tmp_projects WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Project not found' });
   const { name, description, client_id, site_id, status, start_date, end_date } = req.validated;
-  db.prepare('UPDATE tmp_projects SET name=?, description=?, client_id=?, site_id=?, status=?, start_date=?, end_date=?, updated_at=datetime(\'now\') WHERE id=?').run(name, description || null, client_id || null, site_id || null, status || 'active', start_date || null, end_date || null, req.params.id);
+  db.prepare('UPDATE tmp_projects SET name=?, description=?, client_id=?, site_id=?, status=?, start_date=?, end_date=?, updated_at=datetime(\'now\') WHERE id=?').run(name, description !== undefined ? (description || null) : existing.description, client_id !== undefined ? (client_id || null) : existing.client_id, site_id !== undefined ? (site_id || null) : existing.site_id, status !== undefined ? status : existing.status, start_date !== undefined ? (start_date || null) : existing.start_date, end_date !== undefined ? (end_date || null) : existing.end_date, req.params.id);
   res.json(db.prepare('SELECT * FROM tmp_projects WHERE id = ?').get(req.params.id));
 });
 
 router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM tmp_projects WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: 'Project not found' });
+  const existing = db.prepare('SELECT id FROM tmp_projects WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Project not found' });
+  const tmpCount = db.prepare('SELECT COUNT(*) as c FROM traffic_management_plans WHERE project_id = ?').get(req.params.id).c;
+  if (tmpCount) return res.status(400).json({ error: `Project has ${tmpCount} TMPs - delete them first` });
+  db.prepare('DELETE FROM tmp_projects WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
 

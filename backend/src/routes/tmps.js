@@ -64,7 +64,7 @@ router.post('/', validate('tmp'), (req, res) => {
 });
 
 router.put('/:id', validate('tmp'), (req, res) => {
-  const existing = db.prepare('SELECT id, status FROM traffic_management_plans WHERE id = ?').get(req.params.id);
+  const existing = db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'TMP not found' });
   const { project_id, site_id, title, status, plan_type, description, start_date, end_date } = req.validated;
   const nextStatus = status || existing.status;
@@ -72,7 +72,7 @@ router.put('/:id', validate('tmp'), (req, res) => {
     const missing = incompleteRequiredStages('tmp', req.params.id);
     if (missing.length) return res.status(400).json({ error: `Incomplete required workflow stages: ${missing.join(', ')}` });
   }
-  db.prepare('UPDATE traffic_management_plans SET project_id=?, site_id=?, title=?, status=?, plan_type=?, description=?, start_date=?, end_date=?, updated_at=datetime(\'now\') WHERE id=?').run(project_id || null, site_id || null, title, nextStatus, plan_type || 'temporary', description || null, start_date || null, end_date || null, req.params.id);
+  db.prepare('UPDATE traffic_management_plans SET project_id=?, site_id=?, title=?, status=?, plan_type=?, description=?, start_date=?, end_date=?, updated_at=datetime(\'now\') WHERE id=?').run(project_id !== undefined ? (project_id || null) : existing.project_id, site_id !== undefined ? (site_id || null) : existing.site_id, title, nextStatus, plan_type !== undefined ? (plan_type || 'temporary') : existing.plan_type, description !== undefined ? (description || null) : existing.description, start_date !== undefined ? (start_date || null) : existing.start_date, end_date !== undefined ? (end_date || null) : existing.end_date, req.params.id);
   if (status && status !== existing.status) {
     db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), req.params.id, req.user.id, 'status_changed', `Status changed to ${status}`);
   }
@@ -104,16 +104,33 @@ router.post('/bulk', (req, res) => {
     });
     tx(ids);
   } else if (action === 'delete') {
-    const stmt = db.prepare('DELETE FROM traffic_management_plans WHERE id = ?');
-    const tx = db.transaction((list) => { for (const id of list) stmt.run(id); });
+    const deleteTmp = db.prepare('DELETE FROM traffic_management_plans WHERE id = ?');
+    const deletePermits = db.prepare('DELETE FROM permits WHERE tmp_id = ?');
+    const deleteTimeEntries = db.prepare('DELETE FROM time_entries WHERE tmp_id = ?');
+    const deleteChecklist = db.prepare("DELETE FROM workflow_checklist WHERE entity_type = 'tmp' AND entity_id = ?");
+    const tx = db.transaction((list) => {
+      for (const id of list) {
+        deletePermits.run(id);
+        deleteTimeEntries.run(id);
+        deleteChecklist.run(id);
+        deleteTmp.run(id);
+      }
+    });
     tx(ids);
   } else return res.status(400).json({ error: 'Invalid action' });
   res.json({ success: true, count: ids.length });
 });
 
 router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM traffic_management_plans WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: 'TMP not found' });
+  const existing = db.prepare('SELECT id FROM traffic_management_plans WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'TMP not found' });
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM permits WHERE tmp_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM time_entries WHERE tmp_id = ?').run(req.params.id);
+    db.prepare("DELETE FROM workflow_checklist WHERE entity_type = 'tmp' AND entity_id = ?").run(req.params.id);
+    db.prepare('DELETE FROM traffic_management_plans WHERE id = ?').run(req.params.id);
+  });
+  tx();
   res.json({ success: true });
 });
 

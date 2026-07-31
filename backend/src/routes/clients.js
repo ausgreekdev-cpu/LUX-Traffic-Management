@@ -26,16 +26,19 @@ router.post('/', validate('client'), (req, res) => {
 });
 
 router.put('/:id', validate('client'), (req, res) => {
-  const existing = db.prepare('SELECT id FROM clients WHERE id = ?').get(req.params.id);
+  const existing = db.prepare('SELECT * FROM clients WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Client not found' });
   const { name, company, email, phone, address, abn } = req.validated;
-  db.prepare('UPDATE clients SET name=?, company=?, email=?, phone=?, address=?, abn=?, updated_at=datetime(\'now\') WHERE id=?').run(name, company || null, email || null, phone || null, address || null, abn || null, req.params.id);
+  db.prepare('UPDATE clients SET name=?, company=?, email=?, phone=?, address=?, abn=?, updated_at=datetime(\'now\') WHERE id=?').run(name, company !== undefined ? (company || null) : existing.company, email !== undefined ? (email || null) : existing.email, phone !== undefined ? (phone || null) : existing.phone, address !== undefined ? (address || null) : existing.address, abn !== undefined ? (abn || null) : existing.abn, req.params.id);
   res.json(db.prepare('SELECT * FROM clients WHERE id = ?').get(req.params.id));
 });
 
 router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM clients WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: 'Client not found' });
+  const existing = db.prepare('SELECT id FROM clients WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Client not found' });
+  const projectCount = db.prepare('SELECT COUNT(*) as c FROM tmp_projects WHERE client_id = ?').get(req.params.id).c;
+  if (projectCount) return res.status(400).json({ error: `Client has ${projectCount} projects - delete them first` });
+  db.prepare('DELETE FROM clients WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
 

@@ -33,10 +33,12 @@ async function startBackend() {
   const userDataPath = app.getPath('userData');
   process.env.PORT = String(BACKEND_PORT);
   process.env.NODE_ENV = isDev ? 'development' : 'production';
-  if (isDev) {
-    delete process.env.DB_PATH;
-  } else {
-    process.env.DB_PATH = path.join(userDataPath, 'tmpcms.db');
+  if (!process.env.DB_PATH) {
+    if (isDev) {
+      delete process.env.DB_PATH;
+    } else {
+      process.env.DB_PATH = path.join(userDataPath, 'tmpcms.db');
+    }
   }
   process.chdir(backendDir);
 

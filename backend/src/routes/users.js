@@ -39,8 +39,19 @@ router.put('/:id', authorize('admin'), (req, res) => {
 router.delete('/:id', authorize('admin'), (req, res) => {
   const { id } = req.params;
   if (id === req.user.id) return res.status(400).json({ error: 'Cannot delete yourself' });
-  const result = db.prepare('DELETE FROM users WHERE id = ?').run(id);
-  if (result.changes === 0) return res.status(404).json({ error: 'User not found' });
+  const existing = db.prepare('SELECT id FROM users WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'User not found' });
+  const refs = {
+    'TMPs': 'SELECT COUNT(*) as c FROM traffic_management_plans WHERE created_by = ?',
+    'permits': 'SELECT COUNT(*) as c FROM permits WHERE created_by = ?',
+    'time entries': 'SELECT COUNT(*) as c FROM time_entries WHERE user_id = ?',
+    'documents': 'SELECT COUNT(*) as c FROM documents WHERE uploaded_by = ?',
+    'activities': 'SELECT COUNT(*) as c FROM plan_activities WHERE user_id = ?',
+    'notifications': 'SELECT COUNT(*) as c FROM notifications WHERE user_id = ?'
+  };
+  const used = Object.entries(refs).filter(([, sql]) => db.prepare(sql).get(id).c > 0).map(([k]) => k);
+  if (used.length) return res.status(400).json({ error: 'User has references: ' + used.join(', ') });
+  db.prepare('DELETE FROM users WHERE id = ?').run(id);
   res.json({ success: true });
 });
 

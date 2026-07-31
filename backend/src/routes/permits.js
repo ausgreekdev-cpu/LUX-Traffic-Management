@@ -103,6 +103,10 @@ router.get('/:id', (req, res) => {
 router.post('/', validate('permit'), (req, res) => {
   const id = uuid();
   const { tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa } = req.validated;
+  const tmp = db.prepare('SELECT id FROM traffic_management_plans WHERE id = ?').get(tmp_id);
+  if (!tmp) return res.status(404).json({ error: 'TMP not found' });
+  const authority = db.prepare('SELECT id FROM authorities WHERE id = ?').get(authority_id);
+  if (!authority) return res.status(400).json({ error: 'Authority not found' });
   const subDate = submission_date || new Date().toISOString().slice(0, 10);
   db.prepare('INSERT INTO permits (id, tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, tmp_id, authority_id, status || 'draft', complexity || 'standard', subDate, approval_date || null, expiry_date || null, rejection_reason || null, is_within_30m_signals ? 1 : 0, requires_mrwa ? 1 : 0, req.user.id);
 

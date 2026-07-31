@@ -60,16 +60,20 @@ router.post('/', validate('authority'), (req, res) => {
 });
 
 router.put('/:id', validate('authority'), (req, res) => {
-  const existing = db.prepare('SELECT id FROM authorities WHERE id = ?').get(req.params.id);
+  const existing = db.prepare('SELECT * FROM authorities WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Authority not found' });
   const { name, short_name, type, email, phone, website, address, contact_person } = req.validated;
-  db.prepare('UPDATE authorities SET name=?, short_name=?, type=?, email=?, phone=?, website=?, address=?, contact_person=?, updated_at=datetime(\'now\') WHERE id=?').run(name, short_name || null, type || 'other', email || null, phone || null, website || null, address || null, contact_person || null, req.params.id);
+  db.prepare('UPDATE authorities SET name=?, short_name=?, type=?, email=?, phone=?, website=?, address=?, contact_person=?, updated_at=datetime(\'now\') WHERE id=?').run(name, short_name !== undefined ? (short_name || null) : existing.short_name, type !== undefined ? (type || 'other') : existing.type, email !== undefined ? (email || null) : existing.email, phone !== undefined ? (phone || null) : existing.phone, website !== undefined ? (website || null) : existing.website, address !== undefined ? (address || null) : existing.address, contact_person !== undefined ? (contact_person || null) : existing.contact_person, req.params.id);
   res.json(db.prepare('SELECT * FROM authorities WHERE id = ?').get(req.params.id));
 });
 
 router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM authorities WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: 'Authority not found' });
+  const existing = db.prepare('SELECT id FROM authorities WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Authority not found' });
+  const permitCount = db.prepare('SELECT COUNT(*) as c FROM permits WHERE authority_id = ?').get(req.params.id).c;
+  const taskCount = db.prepare('SELECT COUNT(*) as c FROM permit_sub_tasks WHERE authority_id = ?').get(req.params.id).c;
+  if (permitCount || taskCount) return res.status(400).json({ error: `Authority is used by ${permitCount} permits and ${taskCount} sub-tasks - delete them first` });
+  db.prepare('DELETE FROM authorities WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
 

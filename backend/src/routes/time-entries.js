@@ -55,10 +55,10 @@ router.post('/', validate('timeEntry'), (req, res) => {
 });
 
 router.put('/:id', validate('timeEntry'), (req, res) => {
-  const existing = db.prepare('SELECT id FROM time_entries WHERE id = ?').get(req.params.id);
+  const existing = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Time entry not found' });
   const { tmp_id, cost_code, description, duration_hours, rate_per_hour, is_billable, date } = req.validated;
-  db.prepare('UPDATE time_entries SET tmp_id=?, cost_code=?, description=?, duration_hours=?, rate_per_hour=?, is_billable=?, date=?, updated_at=datetime(\'now\') WHERE id=?').run(tmp_id, cost_code, description || null, duration_hours, rate_per_hour || 150, is_billable !== undefined ? (is_billable ? 1 : 0) : 1, date, req.params.id);
+  db.prepare('UPDATE time_entries SET tmp_id=?, cost_code=?, description=?, duration_hours=?, rate_per_hour=?, is_billable=?, date=?, updated_at=datetime(\'now\') WHERE id=?').run(tmp_id, cost_code, description !== undefined ? (description || null) : existing.description, duration_hours, rate_per_hour !== undefined ? rate_per_hour : existing.rate_per_hour, is_billable !== undefined ? (is_billable ? 1 : 0) : existing.is_billable, date, req.params.id);
   res.json(db.prepare('SELECT * FROM time_entries WHERE id = ?').get(req.params.id));
 });
 
