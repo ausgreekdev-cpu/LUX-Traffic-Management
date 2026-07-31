@@ -18,6 +18,7 @@ import TimeTracking from './pages/TimeTracking';
 import Analytics from './pages/Analytics';
 import UsersList from './pages/UsersList';
 import Settings from './pages/Settings';
+import Help from './pages/Help';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="time-tracking" element={<TimeTracking />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="help" element={<Help />} />
         <Route path="users" element={<UsersList />} />
       </Route>
     </Routes>

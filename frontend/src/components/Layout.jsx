@@ -13,6 +13,7 @@ const navItems = [
   { to: '/clients', label: 'Clients', icon: '👥' },
   { to: '/sites', label: 'Sites', icon: '📍' },
   { to: '/settings', label: 'Settings', icon: '⚙️' },
+  { to: '/help', label: 'Help & FAQ', icon: '📖' },
   { to: '/users', label: 'Users', icon: '🔐', admin: true }
 ];
 
