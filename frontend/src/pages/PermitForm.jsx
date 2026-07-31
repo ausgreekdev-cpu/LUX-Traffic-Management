@@ -11,6 +11,7 @@ export default function PermitForm() {
   const [authorities, setAuthorities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [missingStages, setMissingStages] = useState([]);
 
   useEffect(() => {
     Promise.all([api.tmps.list(), api.authorities.list()]).then(([t, a]) => { setTmps(t); setAuthorities(a); });
@@ -19,12 +20,19 @@ export default function PermitForm() {
         tmp_id: p.tmp_id || '', authority_id: p.authority_id || '', status: p.status || 'draft', complexity: p.complexity || 'standard',
         submission_date: p.submission_date || '', approval_date: p.approval_date || '', expiry_date: p.expiry_date || '',
         rejection_reason: p.rejection_reason || '', is_within_30m_signals: !!p.is_within_30m_signals, requires_mrwa: !!p.requires_mrwa
-      })).finally(() => setLoading(false));
+      }))
+        .then(() => api.workflows.checklist('permit', id))
+        .then(cl => setMissingStages(cl.data.filter(s => !s.is_optional && !s.is_done).map(s => s.name)))
+        .catch(() => {})
+        .finally(() => setLoading(false));
     } else setLoading(false);
   }, [id, isEdit]);
 
+  const statusBlocks = (['approved', 'completed'].includes(form.status)) && missingStages.length > 0;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (statusBlocks) { alert('Complete the required workflow stages first: ' + missingStages.join(', ')); return; }
     setSaving(true);
     try {
       if (isEdit) { await api.permits.update(id, form); navigate(`/permits/${id}`); }
@@ -57,6 +65,8 @@ export default function PermitForm() {
                 {['draft', 'submitted', 'under_review', 'approved', 'rejected', 'expired', 'cancelled', 'completed'].map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
               </select>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Complexity</label>
               <select value={form.complexity} onChange={e => setForm({ ...form, complexity: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
@@ -64,6 +74,11 @@ export default function PermitForm() {
               </select>
             </div>
           </div>
+          {statusBlocks && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded text-sm text-amber-800 dark:text-amber-300">
+              Cannot mark as <b>{form.status}</b> — required workflow stages still incomplete: <b>{missingStages.join(', ')}</b>. Tick them off on the permit's workflow checklist first.
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-4">
             <div><label className="block text-sm font-medium mb-1">Submission Date</label><input type="date" value={form.submission_date} onChange={e => setForm({ ...form, submission_date: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
             <div><label className="block text-sm font-medium mb-1">Approval Date</label><input type="date" value={form.approval_date} onChange={e => setForm({ ...form, approval_date: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>

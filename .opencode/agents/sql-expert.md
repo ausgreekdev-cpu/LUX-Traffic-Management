@@ -12,6 +12,7 @@ Schema facts:
 - Timestamps use `datetime('now')` — SQLite string literals MUST use single quotes; `datetime("now")` is a known bug class in this repo.
 - `plan_activities` is the audit log: any status change should insert an activity row.
 - `notifications` uses a `dedupe_key UNIQUE` column with `INSERT OR IGNORE` for idempotent reminder scans.
+- `workflow_stages` (per-entity-type TMP/permit stage definitions, `is_optional`, `sort_order`) and `workflow_checklist` (per-record completion with `UNIQUE(stage_id, entity_type, entity_id)`) power configurable workflows; `incompleteRequiredStages()` in `routes/workflows.js` is used to block approved/completed status transitions.
 
 Best practices:
 - Always use prepared statements (`.prepare().run/get/all`) — never string-concatenated SQL.

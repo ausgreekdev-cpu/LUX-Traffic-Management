@@ -45,6 +45,7 @@ const guides = [
       'Admins configure the stages every TMP and permit must pass through under <b>Workflows</b> (e.g. “TMP drawing prepared”, “Internal review”, “Public notice issued”).',
       'Each stage is either <b>required</b> or <b>optional</b>. Required stages are enforced: a TMP or permit cannot be marked <b>approved</b> or <b>completed</b> while one is unticked.',
       'Open any TMP or permit detail page to see its <b>workflow checklist</b> — tick stages off as they are completed; the progress bar updates live and records who ticked what and when.',
+      'The <b>Dashboard</b> shows a “Needs attention” panel listing active TMPs and permits that still have unticked required stages, so nothing slips through.',
       'Optional stages are tracked for your process but never block status changes — use them for steps that apply only sometimes (e.g. public notice for certain authorities).',
       'Reorder, rename, add or delete stages anytime in <b>Workflows</b>; deleting a stage also removes its checklist entries from existing records.'
     ]

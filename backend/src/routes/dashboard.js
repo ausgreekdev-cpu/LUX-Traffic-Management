@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
+import { incompleteRequiredStages } from './workflows.js';
 
 const router = Router();
 router.use(authenticate);
@@ -27,10 +28,19 @@ router.get('/', (req, res) => {
     LEFT JOIN traffic_management_plans t ON a.tmp_id = t.id
     ORDER BY a.created_at DESC LIMIT 10
   `).all();
+  const activeTmpsList = db.prepare("SELECT id, reference, title FROM traffic_management_plans WHERE status NOT IN ('completed','cancelled')").all();
+  const activePermitsList = db.prepare("SELECT p.id, t.reference as tmp_reference, au.short_name as authority FROM permits p LEFT JOIN traffic_management_plans t ON p.tmp_id = t.id LEFT JOIN authorities au ON p.authority_id = au.id WHERE p.status NOT IN ('cancelled','completed','expired')").all();
+  const workflowAttention = [
+    ...activeTmpsList.map(t => ({ type: 'tmp', id: t.id, label: `${t.reference || ''} ${t.title}`.trim(), missing: incompleteRequiredStages('tmp', t.id) }))
+      .filter(t => t.missing.length),
+    ...activePermitsList.map(p => ({ type: 'permit', id: p.id, label: `${p.tmp_reference || 'Permit'} • ${p.authority || ''}`.trim(), missing: incompleteRequiredStages('permit', p.id) }))
+      .filter(p => p.missing.length)
+  ].slice(0, 10);
   res.json({
     stats: { totalTmps, activeTmps, totalClients, totalSites, totalProjects, totalPermits, pendingPermits },
     recentTmps,
-    recentActivity
+    recentActivity,
+    workflowAttention
   });
 });
 

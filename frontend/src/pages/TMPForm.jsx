@@ -11,15 +11,24 @@ export default function TMPForm() {
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [missingStages, setMissingStages] = useState([]);
 
   useEffect(() => {
     Promise.all([api.projects.list(), api.sites.list()]).then(([p, s]) => { setProjects(p); setSites(s); });
-    if (isEdit) { api.tmps.get(id).then(tmp => setForm({ title: tmp.title || '', plan_type: tmp.plan_type || 'temporary', status: tmp.status || 'draft', description: tmp.description || '', project_id: tmp.project_id || '', site_id: tmp.site_id || '', start_date: tmp.start_date || '', end_date: tmp.end_date || '' })).finally(() => setLoading(false)); }
-    else setLoading(false);
+    if (isEdit) {
+      api.tmps.get(id).then(tmp => setForm({ title: tmp.title || '', plan_type: tmp.plan_type || 'temporary', status: tmp.status || 'draft', description: tmp.description || '', project_id: tmp.project_id || '', site_id: tmp.site_id || '', start_date: tmp.start_date || '', end_date: tmp.end_date || '' }))
+        .then(() => api.workflows.checklist('tmp', id))
+        .then(cl => setMissingStages(cl.data.filter(s => !s.is_optional && !s.is_done).map(s => s.name)))
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } else setLoading(false);
   }, [id, isEdit]);
+
+  const statusBlocks = (['approved', 'completed'].includes(form.status)) && missingStages.length > 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (statusBlocks) { alert('Complete the required workflow stages first: ' + missingStages.join(', ')); return; }
     setSaving(true);
     try {
       if (isEdit) { await api.tmps.update(id, form); navigate(`/tmps/${id}`); }
@@ -51,6 +60,11 @@ export default function TMPForm() {
               </select>
             </div>
           </div>
+          {statusBlocks && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded text-sm text-amber-800 dark:text-amber-300">
+              Cannot mark as <b>{form.status}</b> — required workflow stages still incomplete: <b>{missingStages.join(', ')}</b>. Tick them off on the TMP's workflow checklist first.
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium mb-1">Description</label>
             <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border rounded-lg" rows={3} />

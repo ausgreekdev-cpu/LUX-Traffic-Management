@@ -14,6 +14,7 @@ Stack and conventions:
 - All API calls go through `frontend/src/api.js` (`request()` helper adds the Bearer token; 401 redirects to /login). Never call `fetch` directly in pages except via the helpers already there (uploads, downloads, previews).
 - Routes are registered in `frontend/src/App.jsx`; the sidebar nav lives in `components/Layout.jsx` (add new pages to both).
 - Pages pattern: `useState`/`useEffect` data loading with a `loading` state, tables with `divide-y`, pagination footer with Prev/Next.
+- Workflow stages: admin config page `pages/WorkflowSettings.jsx`, shared checklist card `components/WorkflowChecklist.jsx` (rendered on TMP and Permit detail pages), and proactive status warnings in `pages/TMPForm.jsx` / `pages/PermitForm.jsx` (`missingStages` from `api.workflows.checklist`).
 - In-app docs live in `frontend/src/pages/Help.jsx` — keep it in sync when UI labels change.
 
 Rules: no comments in code, match existing class patterns exactly, verify against real page files before claiming a button or route exists. Report changes with file references.

@@ -64,6 +64,15 @@ router.get('/tmp/:id', (req, res) => {
   if (tmp.description) { doc.moveDown(); doc.text('Description:'); doc.text(tmp.description); }
   if (tmp.start_date) doc.text(`Start Date: ${tmp.start_date}`);
   if (tmp.end_date) doc.text(`End Date: ${tmp.end_date}`);
+  const stages = db.prepare('SELECT s.name, s.is_optional, COALESCE(c.is_done, 0) as is_done FROM workflow_stages s LEFT JOIN workflow_checklist c ON c.stage_id = s.id AND c.entity_type = ? AND c.entity_id = ? WHERE s.entity_type = ? ORDER BY s.sort_order').all('tmp', tmp.id, 'tmp');
+  if (stages.length) {
+    doc.moveDown();
+    doc.fontSize(12).text('Workflow Checklist');
+    doc.fontSize(10);
+    stages.forEach(s => {
+      doc.text(`${s.is_done ? '[X]' : '[ ]'} ${s.name}${s.is_optional ? ' (optional)' : ''}`);
+    });
+  }
   doc.moveDown();
   doc.fontSize(10).text(`Generated: ${new Date().toISOString().slice(0, 10)}`, { align: 'right' });
   doc.end();

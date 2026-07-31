@@ -13,7 +13,7 @@ export default function Dashboard() {
   if (loading) return <div className="text-center py-8 text-gray-500">Loading...</div>;
   if (!data) return <div className="text-center py-8 text-red-500">Failed to load dashboard</div>;
 
-  const { stats, recentTmps, recentActivity } = data;
+  const { stats, recentTmps, recentActivity, workflowAttention } = data;
 
   return (
     <div className="space-y-6">
@@ -31,6 +31,22 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+      {workflowAttention.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <h2 className="text-lg font-semibold mb-3">⚠️ Needs attention — incomplete required stages</h2>
+          <div className="space-y-2">
+            {workflowAttention.map(item => (
+              <Link key={`${item.type}-${item.id}`} to={item.type === 'tmp' ? `/tmps/${item.id}` : `/permits/${item.id}`}
+                className="block p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded hover:bg-amber-100 dark:hover:bg-amber-900/40 transition">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-sm truncate">{item.label}</span>
+                  <span className="text-xs text-amber-700 dark:text-amber-400 shrink-0">{item.missing.join(', ')}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <h2 className="text-lg font-semibold mb-3">Recent TMPs</h2>
