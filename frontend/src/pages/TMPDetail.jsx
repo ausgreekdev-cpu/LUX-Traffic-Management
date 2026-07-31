@@ -2,12 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 
+const previewable = (name) => /\.(pdf|png|jpe?g|gif|webp)$/i.test(name);
+
 export default function TMPDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [tmp, setTmp] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(null);
   const fileRef = useRef();
 
   const loadTmp = () => api.tmps.get(id).then(setTmp);
@@ -94,11 +97,18 @@ export default function TMPDetail() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <h2 className="font-semibold mb-2">Documents ({(tmp.documents||[]).length})</h2>
             <div className="space-y-1 mb-3">
-              {(tmp.documents||[]).map(d => (
+              {(tmp.documents||[]).map((d, i) => (
                 <div key={d.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded text-sm">
-                  <a href={api.documents.download(d.id)} className="text-amber-600 hover:underline truncate">{d.original_name}</a>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 shrink-0">v{(tmp.documents||[]).length - i}</span>
+                    <a href={api.documents.download(d.id)} className="text-amber-600 hover:underline truncate">{d.original_name}</a>
+                  </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-gray-400">{(d.size / 1024).toFixed(1)} KB</span>
+                    <span className="text-xs text-gray-400">{d.created_at?.slice(0, 10)}</span>
+                    {previewable(d.original_name) && (
+                      <button onClick={() => setPreview(d)} className="text-blue-600 hover:text-blue-800 text-xs">Preview</button>
+                    )}
                     <button onClick={() => handleDeleteDoc(d.id)} className="text-red-500 hover:text-red-700 text-xs">Delete</button>
                   </div>
                 </div>
@@ -127,6 +137,17 @@ export default function TMPDetail() {
           </div>
         </div>
       </div>
+      {preview && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setPreview(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-2 border-b dark:border-gray-700">
+              <p className="text-sm font-medium truncate">{preview.original_name}</p>
+              <button onClick={() => setPreview(null)} className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 px-2">✕</button>
+            </div>
+            <iframe src={api.documents.preview(preview.id)} title={preview.original_name} className="w-full flex-1 min-h-0" style={{ height: '75vh' }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

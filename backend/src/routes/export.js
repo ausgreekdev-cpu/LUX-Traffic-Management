@@ -1,10 +1,29 @@
 import { Router } from 'express';
 import PDFDocument from 'pdfkit';
-import db from '../db.js';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import db, { dbPath } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 router.use(authenticate);
+
+function getSetting(key, fallback) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  return row ? row.value : fallback;
+}
+
+router.get('/db-backup', (req, res) => {
+  const backupPath = path.join(os.tmpdir(), `lux-backup-${Date.now()}.db`);
+  db.backup(backupPath)
+    .then(() => {
+      res.download(backupPath, `lux-backup-${new Date().toISOString().slice(0, 10)}.db`, () => {
+        try { fs.unlinkSync(backupPath); } catch {}
+      });
+    })
+    .catch((err) => res.status(500).json({ error: 'Backup failed: ' + err.message }));
+});
 
 router.get('/tmp/:id', (req, res) => {
   const tmp = db.prepare(`
@@ -16,11 +35,22 @@ router.get('/tmp/:id', (req, res) => {
   `).get(req.params.id);
   if (!tmp) return res.status(404).json({ error: 'TMP not found' });
 
+  const companyName = getSetting('company_name', '');
+  const companyPhone = getSetting('company_phone', '');
+  const companyEmail = getSetting('company_email', '');
+
   const doc = new PDFDocument({ margin: 50 });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${tmp.reference || 'TMP'}.pdf"`);
   doc.pipe(res);
 
+  if (companyName) {
+    doc.fontSize(16).text(companyName, { align: 'center' });
+    if (companyPhone || companyEmail) {
+      doc.fontSize(9).text([companyPhone, companyEmail].filter(Boolean).join('  |  '), { align: 'center' });
+    }
+    doc.moveDown();
+  }
   doc.fontSize(20).text('Traffic Management Plan', { align: 'center' });
   doc.moveDown();
   doc.fontSize(12);
@@ -63,33 +93,81 @@ router.get('/permits-summary', (req, res) => {
   doc.end();
 });
 
+router.get('/audit-report', (req, res) => {
+  const activities = db.prepare(`
+    SELECT a.*, u.name as user_name, t.title as tmp_title, t.reference as tmp_reference
+    FROM plan_activities a
+    LEFT JOIN users u ON a.user_id = u.id
+    LEFT JOIN traffic_management_plans t ON a.tmp_id = t.id
+    ORDER BY a.created_at DESC LIMIT 500
+  `).all();
+
+  const companyName = getSetting('company_name', '');
+
+  const doc = new PDFDocument({ margin: 50 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename="audit-report.pdf"');
+  doc.pipe(res);
+
+  if (companyName) {
+    doc.fontSize(16).text(companyName, { align: 'center' });
+    doc.moveDown();
+  }
+  doc.fontSize(20).text('Activity Audit Report', { align: 'center' });
+  doc.moveDown();
+  doc.fontSize(10);
+  if (!activities.length) {
+    doc.text('No activity recorded.');
+  }
+  for (const a of activities) {
+    doc.text(`${a.created_at}  |  ${a.user_name || 'unknown'}  |  ${a.action}  |  ${a.description || ''}${a.tmp_reference ? '  |  ' + a.tmp_reference : ''}`);
+  }
+  doc.moveDown();
+  doc.fontSize(10).text(`Generated: ${new Date().toISOString().slice(0, 10)}`, { align: 'right' });
+  doc.end();
+});
+
 function csvEscape(v) { const s = String(v || ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; }
 
 router.get('/tmps-csv', (req, res) => {
-  const tmps = db.prepare(`
-    SELECT t.reference, t.title, t.status, t.plan_type, s.name as site_name, p.name as project_name, t.created_at
+  let q = `
+    SELECT t.reference, t.title, t.status, t.plan_type, s.name as site_name, p.name as project_name, t.created_at, t.start_date, t.end_date
     FROM traffic_management_plans t
     LEFT JOIN sites s ON t.site_id = s.id
-    LEFT JOIN tmp_projects p ON t.project_id = p.id
-    ORDER BY t.created_at DESC
-  `).all();
-  const header = 'Reference,Title,Status,Type,Site,Project,Created';
-  const rows = tmps.map(t => [t.reference, t.title, t.status, t.plan_type, t.site_name, t.project_name, t.created_at].map(csvEscape).join(','));
+    LEFT JOIN tmp_projects p ON t.project_id = p.id`;
+  const params = [];
+  const conditions = [];
+  if (req.query.status) { conditions.push('t.status = ?'); params.push(req.query.status); }
+  if (req.query.search) { conditions.push('(t.title LIKE ? OR t.reference LIKE ? OR s.name LIKE ?)'); const s = `%${req.query.search}%`; params.push(s, s, s); }
+  if (req.query.from) { conditions.push('t.created_at >= ?'); params.push(req.query.from); }
+  if (req.query.to) { conditions.push('t.created_at <= ?'); params.push(req.query.to); }
+  if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
+  q += ' ORDER BY t.created_at DESC';
+  const tmps = db.prepare(q).all(...params);
+  const header = 'Reference,Title,Status,Type,Site,Project,Start Date,End Date,Created';
+  const rows = tmps.map(t => [t.reference, t.title, t.status, t.plan_type, t.site_name, t.project_name, t.start_date, t.end_date, t.created_at].map(csvEscape).join(','));
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="tmps.csv"');
   res.send([header, ...rows].join('\n'));
 });
 
 router.get('/permits-csv', (req, res) => {
-  const permits = db.prepare(`
-    SELECT t.reference as tmp_ref, au.name as authority, p.status, p.complexity, p.submission_date, p.approval_date
+  let q = `
+    SELECT t.reference as tmp_ref, au.name as authority, p.status, p.complexity, p.submission_date, p.approval_date, p.expiry_date
     FROM permits p
     LEFT JOIN traffic_management_plans t ON p.tmp_id = t.id
-    LEFT JOIN authorities au ON p.authority_id = au.id
-    ORDER BY p.created_at DESC
-  `).all();
-  const header = 'TMP Reference,Authority,Status,Complexity,Submitted,Approved';
-  const rows = permits.map(p => [p.tmp_ref, p.authority, p.status, p.complexity, p.submission_date, p.approval_date].map(csvEscape).join(','));
+    LEFT JOIN authorities au ON p.authority_id = au.id`;
+  const params = [];
+  const conditions = [];
+  if (req.query.status) { conditions.push('p.status = ?'); params.push(req.query.status); }
+  if (req.query.authority_id) { conditions.push('p.authority_id = ?'); params.push(req.query.authority_id); }
+  if (req.query.from) { conditions.push('p.created_at >= ?'); params.push(req.query.from); }
+  if (req.query.to) { conditions.push('p.created_at <= ?'); params.push(req.query.to); }
+  if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
+  q += ' ORDER BY p.created_at DESC';
+  const permits = db.prepare(q).all(...params);
+  const header = 'TMP Reference,Authority,Status,Complexity,Submitted,Approved,Expiry';
+  const rows = permits.map(p => [p.tmp_ref, p.authority, p.status, p.complexity, p.submission_date, p.approval_date, p.expiry_date].map(csvEscape).join(','));
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="permits.csv"');
   res.send([header, ...rows].join('\n'));

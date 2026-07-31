@@ -9,9 +9,7 @@ fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-db.exec(`
+db.pragma('foreign_keys = ON');db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
@@ -212,6 +210,26 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id),
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT,
+    entity_type TEXT,
+    entity_id TEXT,
+    dedupe_key TEXT UNIQUE,
+    is_read INTEGER DEFAULT 0,
+    read_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_tmps_project ON traffic_management_plans(project_id);
   CREATE INDEX IF NOT EXISTS idx_tmps_status ON traffic_management_plans(status);
   CREATE INDEX IF NOT EXISTS idx_permits_tmp ON permits(tmp_id);
@@ -224,6 +242,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_documents_tmp ON documents(tmp_id);
   CREATE INDEX IF NOT EXISTS idx_permit_fees_permit ON permit_fees(permit_id);
   CREATE INDEX IF NOT EXISTS idx_workflow_triggers_permit ON workflow_triggers(permit_id);
+  CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
 `);
 
 export default db;
+export { dbPath };

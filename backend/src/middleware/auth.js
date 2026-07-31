@@ -4,7 +4,7 @@ import db from '../db.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'lux-traffic-jwt-secret-change-in-production';
 
 export function authenticate(req, res, next) {
-  const header = req.headers.authorization;
+  const header = req.headers.authorization || (req.query.token ? `Bearer ${req.query.token}` : null);
   if (!header || !header.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'No token provided' });
   }

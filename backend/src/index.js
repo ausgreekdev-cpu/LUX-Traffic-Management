@@ -17,6 +17,8 @@ import authorityRoutes from './routes/authorities.js';
 import permitRoutes from './routes/permits.js';
 import timeEntryRoutes from './routes/time-entries.js';
 import analyticsRoutes from './routes/analytics.js';
+import notificationRoutes from './routes/notifications.js';
+import settingsRoutes from './routes/settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -46,6 +48,8 @@ app.use('/api/authorities', authorityRoutes);
 app.use('/api/permits', permitRoutes);
 app.use('/api/time-entries', timeEntryRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

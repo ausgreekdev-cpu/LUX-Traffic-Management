@@ -147,6 +147,31 @@ router.put('/:id', validate('permit'), (req, res) => {
   res.json({ ...updated, triggers });
 });
 
+router.post('/bulk', (req, res) => {
+  const { ids, action, status } = req.body || {};
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'No ids provided' });
+  if (action === 'status') {
+    if (!status) return res.status(400).json({ error: 'Status required' });
+    const stmt = db.prepare('UPDATE permits SET status = ?, updated_at = datetime(\'now\') WHERE id = ?');
+    const act = db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)');
+    const tx = db.transaction((list) => {
+      for (const id of list) {
+        const r = stmt.run(status, id);
+        if (r.changes) {
+          const permit = db.prepare('SELECT tmp_id FROM permits WHERE id = ?').get(id);
+          if (permit?.tmp_id) act.run(uuid(), permit.tmp_id, req.user.id, 'permit_status_changed', `Permit status → ${status} (bulk)`);
+        }
+      }
+    });
+    tx(ids);
+  } else if (action === 'delete') {
+    const stmt = db.prepare('DELETE FROM permits WHERE id = ?');
+    const tx = db.transaction((list) => { for (const id of list) stmt.run(id); });
+    tx(ids);
+  } else return res.status(400).json({ error: 'Invalid action' });
+  res.json({ success: true, count: ids.length });
+});
+
 router.delete('/:id', (req, res) => {
   const result = db.prepare('DELETE FROM permits WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Permit not found' });

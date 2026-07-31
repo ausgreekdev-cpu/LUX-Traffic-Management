@@ -47,6 +47,19 @@ router.get('/download/:id', (req, res) => {
   res.download(filePath, doc.original_name);
 });
 
+router.get('/preview/:id', (req, res) => {
+  const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
+  if (!doc) return res.status(404).json({ error: 'Document not found' });
+  const ext = path.extname(doc.original_name).toLowerCase();
+  if (!['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)) {
+    return res.status(400).json({ error: 'Preview not available for this file type' });
+  }
+  const filePath = path.join(uploadDir, doc.filename);
+  if (!require('fs').existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
+  res.setHeader('Content-Disposition', 'inline');
+  res.sendFile(filePath);
+});
+
 router.delete('/:id', (req, res) => {
   const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });

@@ -47,7 +47,8 @@ const api = {
     get: (id) => request(`/tmps/${id}`),
     create: (data) => request('/tmps', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/tmps/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id) => request(`/tmps/${id}`, { method: 'DELETE' })
+    delete: (id) => request(`/tmps/${id}`, { method: 'DELETE' }),
+    bulk: (ids, action, status) => request('/tmps/bulk', { method: 'POST', body: JSON.stringify({ ids, action, status }) })
   },
   documents: {
     list: (tmpId) => request(`/documents/tmp/${tmpId}`),
@@ -60,6 +61,7 @@ const api = {
       return res.json();
     },
     download: (id) => `${BASE}/documents/download/${id}`,
+    preview: (id) => `${BASE}/documents/preview/${id}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`,
     delete: (id) => request(`/documents/${id}`, { method: 'DELETE' })
   },
   dashboard: () => request('/dashboard'),
@@ -82,6 +84,7 @@ const api = {
     create: (data) => request('/permits', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/permits/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/permits/${id}`, { method: 'DELETE' }),
+    bulk: (ids, action, status) => request('/permits/bulk', { method: 'POST', body: JSON.stringify({ ids, action, status }) }),
     fees: (id) => request(`/permits/${id}/fees`),
     createFee: (id, data) => request(`/permits/${id}/fees`, { method: 'POST', body: JSON.stringify(data) }),
     triggers: (id) => request(`/permits/${id}/triggers`),
@@ -119,6 +122,17 @@ const api = {
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
       URL.revokeObjectURL(blob);
     }
+  },
+  notifications: {
+    list: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/notifications${q}`); },
+    unreadCount: () => request('/notifications/unread-count'),
+    markRead: (id) => request(`/notifications/${id}/read`, { method: 'POST' }),
+    markAllRead: () => request('/notifications/read-all', { method: 'POST' }),
+    scan: () => request('/notifications/scan', { method: 'POST', body: JSON.stringify({}) })
+  },
+  settings: {
+    get: () => request('/settings'),
+    update: (data) => request('/settings', { method: 'PUT', body: JSON.stringify(data) })
   }
 };
 

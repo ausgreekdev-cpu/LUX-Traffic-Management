@@ -73,6 +73,28 @@ router.put('/:id', validate('tmp'), (req, res) => {
   res.json(db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(req.params.id));
 });
 
+router.post('/bulk', (req, res) => {
+  const { ids, action, status } = req.body || {};
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'No ids provided' });
+  if (action === 'status') {
+    if (!status) return res.status(400).json({ error: 'Status required' });
+    const stmt = db.prepare('UPDATE traffic_management_plans SET status = ?, updated_at = datetime(\'now\') WHERE id = ?');
+    const act = db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)');
+    const tx = db.transaction((list) => {
+      for (const id of list) {
+        const r = stmt.run(status, id);
+        if (r.changes) act.run(uuid(), id, req.user.id, 'status_changed', `Status changed to ${status} (bulk)`);
+      }
+    });
+    tx(ids);
+  } else if (action === 'delete') {
+    const stmt = db.prepare('DELETE FROM traffic_management_plans WHERE id = ?');
+    const tx = db.transaction((list) => { for (const id of list) stmt.run(id); });
+    tx(ids);
+  } else return res.status(400).json({ error: 'Invalid action' });
+  res.json({ success: true, count: ids.length });
+});
+
 router.delete('/:id', (req, res) => {
   const result = db.prepare('DELETE FROM traffic_management_plans WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'TMP not found' });

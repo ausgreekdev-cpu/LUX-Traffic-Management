@@ -17,6 +17,7 @@ import PermitForm from './pages/PermitForm';
 import TimeTracking from './pages/TimeTracking';
 import Analytics from './pages/Analytics';
 import UsersList from './pages/UsersList';
+import Settings from './pages/Settings';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="permits/:id/edit" element={<PermitForm />} />
         <Route path="time-tracking" element={<TimeTracking />} />
         <Route path="analytics" element={<Analytics />} />
+        <Route path="settings" element={<Settings />} />
         <Route path="users" element={<UsersList />} />
       </Route>
     </Routes>
