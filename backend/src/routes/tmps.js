@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { incompleteRequiredStages } from './workflows.js';
 
 const router = Router();
 router.use(authenticate);
@@ -66,7 +67,12 @@ router.put('/:id', validate('tmp'), (req, res) => {
   const existing = db.prepare('SELECT id, status FROM traffic_management_plans WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'TMP not found' });
   const { project_id, site_id, title, status, plan_type, description, start_date, end_date } = req.validated;
-  db.prepare('UPDATE traffic_management_plans SET project_id=?, site_id=?, title=?, status=?, plan_type=?, description=?, start_date=?, end_date=?, updated_at=datetime("now") WHERE id=?').run(project_id || null, site_id || null, title, status || existing.status, plan_type || 'temporary', description || null, start_date || null, end_date || null, req.params.id);
+  const nextStatus = status || existing.status;
+  if ((nextStatus === 'approved' || nextStatus === 'completed') && nextStatus !== existing.status) {
+    const missing = incompleteRequiredStages('tmp', req.params.id);
+    if (missing.length) return res.status(400).json({ error: `Incomplete required workflow stages: ${missing.join(', ')}` });
+  }
+  db.prepare('UPDATE traffic_management_plans SET project_id=?, site_id=?, title=?, status=?, plan_type=?, description=?, start_date=?, end_date=?, updated_at=datetime(\'now\') WHERE id=?').run(project_id || null, site_id || null, title, nextStatus, plan_type || 'temporary', description || null, start_date || null, end_date || null, req.params.id);
   if (status && status !== existing.status) {
     db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), req.params.id, req.user.id, 'status_changed', `Status changed to ${status}`);
   }
@@ -78,6 +84,16 @@ router.post('/bulk', (req, res) => {
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'No ids provided' });
   if (action === 'status') {
     if (!status) return res.status(400).json({ error: 'Status required' });
+    if (status === 'approved' || status === 'completed') {
+      const missingPerId = [];
+      for (const id of ids) {
+        const tmp = db.prepare('SELECT id FROM traffic_management_plans WHERE id = ?').get(id);
+        if (!tmp) continue;
+        const missing = incompleteRequiredStages('tmp', id);
+        if (missing.length) missingPerId.push(`${id}: ${missing.join(', ')}`);
+      }
+      if (missingPerId.length) return res.status(400).json({ error: 'Incomplete required workflow stages: ' + missingPerId.join(' | ') });
+    }
     const stmt = db.prepare('UPDATE traffic_management_plans SET status = ?, updated_at = datetime(\'now\') WHERE id = ?');
     const act = db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)');
     const tx = db.transaction((list) => {

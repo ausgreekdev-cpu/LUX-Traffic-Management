@@ -19,6 +19,7 @@ import timeEntryRoutes from './routes/time-entries.js';
 import analyticsRoutes from './routes/analytics.js';
 import notificationRoutes from './routes/notifications.js';
 import settingsRoutes from './routes/settings.js';
+import workflowRoutes, { ensureWorkflowSeeds } from './routes/workflows.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -50,8 +51,11 @@ app.use('/api/time-entries', timeEntryRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/workflows', workflowRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+ensureWorkflowSeeds();
 
 app.listen(PORT, () => {
   console.log('TMP CMS backend running on http://localhost:' + PORT);

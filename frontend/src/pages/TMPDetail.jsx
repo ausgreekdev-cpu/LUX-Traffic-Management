@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
+import WorkflowChecklist from '../components/WorkflowChecklist';
 
 const previewable = (name) => /\.(pdf|png|jpe?g|gif|webp)$/i.test(name);
 
@@ -119,6 +120,7 @@ export default function TMPDetail() {
               {uploading && <span className="text-xs text-gray-500">Uploading...</span>}
             </div>
           </div>
+          <WorkflowChecklist entityType="tmp" entityId={id} />
         </div>
         <div className="space-y-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">

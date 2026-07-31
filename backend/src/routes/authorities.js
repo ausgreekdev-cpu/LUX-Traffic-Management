@@ -63,7 +63,7 @@ router.put('/:id', validate('authority'), (req, res) => {
   const existing = db.prepare('SELECT id FROM authorities WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Authority not found' });
   const { name, short_name, type, email, phone, website, address, contact_person } = req.validated;
-  db.prepare('UPDATE authorities SET name=?, short_name=?, type=?, email=?, phone=?, website=?, address=?, contact_person=?, updated_at=datetime("now") WHERE id=?').run(name, short_name || null, type || 'other', email || null, phone || null, website || null, address || null, contact_person || null, req.params.id);
+  db.prepare('UPDATE authorities SET name=?, short_name=?, type=?, email=?, phone=?, website=?, address=?, contact_person=?, updated_at=datetime(\'now\') WHERE id=?').run(name, short_name || null, type || 'other', email || null, phone || null, website || null, address || null, contact_person || null, req.params.id);
   res.json(db.prepare('SELECT * FROM authorities WHERE id = ?').get(req.params.id));
 });
 

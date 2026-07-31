@@ -29,7 +29,7 @@ router.put('/:id', validate('site'), (req, res) => {
   const existing = db.prepare('SELECT id FROM sites WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Site not found' });
   const { name, road_name, suburb, state, postcode, latitude, longitude, description } = req.validated;
-  db.prepare('UPDATE sites SET name=?, road_name=?, suburb=?, state=?, postcode=?, latitude=?, longitude=?, description=?, updated_at=datetime("now") WHERE id=?').run(name, road_name || null, suburb || null, state || 'WA', postcode || null, latitude || null, longitude || null, description || null, req.params.id);
+  db.prepare('UPDATE sites SET name=?, road_name=?, suburb=?, state=?, postcode=?, latitude=?, longitude=?, description=?, updated_at=datetime(\'now\') WHERE id=?').run(name, road_name || null, suburb || null, state || 'WA', postcode || null, latitude || null, longitude || null, description || null, req.params.id);
   res.json(db.prepare('SELECT * FROM sites WHERE id = ?').get(req.params.id));
 });
 

@@ -133,6 +133,14 @@ const api = {
   settings: {
     get: () => request('/settings'),
     update: (data) => request('/settings', { method: 'PUT', body: JSON.stringify(data) })
+  },
+  workflows: {
+    stages: (entityType) => request(`/workflows/stages${entityType ? '?entity_type=' + entityType : ''}`),
+    createStage: (data) => request('/workflows/stages', { method: 'POST', body: JSON.stringify(data) }),
+    updateStage: (id, data) => request(`/workflows/stages/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteStage: (id) => request(`/workflows/stages/${id}`, { method: 'DELETE' }),
+    checklist: (entityType, entityId) => request(`/workflows/checklist/${entityType}/${entityId}`),
+    setStage: (entityType, entityId, stageId, done) => request(`/workflows/checklist/${entityType}/${entityId}`, { method: 'POST', body: JSON.stringify({ stageId, done }) })
   }
 };
 

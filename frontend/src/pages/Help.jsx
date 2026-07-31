@@ -38,6 +38,18 @@ const guides = [
     ]
   },
   {
+    id: 'stages',
+    icon: '🔄',
+    title: 'Workflow stages (checklists)',
+    steps: [
+      'Admins configure the stages every TMP and permit must pass through under <b>Workflows</b> (e.g. “TMP drawing prepared”, “Internal review”, “Public notice issued”).',
+      'Each stage is either <b>required</b> or <b>optional</b>. Required stages are enforced: a TMP or permit cannot be marked <b>approved</b> or <b>completed</b> while one is unticked.',
+      'Open any TMP or permit detail page to see its <b>workflow checklist</b> — tick stages off as they are completed; the progress bar updates live and records who ticked what and when.',
+      'Optional stages are tracked for your process but never block status changes — use them for steps that apply only sometimes (e.g. public notice for certain authorities).',
+      'Reorder, rename, add or delete stages anytime in <b>Workflows</b>; deleting a stage also removes its checklist entries from existing records.'
+    ]
+  },
+  {
     id: 'bulk',
     icon: '✅',
     title: 'Bulk actions & search',
@@ -159,7 +171,15 @@ const faqs = [
     a: 'Currently notifications are in-app only (the bell in the top-right). They refresh automatically once a minute while you are signed in.'
   },
   {
-    q: 'My changes seem to disappear after restart. What should I check?',
+    q: 'Why can’t I mark a TMP or permit as approved?',
+    a: 'The record has required workflow stages that are still unticked. Open the detail page, complete the required checklist items (the amber note lists them), then change the status again. Optional stages never block approval — only required ones do.'
+  },
+  {
+    q: 'Can every user tick workflow checklist items?',
+    a: 'Yes — anyone with access can tick a stage off and mark it done. Only admins can edit the stage definitions themselves (add, rename, reorder, make optional/required) on the Workflows page.'
+  },
+  {
+    q: 'Why do my changes seem to disappear after restart? What should I check?',
     a: 'Make sure you are not running two copies of the app against different data folders (e.g. one installed, one portable), and take a database backup from Settings before experimenting. The installed and portable builds each use their own data folder.'
   }
 ];

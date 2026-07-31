@@ -230,6 +230,28 @@ db.pragma('foreign_keys = ON');db.exec(`
     updated_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS workflow_stages (
+    id TEXT PRIMARY KEY,
+    entity_type TEXT NOT NULL CHECK(entity_type IN ('tmp','permit')),
+    name TEXT NOT NULL,
+    description TEXT,
+    is_optional INTEGER DEFAULT 0,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS workflow_checklist (
+    id TEXT PRIMARY KEY,
+    stage_id TEXT REFERENCES workflow_stages(id) ON DELETE CASCADE,
+    entity_type TEXT NOT NULL CHECK(entity_type IN ('tmp','permit')),
+    entity_id TEXT NOT NULL,
+    is_done INTEGER DEFAULT 0,
+    done_at TEXT,
+    done_by TEXT REFERENCES users(id),
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(stage_id, entity_type, entity_id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_tmps_project ON traffic_management_plans(project_id);
   CREATE INDEX IF NOT EXISTS idx_tmps_status ON traffic_management_plans(status);
   CREATE INDEX IF NOT EXISTS idx_permits_tmp ON permits(tmp_id);
@@ -243,6 +265,8 @@ db.pragma('foreign_keys = ON');db.exec(`
   CREATE INDEX IF NOT EXISTS idx_permit_fees_permit ON permit_fees(permit_id);
   CREATE INDEX IF NOT EXISTS idx_workflow_triggers_permit ON workflow_triggers(permit_id);
   CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
+  CREATE INDEX IF NOT EXISTS idx_workflow_stages_type ON workflow_stages(entity_type);
+  CREATE INDEX IF NOT EXISTS idx_workflow_checklist_entity ON workflow_checklist(entity_type, entity_id);
 `);
 
 export default db;

@@ -31,8 +31,8 @@ router.put('/:id', authorize('admin'), (req, res) => {
   const existing = db.prepare('SELECT id FROM users WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'User not found' });
   const { name, role } = req.body;
-  if (name) db.prepare('UPDATE users SET name = ?, updated_at = datetime("now") WHERE id = ?').run(name, id);
-  if (role) db.prepare('UPDATE users SET role = ?, updated_at = datetime("now") WHERE id = ?').run(role, id);
+  if (name) db.prepare('UPDATE users SET name = ?, updated_at = datetime(\'now\') WHERE id = ?').run(name, id);
+  if (role) db.prepare('UPDATE users SET role = ?, updated_at = datetime(\'now\') WHERE id = ?').run(role, id);
   res.json(db.prepare('SELECT id, email, name, role FROM users WHERE id = ?').get(id));
 });
 

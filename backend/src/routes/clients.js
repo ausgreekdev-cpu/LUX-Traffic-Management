@@ -29,7 +29,7 @@ router.put('/:id', validate('client'), (req, res) => {
   const existing = db.prepare('SELECT id FROM clients WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Client not found' });
   const { name, company, email, phone, address, abn } = req.validated;
-  db.prepare('UPDATE clients SET name=?, company=?, email=?, phone=?, address=?, abn=?, updated_at=datetime("now") WHERE id=?').run(name, company || null, email || null, phone || null, address || null, abn || null, req.params.id);
+  db.prepare('UPDATE clients SET name=?, company=?, email=?, phone=?, address=?, abn=?, updated_at=datetime(\'now\') WHERE id=?').run(name, company || null, email || null, phone || null, address || null, abn || null, req.params.id);
   res.json(db.prepare('SELECT * FROM clients WHERE id = ?').get(req.params.id));
 });
 

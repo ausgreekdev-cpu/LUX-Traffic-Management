@@ -19,6 +19,7 @@ import Analytics from './pages/Analytics';
 import UsersList from './pages/UsersList';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
+import WorkflowSettings from './pages/WorkflowSettings';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="analytics" element={<Analytics />} />
         <Route path="settings" element={<Settings />} />
         <Route path="help" element={<Help />} />
+        <Route path="workflows" element={<WorkflowSettings />} />
         <Route path="users" element={<UsersList />} />
       </Route>
     </Routes>

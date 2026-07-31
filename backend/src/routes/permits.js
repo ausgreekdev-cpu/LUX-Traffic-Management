@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { incompleteRequiredStages } from './workflows.js';
 
 const router = Router();
 router.use(authenticate);
@@ -120,9 +121,14 @@ router.put('/:id', validate('permit'), (req, res) => {
   const existing = db.prepare('SELECT * FROM permits WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Permit not found' });
   const { tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa } = req.validated;
+  const nextStatus = status || existing.status;
+  if ((nextStatus === 'approved' || nextStatus === 'completed') && nextStatus !== existing.status) {
+    const missing = incompleteRequiredStages('permit', req.params.id);
+    if (missing.length) return res.status(400).json({ error: `Incomplete required workflow stages: ${missing.join(', ')}` });
+  }
 
-  db.prepare('UPDATE permits SET tmp_id=?, authority_id=?, status=?, complexity=?, submission_date=?, approval_date=?, expiry_date=?, rejection_reason=?, is_within_30m_signals=?, requires_mrwa=?, updated_at=datetime("now") WHERE id=?').run(
-    tmp_id || existing.tmp_id, authority_id || existing.authority_id, status || existing.status, complexity || existing.complexity,
+  db.prepare('UPDATE permits SET tmp_id=?, authority_id=?, status=?, complexity=?, submission_date=?, approval_date=?, expiry_date=?, rejection_reason=?, is_within_30m_signals=?, requires_mrwa=?, updated_at=datetime(\'now\') WHERE id=?').run(
+    tmp_id || existing.tmp_id, authority_id || existing.authority_id, nextStatus, complexity || existing.complexity,
     submission_date || existing.submission_date, approval_date || existing.approval_date, expiry_date || existing.expiry_date,
     rejection_reason || existing.rejection_reason, is_within_30m_signals !== undefined ? (is_within_30m_signals ? 1 : 0) : existing.is_within_30m_signals,
     requires_mrwa !== undefined ? (requires_mrwa ? 1 : 0) : existing.requires_mrwa, req.params.id
@@ -139,7 +145,7 @@ router.put('/:id', validate('permit'), (req, res) => {
   }
 
   if (status === 'approved') {
-    db.prepare('UPDATE permits SET approval_date = datetime("now") WHERE id = ? AND approval_date IS NULL').run(req.params.id);
+    db.prepare('UPDATE permits SET approval_date = datetime(\'now\') WHERE id = ? AND approval_date IS NULL').run(req.params.id);
   }
 
   const triggers = checkTriggers(req.params.id, existing.tmp_id);
@@ -152,6 +158,16 @@ router.post('/bulk', (req, res) => {
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'No ids provided' });
   if (action === 'status') {
     if (!status) return res.status(400).json({ error: 'Status required' });
+    if (status === 'approved' || status === 'completed') {
+      const missingPerId = [];
+      for (const id of ids) {
+        const permit = db.prepare('SELECT id FROM permits WHERE id = ?').get(id);
+        if (!permit) continue;
+        const missing = incompleteRequiredStages('permit', id);
+        if (missing.length) missingPerId.push(`${id}: ${missing.join(', ')}`);
+      }
+      if (missingPerId.length) return res.status(400).json({ error: 'Incomplete required workflow stages: ' + missingPerId.join(' | ') });
+    }
     const stmt = db.prepare('UPDATE permits SET status = ?, updated_at = datetime(\'now\') WHERE id = ?');
     const act = db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)');
     const tx = db.transaction((list) => {
@@ -198,7 +214,7 @@ router.get('/:id/triggers', (req, res) => {
 });
 
 router.put('/:permitId/triggers/:triggerId/resolve', (req, res) => {
-  const result = db.prepare('UPDATE workflow_triggers SET is_resolved = 1, resolved_at = datetime("now"), resolved_by = ? WHERE id = ? AND permit_id = ?').run(req.user.id, req.params.triggerId, req.params.permitId);
+  const result = db.prepare('UPDATE workflow_triggers SET is_resolved = 1, resolved_at = datetime(\'now\'), resolved_by = ? WHERE id = ? AND permit_id = ?').run(req.user.id, req.params.triggerId, req.params.permitId);
   if (result.changes === 0) return res.status(404).json({ error: 'Trigger not found' });
   res.json({ success: true });
 });

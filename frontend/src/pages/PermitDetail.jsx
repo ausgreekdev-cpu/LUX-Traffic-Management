@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
+import WorkflowChecklist from '../components/WorkflowChecklist';
 
 export default function PermitDetail() {
   const { id } = useParams();
@@ -13,8 +14,12 @@ export default function PermitDetail() {
   useEffect(() => { loadPermit().finally(() => setLoading(false)); }, [id]);
 
   const handleStatusChange = async (newStatus) => {
-    await api.permits.update(id, { status: newStatus });
-    await loadPermit();
+    try {
+      await api.permits.update(id, { status: newStatus });
+      await loadPermit();
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleResolveTrigger = async (triggerId) => {
@@ -129,6 +134,7 @@ export default function PermitDetail() {
               <button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm">Add Fee</button>
             </form>
           </div>
+          <WorkflowChecklist entityType="permit" entityId={id} />
         </div>
 
         <div className="space-y-4">
