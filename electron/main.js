@@ -27,13 +27,17 @@ function findAvailablePort(startPort) {
 async function startBackend() {
   const isDev = !app.isPackaged;
   const backendDir = isDev
-    ? path.join(__dirname, '..', '..', 'backend')
+    ? path.join(__dirname, '..', 'backend')
     : path.join(process.resourcesPath, 'backend');
 
   const userDataPath = app.getPath('userData');
   process.env.PORT = String(BACKEND_PORT);
   process.env.NODE_ENV = isDev ? 'development' : 'production';
-  process.env.DB_PATH = path.join(userDataPath, 'tmpcms.db');
+  if (isDev) {
+    delete process.env.DB_PATH;
+  } else {
+    process.env.DB_PATH = path.join(userDataPath, 'tmpcms.db');
+  }
   process.chdir(backendDir);
 
   const backendPath = path.join(backendDir, 'src', 'index.js');
@@ -97,12 +101,8 @@ function createWindow() {
     log(`[Renderer] Failed to load ${url}: ${desc} (${code})`);
   });
 
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadURL('http://localhost:' + BACKEND_PORT);
-  }
+  mainWindow.loadURL('http://localhost:' + BACKEND_PORT);
+  if (isDev) mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => { mainWindow = null; });
 }
