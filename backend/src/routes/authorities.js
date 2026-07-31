@@ -1,15 +1,37 @@
 import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
+import multer from 'multer';
+import { createRequire } from 'module';
 import db from '../db.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { deserializeAuthority, upsertDirectoryEntries } from '../seed-directory.js';
+import { buildDirectory } from '../lga-directory.js';
+
+const require = createRequire(import.meta.url);
+const { PDFParse } = require('pdf-parse');
 
 const router = Router();
 router.use(authenticate);
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 30 * 1024 * 1024 }
+});
+
+const JSON_FIELDS = ['councillors', 'suburbs', 'statistics'];
+const DIRECTORY_FIELDS = ['council_type', 'abn', 'band', 'suburb', 'postcode', 'mayor', 'deputy', 'ceo', 'councillors', 'executive_team', 'suburbs', 'meeting_schedule', 'map_coordinates', 'zone', 'statistics'];
+
+function toStore(value) {
+  return value == null ? null : JSON.stringify(value);
+}
+
+function listAuthorities() {
+  return db.prepare('SELECT * FROM authorities ORDER BY name').all().map(deserializeAuthority);
+}
+
 router.get('/', (req, res) => {
-  const authorities = db.prepare('SELECT * FROM authorities ORDER BY name').all();
-  res.json(authorities);
+  res.json(listAuthorities());
 });
 
 router.get('/cost-codes', (req, res) => {
@@ -49,22 +71,90 @@ router.get('/:id', (req, res) => {
   if (!authority) return res.status(404).json({ error: 'Authority not found' });
   const slaRules = db.prepare('SELECT * FROM sla_rules WHERE authority_id = ? ORDER BY complexity').all(req.params.id);
   const intersections = db.prepare('SELECT * FROM signalised_intersections WHERE authority_id = ?').all(req.params.id);
-  res.json({ ...authority, sla_rules: slaRules, signalised_intersections: intersections });
+  res.json({ ...deserializeAuthority(authority), sla_rules: slaRules, signalised_intersections: intersections });
 });
 
 router.post('/', validate('authority'), (req, res) => {
   const id = uuid();
   const { name, short_name, type, email, phone, website, address, contact_person } = req.validated;
-  db.prepare('INSERT INTO authorities (id, name, short_name, type, email, phone, website, address, contact_person) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, name, short_name || null, type || 'other', email || null, phone || null, website || null, address || null, contact_person || null);
+  const d = req.validated;
+  db.prepare(`INSERT INTO authorities (
+    id, name, short_name, type, email, phone, website, address, contact_person,
+    council_type, abn, band, suburb, postcode, mayor, deputy, ceo, councillors,
+    executive_team, suburbs, meeting_schedule, map_coordinates, zone, statistics
+  ) VALUES (
+    @id, @name, @short_name, @type, @email, @phone, @website, @address, @contact_person,
+    @council_type, @abn, @band, @suburb, @postcode, @mayor, @deputy, @ceo, @councillors,
+    @executive_team, @suburbs, @meeting_schedule, @map_coordinates, @zone, @statistics
+  )`).run({
+    id, name, short_name: short_name || null, type: type || 'other',
+    email: email || null, phone: phone || null, website: website || null,
+    address: address || null, contact_person: contact_person || null,
+    council_type: d.council_type || null, abn: d.abn || null, band: d.band ?? null,
+    suburb: d.suburb || null, postcode: d.postcode || null, mayor: d.mayor || null,
+    deputy: d.deputy || null, ceo: d.ceo || null, councillors: toStore(d.councillors),
+    executive_team: d.executive_team || null, suburbs: toStore(d.suburbs),
+    meeting_schedule: d.meeting_schedule || null, map_coordinates: d.map_coordinates || null,
+    zone: d.zone || null, statistics: toStore(d.statistics)
+  });
   res.status(201).json({ id, name, short_name });
 });
 
 router.put('/:id', validate('authority'), (req, res) => {
   const existing = db.prepare('SELECT * FROM authorities WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Authority not found' });
-  const { name, short_name, type, email, phone, website, address, contact_person } = req.validated;
-  db.prepare('UPDATE authorities SET name=?, short_name=?, type=?, email=?, phone=?, website=?, address=?, contact_person=?, updated_at=datetime(\'now\') WHERE id=?').run(name, short_name !== undefined ? (short_name || null) : existing.short_name, type !== undefined ? (type || 'other') : existing.type, email !== undefined ? (email || null) : existing.email, phone !== undefined ? (phone || null) : existing.phone, website !== undefined ? (website || null) : existing.website, address !== undefined ? (address || null) : existing.address, contact_person !== undefined ? (contact_person || null) : existing.contact_person, req.params.id);
-  res.json(db.prepare('SELECT * FROM authorities WHERE id = ?').get(req.params.id));
+  const v = req.validated;
+  const val = (key, fallback) => (v[key] !== undefined ? v[key] : fallback);
+  const jsonVal = (key, fallback) => (v[key] !== undefined ? toStore(v[key]) : fallback);
+  db.prepare(`UPDATE authorities SET
+    name=@name, short_name=@short_name, type=@type, email=@email, phone=@phone,
+    website=@website, address=@address, contact_person=@contact_person,
+    council_type=@council_type, abn=@abn, band=@band, suburb=@suburb, postcode=@postcode,
+    mayor=@mayor, deputy=@deputy, ceo=@ceo, councillors=@councillors,
+    executive_team=@executive_team, suburbs=@suburbs, meeting_schedule=@meeting_schedule,
+    map_coordinates=@map_coordinates, zone=@zone, statistics=@statistics,
+    updated_at=datetime('now')
+    WHERE id=@id
+  `).run({
+    id: req.params.id,
+    name: v.name !== undefined ? v.name : existing.name,
+    short_name: val('short_name', existing.short_name),
+    type: val('type', existing.type),
+    email: val('email', existing.email),
+    phone: val('phone', existing.phone),
+    website: val('website', existing.website),
+    address: val('address', existing.address),
+    contact_person: val('contact_person', existing.contact_person),
+    council_type: val('council_type', existing.council_type),
+    abn: val('abn', existing.abn),
+    band: val('band', existing.band),
+    suburb: val('suburb', existing.suburb),
+    postcode: val('postcode', existing.postcode),
+    mayor: val('mayor', existing.mayor),
+    deputy: val('deputy', existing.deputy),
+    ceo: val('ceo', existing.ceo),
+    councillors: jsonVal('councillors', existing.councillors),
+    executive_team: val('executive_team', existing.executive_team),
+    suburbs: jsonVal('suburbs', existing.suburbs),
+    meeting_schedule: val('meeting_schedule', existing.meeting_schedule),
+    map_coordinates: val('map_coordinates', existing.map_coordinates),
+    zone: val('zone', existing.zone),
+    statistics: jsonVal('statistics', existing.statistics)
+  });
+  res.json(deserializeAuthority(db.prepare('SELECT * FROM authorities WHERE id = ?').get(req.params.id)));
+});
+
+router.post('/import-directory', authorize('admin'), upload.single('pdf'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No PDF uploaded (field name: pdf)' });
+  try {
+    const parsed = await new PDFParse({ data: req.file.buffer }).getText();
+    const entries = buildDirectory(parsed.text);
+    if (!entries.length) return res.status(400).json({ error: 'Could not read any local government entries from the PDF' });
+    const result = upsertDirectoryEntries(entries, 'WALGA Local Government Directory (import)');
+    res.json({ ...result, total: entries.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to parse PDF: ' + err.message });
+  }
 });
 
 router.delete('/:id', (req, res) => {

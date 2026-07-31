@@ -76,7 +76,15 @@ const api = {
     deleteSLA: (authId, ruleId) => request(`/authorities/${authId}/sla-rules/${ruleId}`, { method: 'DELETE' }),
     costCodes: () => request('/authorities/cost-codes'),
     signalisedIntersections: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/authorities/signalised-intersections${q}`); },
-    createIntersection: (data) => request('/authorities/signalised-intersections', { method: 'POST', body: JSON.stringify(data) })
+    createIntersection: (data) => request('/authorities/signalised-intersections', { method: 'POST', body: JSON.stringify(data) }),
+    importDirectory: async (file) => {
+      const token = localStorage.getItem('token');
+      const form = new FormData();
+      form.append('pdf', file);
+      const res = await fetch(`${BASE}/authorities/import-directory`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Import failed' })); throw new Error(err.error || 'Import failed'); }
+      return res.json();
+    }
   },
   permits: {
     list: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/permits${q}`); },

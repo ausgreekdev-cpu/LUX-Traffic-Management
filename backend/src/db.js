@@ -106,6 +106,23 @@ db.pragma('foreign_keys = ON');db.exec(`
     website TEXT,
     address TEXT,
     contact_person TEXT,
+    council_type TEXT,
+    abn TEXT,
+    band INTEGER,
+    suburb TEXT,
+    postcode TEXT,
+    mayor TEXT,
+    deputy TEXT,
+    ceo TEXT,
+    councillors TEXT,
+    executive_team TEXT,
+    suburbs TEXT,
+    meeting_schedule TEXT,
+    map_coordinates TEXT,
+    zone TEXT,
+    statistics TEXT,
+    directory_source TEXT,
+    directory_updated_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -268,6 +285,21 @@ db.pragma('foreign_keys = ON');db.exec(`
   CREATE INDEX IF NOT EXISTS idx_workflow_stages_type ON workflow_stages(entity_type);
   CREATE INDEX IF NOT EXISTS idx_workflow_checklist_entity ON workflow_checklist(entity_type, entity_id);
 `);
+
+// Migrations for existing databases: add directory fields to authorities if missing.
+{
+  const existing = db.prepare('PRAGMA table_info(authorities)').all().map(c => c.name);
+  const directoryCols = [
+    'council_type TEXT', 'abn TEXT', 'band INTEGER', 'suburb TEXT', 'postcode TEXT',
+    'mayor TEXT', 'deputy TEXT', 'ceo TEXT', 'councillors TEXT', 'executive_team TEXT',
+    'suburbs TEXT', 'meeting_schedule TEXT', 'map_coordinates TEXT', 'zone TEXT',
+    'statistics TEXT', 'directory_source TEXT', 'directory_updated_at TEXT'
+  ];
+  for (const col of directoryCols) {
+    const name = col.split(' ')[0];
+    if (!existing.includes(name)) db.exec(`ALTER TABLE authorities ADD COLUMN ${col}`);
+  }
+}
 
 export default db;
 export { dbPath };

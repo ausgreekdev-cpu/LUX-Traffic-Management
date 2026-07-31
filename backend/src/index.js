@@ -20,6 +20,7 @@ import analyticsRoutes from './routes/analytics.js';
 import notificationRoutes from './routes/notifications.js';
 import settingsRoutes from './routes/settings.js';
 import workflowRoutes, { ensureWorkflowSeeds } from './routes/workflows.js';
+import { seedDirectoryIfEmpty } from './seed-directory.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -56,6 +57,7 @@ app.use('/api/workflows', workflowRoutes);
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 ensureWorkflowSeeds();
+seedDirectoryIfEmpty();
 
 app.listen(PORT, () => {
   console.log('TMP CMS backend running on http://localhost:' + PORT);

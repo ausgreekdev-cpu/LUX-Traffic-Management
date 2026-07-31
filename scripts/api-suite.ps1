@@ -145,6 +145,22 @@ Check 'create sla rule' ($r.Status -eq 201) "got $($r.Status) $($r.Text)"
 $r = Api GET "/api/authorities/$authId/sla-rules" $adminToken
 Check 'list sla rules' ($r.Status -eq 200 -and (Json $r).Count -ge 1) "got $($r.Status)"
 
+# ---------- WA Local Government Directory ----------
+$r = Post '/api/authorities' $adminToken @{ name = 'Directory Test Council'; short_name = 'DirTest'; type = 'lga'; council_type = 'town'; band = 2; mayor = 'Mayor One'; ceo = 'CEO Two'; councillors = @(@{ name = 'Cr Three'; ward = 'North'; term = '2027' }); suburbs = @(@{ name = 'Dirville'; postcode = '6000' }); statistics = @{ population = 1234 } }
+Check 'create authority with directory fields' ($r.Status -eq 201) "got $($r.Status) $($r.Text)"
+$dirId = (Json $r).id
+$r = Api GET "/api/authorities/$dirId" $adminToken
+$one = Json $r
+Check 'directory fields persisted' ($one.band -eq 2 -and $one.mayor -eq 'Mayor One' -and $one.councillors.Count -eq 1 -and $one.councillors[0].ward -eq 'North' -and $one.suburbs.Count -eq 1 -and $one.statistics.population -eq 1234) "got band=$($one.band) mayor=$($one.mayor) c=$($one.councillors.Count) s=$($one.suburbs.Count) pop=$($one.statistics.population)"
+$r = Put "/api/authorities/$dirId" $adminToken @{ name = 'Directory Test Council'; mayor = 'Mayor Updated' }
+Check 'update directory field partial' ($r.Status -eq 200 -and (Json $r).mayor -eq 'Mayor Updated' -and (Json $r).band -eq 2) "got $($r.Status)"
+$r = Post '/api/authorities/import-directory' $planToken @{}
+Check 'import directory requires admin' ($r.Status -eq 403) "got $($r.Status)"
+$r = Post '/api/authorities/import-directory' $adminToken @{}
+Check 'import directory missing file -> 400' ($r.Status -eq 400) "got $($r.Status)"
+$r = Api DELETE "/api/authorities/$dirId" $adminToken
+Check 'delete directory test authority' ($r.Status -eq 200) "got $($r.Status)"
+
 # ---------- TMPs ----------
 $r = Post '/api/tmps' $adminToken @{ title = 'Test TMP'; plan_type = 'temporary'; status = 'draft'; description = 'facet test'; project_id = $projId; site_id = $siteId; start_date = '2026-07-01'; end_date = '2026-08-01' }
 Check 'create tmp' ($r.Status -eq 201) "got $($r.Status) $($r.Text)"

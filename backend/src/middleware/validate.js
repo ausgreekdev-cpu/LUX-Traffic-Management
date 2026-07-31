@@ -62,7 +62,29 @@ export const schemas = {
     phone: z.string().optional(),
     website: z.string().url().optional(),
     address: z.string().optional(),
-    contact_person: z.string().optional()
+    contact_person: z.string().optional(),
+    council_type: z.enum(['town', 'city', 'shire']).optional(),
+    abn: z.string().optional(),
+    band: z.number().int().min(1).max(4).optional().nullable(),
+    suburb: z.string().optional(),
+    postcode: z.string().optional(),
+    mayor: z.string().optional(),
+    deputy: z.string().optional(),
+    ceo: z.string().optional(),
+    councillors: z.array(z.object({
+      name: z.string(),
+      ward: z.string().optional().nullable(),
+      term: z.string().optional().nullable()
+    })).optional(),
+    executive_team: z.string().optional(),
+    suburbs: z.array(z.object({
+      name: z.string(),
+      postcode: z.string().optional().nullable()
+    })).optional(),
+    meeting_schedule: z.string().optional(),
+    map_coordinates: z.string().optional(),
+    zone: z.string().optional(),
+    statistics: z.record(z.string(), z.number()).optional()
   }),
 
   slaRule: z.object({
