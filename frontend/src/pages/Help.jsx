@@ -38,6 +38,38 @@ const guides = [
     ]
   },
   {
+    id: 'wa-directory',
+    icon: '🏛️',
+    title: 'WA Local Government Directory',
+    steps: [
+      'Open <b>Authorities</b> from the sidebar. The list is pre-loaded with all <b>139 local government authorities</b> from the published WA Local Government Directory — every city, town and shire — each showing its type, band and zone at a glance.',
+      'Click an authority to open its full record: <b>zone and band</b>, mayor / president, deputy and CEO, <b>councillors</b> (name, ward and term), <b>suburbs and localities</b> with postcodes, <b>council statistics</b> (population, electors, area, roads, rates, revenue, employees), the <b>meeting schedule</b> and <b>map coordinates</b>, plus contact details and ABN.',
+      'Filter the list with the search box — it matches <b>name</b>, <b>short name</b> or <b>zone</b>, so typing “Perth” or “metropolitan” narrows the list instantly.',
+      'Admins can refresh the directory from the published PDF: press <b>Import Directory PDF</b> (top-right of the Authorities page) and choose the file. The import takes about a second — it updates existing authorities, inserts new ones and leaves authorities you created yourself (e.g. MRWA, PTA) untouched. A confirmation shows how many were inserted and updated.'
+    ]
+  },
+  {
+    id: 'authority-sla',
+    icon: '⚖️',
+    title: 'Authority SLA rules',
+    steps: [
+      'Open <b>Authorities</b>, click an authority and scroll to the <b>SLA Rules</b> panel. Each row is one rule for a complexity — <b>Simple</b>, <b>Standard</b>, <b>Complex</b> or <b>Complex+Notice</b> — showing assessment, public-notice and buffer days.',
+      'Add a rule with the form below the list: choose the complexity, enter the assessment days and press <b>Add</b>.',
+      'Remove a rule with the <b>Del</b> button on its row.',
+      'The rules power the enforcement workflow: when a permit is submitted, the app uses the rule for that authority and complexity and adds assessment + public notice + buffer days to the submission date. The expected decision date is stored on the permit and shown in its <b>SLA Information</b> panel.'
+    ]
+  },
+  {
+    id: 'intersections',
+    icon: '🚦',
+    title: 'Signalised intersections (30m rule)',
+    steps: [
+      'Open <b>Authorities</b> and click an authority — if signalised intersections are recorded for it, the <b>Signalised Intersections (30m Rule)</b> panel lists each one with the intersection name, road, suburb and distance in metres.',
+      'Intersections are kept per authority, so a road near one council never affects permits lodged with another.',
+      'These records feed the <b>30&nbsp;m workflow trigger</b>: when a permit’s site sits within 30&nbsp;m of a signalised intersection, the app flags that an MRWA referral may be required. Resolve the trigger on the permit page once actioned.'
+    ]
+  },
+  {
     id: 'stages',
     icon: '🔄',
     title: 'Workflow stages (checklists)',
@@ -142,6 +174,14 @@ const faqs = [
   {
     q: 'How are SLA dates calculated?',
     a: 'For each authority and complexity (simple, standard, complex, complex with notice) an SLA rule defines assessment days, optional public-notice days and buffer days. On submit, the app adds all three to the submission date and stores the expected date on the permit.'
+  },
+  {
+    q: 'What is the WA Local Government Directory?',
+    a: 'It is the published list of Western Australia’s 139 local government authorities (cities, towns and shires). The app imports it so every council you work with is already in the system, complete with elected members, contact details, statistics, suburbs and meeting schedules. Admins can refresh it from the published PDF with Import Directory PDF on the Authorities page.'
+  },
+  {
+    q: 'Will importing the directory overwrite authorities I added myself?',
+    a: 'No. An import only updates or inserts the local governments found in the PDF. Authorities you created manually, such as MRWA or PTA, are left exactly as they are — and an import never deletes anything.'
   },
   {
     q: 'What are the MRWA / 30m signalised intersection triggers?',
