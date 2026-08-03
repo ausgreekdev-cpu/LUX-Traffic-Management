@@ -1,0 +1,14 @@
+node_modules/
+release/
+.git/
+*.db
+*.db-wal
+*.db-shm
+*.log
+.env
+backend/data/*
+!backend/data/wa-lga-directory.json
+backend/uploads/*
+backend/frontend/dist/
+frontend/dist/
+frontend/node_modules/
