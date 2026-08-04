@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import { PERMIT_BADGES, badgeFor, statusLabel } from '../utils/status';
 
 const statuses = ['draft', 'submitted', 'under_review', 'approved', 'rejected', 'expired', 'completed', 'cancelled'];
 
@@ -85,11 +86,6 @@ export default function PermitList() {
     }
   };
 
-  const statusColor = (s) => {
-    const map = { draft: 'bg-gray-100 text-gray-600', submitted: 'bg-blue-100 text-blue-700', under_review: 'bg-purple-100 text-purple-700', approved: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700', expired: 'bg-orange-100 text-orange-700', completed: 'bg-green-50 text-green-600', cancelled: 'bg-gray-100 text-gray-500' };
-    return map[s] || 'bg-gray-100 text-gray-600';
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -146,7 +142,7 @@ export default function PermitList() {
                   <td className="px-4 py-3"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td>
                   <td className="px-4 py-3"><Link to={`/permits/${p.id}`} className="text-amber-600 hover:underline font-medium">{p.tmp_reference || '-'}</Link></td>
                   <td className="px-4 py-3"><span className="font-medium">{p.authority_short}</span> <span className="text-xs text-gray-400">({p.authority_type?.toUpperCase()})</span></td>
-                  <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded ${statusColor(p.status)}`}>{p.status?.replace('_', ' ')}</span></td>
+                  <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded ${badgeFor(PERMIT_BADGES, p.status)}`}>{statusLabel(p.status)}</span></td>
                   <td className="px-4 py-3 text-gray-500">{p.complexity}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{p.submission_date || '-'}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{p.expiry_date || '-'}</td>

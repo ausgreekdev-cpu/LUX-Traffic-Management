@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import WorkflowChecklist from '../components/WorkflowChecklist';
+import { PERMIT_BADGES, FEE_BADGES, badgeFor, statusLabel } from '../utils/status';
 
 export default function PermitDetail() {
   const { id } = useParams();
@@ -45,8 +46,6 @@ export default function PermitDetail() {
   if (loading) return <p className="text-gray-500">Loading...</p>;
   if (!permit) return <p className="text-red-500">Permit not found</p>;
 
-  const statusColor = (s) => ({ draft: 'bg-gray-100 text-gray-600', submitted: 'bg-blue-100 text-blue-700', under_review: 'bg-purple-100 text-purple-700', approved: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700', expired: 'bg-orange-100 text-orange-700', completed: 'bg-green-50 text-green-600', cancelled: 'bg-gray-100 text-gray-500' }[s] || 'bg-gray-100 text-gray-600');
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -71,7 +70,7 @@ export default function PermitDetail() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <h2 className="font-semibold mb-2">Permit Details</h2>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-gray-500">Status:</span> <span className={`ml-1 px-2 py-0.5 rounded text-xs ${statusColor(permit.status)}`}>{permit.status?.replace('_', ' ')}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className={`ml-1 px-2 py-0.5 rounded text-xs ${badgeFor(PERMIT_BADGES, permit.status)}`}>{statusLabel(permit.status)}</span></div>
               <div><span className="text-gray-500">Authority:</span> <span className="ml-1">{permit.authority_name} ({permit.authority_type?.toUpperCase()})</span></div>
               <div><span className="text-gray-500">Complexity:</span> <span className="ml-1">{permit.complexity}</span></div>
               <div><span className="text-gray-500">Submitted:</span> <span className="ml-1">{permit.submission_date || 'Not submitted'}</span></div>
@@ -107,7 +106,7 @@ export default function PermitDetail() {
               <table className="w-full text-sm mb-3">
                 <thead><tr className="border-b"><th className="text-left py-2">Type</th><th className="text-left py-2">Amount</th><th className="text-left py-2">Status</th></tr></thead>
                 <tbody>{permit.fees.map(f => (
-                  <tr key={f.id} className="border-b"><td className="py-2">{f.fee_type.replace(/_/g, ' ')}</td><td>${f.amount.toFixed(2)}</td><td><span className={`text-xs px-2 py-0.5 rounded ${f.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{f.status}</span></td></tr>
+                  <tr key={f.id} className="border-b"><td className="py-2">{f.fee_type.replace(/_/g, ' ')}</td><td>${f.amount.toFixed(2)}</td><td><span className={`text-xs px-2 py-0.5 rounded ${badgeFor(FEE_BADGES, f.status)}`}>{f.status}</span></td></tr>
                 ))}</tbody>
               </table>
             )}

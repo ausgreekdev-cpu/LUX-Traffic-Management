@@ -21,6 +21,7 @@ import notificationRoutes from './routes/notifications.js';
 import settingsRoutes from './routes/settings.js';
 import workflowRoutes, { ensureWorkflowSeeds } from './routes/workflows.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
+import { cleanupRateLimitBuckets } from './middleware/rate-limit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -56,8 +57,16 @@ app.use('/api/workflows', workflowRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+
 ensureWorkflowSeeds();
 seedDirectoryIfEmpty();
+
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET is not set. Using the insecure default secret — set JWT_SECRET to a long random value before deploying.');
+}
+
+setInterval(cleanupRateLimitBuckets, 60 * 60 * 1000).unref();
 
 app.listen(PORT, () => {
   console.log('TMP CMS backend running on http://localhost:' + PORT);

@@ -3,16 +3,19 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import db from '../db.js';
 import { validate } from '../middleware/validate.js';
+import { rateLimit, rateLimitFailed, rateLimitSucceeded } from '../middleware/rate-limit.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'lux-traffic-jwt-secret-change-in-production';
 
-router.post('/login', validate('login'), (req, res) => {
+router.post('/login', rateLimit('login', 10, 15), validate('login'), (req, res) => {
   const { email, password } = req.validated;
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (!user || !bcrypt.compareSync(password, user.password)) {
+    rateLimitFailed(req.rateLimitKey);
     return res.status(401).json({ error: 'Invalid credentials' });
   }
+  rateLimitSucceeded(req.rateLimitKey);
   const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
   res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
 });
