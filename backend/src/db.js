@@ -247,6 +247,18 @@ db.pragma('foreign_keys = ON');db.exec(`
     updated_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS workflow_templates (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    entity_type TEXT NOT NULL CHECK(entity_type IN ('tmp','permit')),
+    complexity TEXT CHECK(complexity IN ('simple','standard','complex','complex_with_notice')),
+    authority_id TEXT REFERENCES authorities(id),
+    is_default INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(entity_type, complexity, authority_id)
+  );
+
   CREATE TABLE IF NOT EXISTS workflow_stages (
     id TEXT PRIMARY KEY,
     entity_type TEXT NOT NULL CHECK(entity_type IN ('tmp','permit')),
@@ -254,6 +266,7 @@ db.pragma('foreign_keys = ON');db.exec(`
     description TEXT,
     is_optional INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0,
+    template_id TEXT REFERENCES workflow_templates(id) ON DELETE CASCADE,
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -268,6 +281,41 @@ db.pragma('foreign_keys = ON');db.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     UNIQUE(stage_id, entity_type, entity_id)
   );
+
+  CREATE TABLE IF NOT EXISTS automation_rules (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    is_active INTEGER DEFAULT 1,
+    entity_type TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    conditions_json TEXT,
+    actions_json TEXT,
+    priority INTEGER DEFAULT 0,
+    cooldown_hours INTEGER DEFAULT 0,
+    dedupe_key_template TEXT,
+    created_by TEXT REFERENCES users(id),
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS automation_runs (
+    id TEXT PRIMARY KEY,
+    rule_id TEXT REFERENCES automation_rules(id) ON DELETE SET NULL,
+    event_type TEXT,
+    entity_type TEXT,
+    entity_id TEXT,
+    payload_json TEXT,
+    status TEXT DEFAULT 'fired' CHECK(status IN ('fired','skipped','error')),
+    actions_json TEXT,
+    error TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_automation_rules_active ON automation_rules(is_active);
+  CREATE INDEX IF NOT EXISTS idx_automation_runs_rule ON automation_runs(rule_id);
+  CREATE INDEX IF NOT EXISTS idx_automation_runs_entity ON automation_runs(entity_type, entity_id);
+  CREATE INDEX IF NOT EXISTS idx_automation_runs_status ON automation_runs(status);
 
   CREATE INDEX IF NOT EXISTS idx_tmps_project ON traffic_management_plans(project_id);
   CREATE INDEX IF NOT EXISTS idx_tmps_status ON traffic_management_plans(status);
@@ -300,6 +348,65 @@ db.pragma('foreign_keys = ON');db.exec(`
     if (!existing.includes(name)) db.exec(`ALTER TABLE authorities ADD COLUMN ${col}`);
   }
 }
+
+// Migration: template_id on workflow_stages (legacy stages stay NULL = global fallback).
+{
+  const stageCols = db.prepare('PRAGMA table_info(workflow_stages)').all().map(c => c.name);
+  if (!stageCols.includes('template_id')) db.exec('ALTER TABLE workflow_stages ADD COLUMN template_id TEXT REFERENCES workflow_templates(id) ON DELETE CASCADE');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_stages_template ON workflow_stages(template_id)');
+}
+
+// Migration: complexity on traffic_management_plans (Phase 3 complexity triage).
+{
+  const tmpCols = db.prepare('PRAGMA table_info(traffic_management_plans)').all().map(c => c.name);
+  if (!tmpCols.includes('complexity')) db.exec("ALTER TABLE traffic_management_plans ADD COLUMN complexity TEXT DEFAULT 'standard'");
+}
+
+// Migration: Phase 4 risk scoring fields on traffic_management_plans.
+{
+  const tmpCols = db.prepare('PRAGMA table_info(traffic_management_plans)').all().map(c => c.name);
+  const add = (name, def) => { if (!tmpCols.includes(name)) db.exec(`ALTER TABLE traffic_management_plans ADD COLUMN ${name} ${def}`); };
+  add('risk_consequence', 'INTEGER');
+  add('risk_likelihood', 'INTEGER');
+  add('risk_score', 'INTEGER');
+  add('risk_band', 'TEXT');
+  add('risk_mitigations', 'TEXT');
+  add('complexity_source', "TEXT DEFAULT 'manual'");
+}
+
+// Migration: Phase 4 site data fields (road class, speed, AADT, activity, rail, school).
+{
+  const siteCols = db.prepare('PRAGMA table_info(sites)').all().map(c => c.name);
+  const add = (name, def) => { if (!siteCols.includes(name)) db.exec(`ALTER TABLE sites ADD COLUMN ${name} ${def}`); };
+  add('road_class', "TEXT CHECK(road_class IN ('local','distributor','collector','arterial','highway','freeway'))");
+  add('speed_limit', 'INTEGER');
+  add('aadt', 'INTEGER');
+  add('pedestrian_activity', "TEXT CHECK(pedestrian_activity IN ('low','medium','high'))");
+  add('cyclist_activity', "TEXT CHECK(cyclist_activity IN ('low','medium','high'))");
+  add('rail_corridor', 'INTEGER DEFAULT 0');
+  add('school_zone', 'INTEGER DEFAULT 0');
+}
+
+// Phase 5: AI agent runs (reports + recommendations, human-in-the-loop).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS agent_runs (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id TEXT,
+    verdict TEXT,
+    score REAL,
+    summary TEXT,
+    findings_json TEXT,
+    recommended_json TEXT,
+    applied INTEGER DEFAULT 0,
+    applied_by TEXT,
+    applied_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_agent_runs_entity ON agent_runs(entity_type, entity_id);
+  CREATE INDEX IF NOT EXISTS idx_agent_runs_agent ON agent_runs(agent_id);
+`);
 
 export default db;
 export { dbPath };

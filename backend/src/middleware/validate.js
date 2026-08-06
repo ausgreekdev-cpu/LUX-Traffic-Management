@@ -30,7 +30,14 @@ export const schemas = {
     postcode: z.string().optional(),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
-    description: z.string().optional()
+    description: z.string().optional(),
+    road_class: z.enum(['local', 'distributor', 'collector', 'arterial', 'highway', 'freeway']).optional(),
+    speed_limit: z.number().int().min(0).max(200).optional(),
+    aadt: z.number().int().min(0).optional(),
+    pedestrian_activity: z.enum(['low', 'medium', 'high']).optional(),
+    cyclist_activity: z.enum(['low', 'medium', 'high']).optional(),
+    rail_corridor: z.boolean().optional(),
+    school_zone: z.boolean().optional()
   }),
 
   project: z.object({
@@ -49,6 +56,8 @@ export const schemas = {
     title: z.string().min(1),
     status: z.enum(['draft', 'submitted', 'approved', 'rejected', 'completed', 'cancelled']).optional(),
     plan_type: z.enum(['temporary', 'permanent', 'event']).optional(),
+    complexity: z.enum(['simple', 'standard', 'complex', 'complex_with_notice']).optional(),
+    complexity_source: z.enum(['auto', 'manual']).optional(),
     description: z.string().optional(),
     start_date: z.string().optional(),
     end_date: z.string().optional()

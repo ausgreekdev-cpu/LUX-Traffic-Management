@@ -3,7 +3,8 @@ import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { incompleteRequiredStages } from './workflows.js';
+import { incompleteRequiredStages, swapTemplateForEntity } from './workflows.js';
+import { emitEvent } from '../events.js';
 
 const router = Router();
 router.use(authenticate);
@@ -103,21 +104,23 @@ router.get('/:id', (req, res) => {
 router.post('/', validate('permit'), (req, res) => {
   const id = uuid();
   const { tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa } = req.validated;
-  const tmp = db.prepare('SELECT id FROM traffic_management_plans WHERE id = ?').get(tmp_id);
+  const tmp = db.prepare('SELECT id, complexity FROM traffic_management_plans WHERE id = ?').get(tmp_id);
   if (!tmp) return res.status(404).json({ error: 'TMP not found' });
   const authority = db.prepare('SELECT id FROM authorities WHERE id = ?').get(authority_id);
   if (!authority) return res.status(400).json({ error: 'Authority not found' });
   const subDate = submission_date || new Date().toISOString().slice(0, 10);
-  db.prepare('INSERT INTO permits (id, tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, tmp_id, authority_id, status || 'draft', complexity || 'standard', subDate, approval_date || null, expiry_date || null, rejection_reason || null, is_within_30m_signals ? 1 : 0, requires_mrwa ? 1 : 0, req.user.id);
+  const permitComplexity = complexity || tmp.complexity || 'standard';
+  db.prepare('INSERT INTO permits (id, tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, tmp_id, authority_id, status || 'draft', permitComplexity, subDate, approval_date || null, expiry_date || null, rejection_reason || null, is_within_30m_signals ? 1 : 0, requires_mrwa ? 1 : 0, req.user.id);
 
   if (status === 'submitted' || status === 'under_review') {
-    const sla = calculateSLA(authority_id, complexity || 'standard', subDate);
+    const sla = calculateSLA(authority_id, permitComplexity, subDate);
     if (sla) {
       db.prepare('UPDATE permits SET assessment_days = ?, expiry_date = ? WHERE id = ?').run(sla.total_days, sla.expected_date, id);
     }
   }
 
   const triggers = checkTriggers(id, tmp_id);
+  emitEvent('permit.created', { id, tmp_id, authority_id, status: status || 'draft', complexity: permitComplexity, submission_date: subDate, created_by: req.user.id });
   res.status(201).json({ id, status: status || 'draft', triggers });
 });
 
@@ -140,6 +143,12 @@ router.put('/:id', validate('permit'), (req, res) => {
 
   if (status && status !== existing.status) {
     db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), existing.tmp_id, req.user.id, 'permit_status_changed', `Permit ${existing.status} → ${status}`);
+    emitEvent('permit.status_changed', { ...existing, ...db.prepare('SELECT * FROM permits WHERE id = ?').get(req.params.id) }, { previous_status: existing.status, by: req.user.id });
+  }
+
+  if (complexity && complexity !== existing.complexity) {
+    swapTemplateForEntity('permit', req.params.id);
+    emitEvent('permit.complexity_changed', { id: req.params.id, complexity, previous_complexity: existing.complexity }, { by: req.user.id });
   }
 
   if (status === 'submitted' || status === 'under_review') {
@@ -180,6 +189,7 @@ router.post('/bulk', (req, res) => {
         if (r.changes) {
           const permit = db.prepare('SELECT tmp_id FROM permits WHERE id = ?').get(id);
           if (permit?.tmp_id) act.run(uuid(), permit.tmp_id, req.user.id, 'permit_status_changed', `Permit status → ${status} (bulk)`);
+          emitEvent('permit.status_changed', { id, tmp_id: permit?.tmp_id, status }, { previous_status: null, by: req.user.id, bulk: true });
         }
       }
     });
@@ -208,6 +218,7 @@ router.post('/:id/fees', validate('permitFee'), (req, res) => {
   const id = uuid();
   const { fee_type, amount, status, bond_returned, due_date, paid_date } = req.validated;
   db.prepare('INSERT INTO permit_fees (id, permit_id, fee_type, amount, status, bond_returned, due_date, paid_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, req.params.id, fee_type, amount, status || 'pending', bond_returned ? 1 : 0, due_date || null, paid_date || null);
+  emitEvent('fee.created', { id, permit_id: req.params.id, fee_type, amount, status: status || 'pending' }, { by: req.user.id });
   res.status(201).json({ id, fee_type, amount });
 });
 

@@ -48,7 +48,8 @@ const api = {
     create: (data) => request('/tmps', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/tmps/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/tmps/${id}`, { method: 'DELETE' }),
-    bulk: (ids, action, status) => request('/tmps/bulk', { method: 'POST', body: JSON.stringify({ ids, action, status }) })
+    bulk: (ids, action, status) => request('/tmps/bulk', { method: 'POST', body: JSON.stringify({ ids, action, status }) }),
+    riskPreview: (params) => { const q = new URLSearchParams(params).toString(); return request(`/tmps/risk-preview?${q}`); }
   },
   documents: {
     list: (tmpId) => request(`/documents/tmp/${tmpId}`),
@@ -143,12 +144,35 @@ const api = {
     update: (data) => request('/settings', { method: 'PUT', body: JSON.stringify(data) })
   },
   workflows: {
-    stages: (entityType) => request(`/workflows/stages${entityType ? '?entity_type=' + entityType : ''}`),
+    stages: (entityType, templateId) => request(`/workflows/stages${templateId ? '?template_id=' + templateId : (entityType ? '?entity_type=' + entityType : '')}`),
     createStage: (data) => request('/workflows/stages', { method: 'POST', body: JSON.stringify(data) }),
     updateStage: (id, data) => request(`/workflows/stages/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteStage: (id) => request(`/workflows/stages/${id}`, { method: 'DELETE' }),
+    templates: (entityType) => request(`/workflows/templates${entityType ? '?entity_type=' + entityType : ''}`),
+    createTemplate: (data) => request('/workflows/templates', { method: 'POST', body: JSON.stringify(data) }),
+    updateTemplate: (id, data) => request(`/workflows/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteTemplate: (id) => request(`/workflows/templates/${id}`, { method: 'DELETE' }),
     checklist: (entityType, entityId) => request(`/workflows/checklist/${entityType}/${entityId}`),
     setStage: (entityType, entityId, stageId, done) => request(`/workflows/checklist/${entityType}/${entityId}`, { method: 'POST', body: JSON.stringify({ stageId, done }) })
+  },
+  automations: {
+    rules: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/automations/rules${q}`); },
+    getRule: (id) => request(`/automations/rules/${id}`),
+    createRule: (data) => request('/automations/rules', { method: 'POST', body: JSON.stringify(data) }),
+    updateRule: (id, data) => request(`/automations/rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteRule: (id) => request(`/automations/rules/${id}`, { method: 'DELETE' }),
+    testRule: (id, entityType, entityId) => request(`/automations/rules/${id}/test`, { method: 'POST', body: JSON.stringify({ entity_type: entityType, entity_id: entityId }) }),
+    ruleRuns: (id, params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/automations/rules/${id}/runs${q}`); },
+    runs: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/automations/runs${q}`); },
+    presets: () => request('/automations/presets'),
+    installPreset: (id) => request(`/automations/presets/${id}/install`, { method: 'POST' }),
+    runScheduled: () => request('/automations/run-scheduled', { method: 'POST' })
+  },
+  agents: {
+    list: () => request('/agents'),
+    run: (agentId, entityType, entityId) => request(`/agents/${agentId}/run`, { method: 'POST', body: JSON.stringify({ entity_type: entityType, entity_id: entityId }) }),
+    runs: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/agents/runs${q}`); },
+    apply: (runId) => request(`/agents/runs/${runId}/apply`, { method: 'POST' })
   }
 };
 

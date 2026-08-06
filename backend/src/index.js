@@ -20,8 +20,13 @@ import analyticsRoutes from './routes/analytics.js';
 import notificationRoutes from './routes/notifications.js';
 import settingsRoutes from './routes/settings.js';
 import workflowRoutes, { ensureWorkflowSeeds } from './routes/workflows.js';
+import automationRoutes from './routes/automations.js';
+import agentRoutes from './routes/agents.js';
+import { ensureAutomationPresets } from './automation-presets.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
 import { cleanupRateLimitBuckets } from './middleware/rate-limit.js';
+import { startScheduler } from './scheduler.js';
+import './automation-engine.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -54,6 +59,8 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/workflows', workflowRoutes);
+app.use('/api/automations', automationRoutes);
+app.use('/api/agents', agentRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -61,6 +68,8 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 ensureWorkflowSeeds();
 seedDirectoryIfEmpty();
+ensureAutomationPresets();
+startScheduler();
 
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   console.warn('WARNING: JWT_SECRET is not set. Using the insecure default secret — set JWT_SECRET to a long random value before deploying.');

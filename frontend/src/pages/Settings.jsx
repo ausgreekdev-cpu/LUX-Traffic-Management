@@ -3,7 +3,7 @@ import api from '../api.js';
 
 function Card({ title, description, children }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+    <div className="card p-6 mb-6">
       <h2 className="text-lg font-semibold mb-1">{title}</h2>
       {description && <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{description}</p>}
       {children}
@@ -14,13 +14,13 @@ function Card({ title, description, children }) {
 function Field({ label, children }) {
   return (
     <label className="block mb-3">
-      <span className="block text-sm font-medium mb-1">{label}</span>
+      <span className="label">{label}</span>
       {children}
     </label>
   );
 }
 
-const inputClass = 'w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500';
+const inputClass = 'input w-full';
 
 export default function Settings() {
   const [settings, setSettings] = useState({});
@@ -87,7 +87,10 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
+      <div className="mb-6">
+        <h1 className="page-header">Settings</h1>
+        <p className="page-sub">Company profile, reminders and appearance</p>
+      </div>
       {saved && <p className="mb-4 text-sm text-green-600 dark:text-green-400">{saved}</p>}
 
       <Card title="Company profile" description="Shown on exported documents and reports.">
@@ -111,7 +114,7 @@ export default function Settings() {
           </div>
         </div>
         <button onClick={() => save(['company_name', 'company_abn', 'company_phone', 'company_email', 'company_address'], 'Company profile saved')}
-          className="mt-2 px-4 py-2 rounded bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium transition-colors">
+          className="btn btn-primary mt-2">
           Save profile
         </button>
       </Card>
@@ -121,7 +124,7 @@ export default function Settings() {
           <input type="number" min="0" max="365" className={inputClass + ' max-w-40'} value={form.reminder_days} onChange={set('reminder_days')} />
         </Field>
         <button onClick={() => save(['reminder_days'], 'Reminder settings saved')}
-          className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium transition-colors">
+          className="btn btn-primary">
           Save reminders
         </button>
         <p className="text-xs text-gray-400 mt-3">Tip: press Refresh in the notification bell after changing this to generate reminders with the new window.</p>
@@ -130,11 +133,11 @@ export default function Settings() {
       <Card title="Appearance">
         <div className="flex gap-2">
           <button onClick={() => toggleTheme('light')}
-            className={`px-4 py-2 rounded text-sm font-medium transition-colors ${theme === 'light' ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'}`}>
+            className={`tab ${theme === 'light' ? 'tab-active' : 'tab-inactive'}`}>
             ☀️ Light
           </button>
           <button onClick={() => toggleTheme('dark')}
-            className={`px-4 py-2 rounded text-sm font-medium transition-colors ${theme === 'dark' ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'}`}>
+            className={`tab ${theme === 'dark' ? 'tab-active' : 'tab-inactive'}`}>
             🌙 Dark
           </button>
         </div>
@@ -142,7 +145,7 @@ export default function Settings() {
 
       <Card title="Data" description="Download a complete backup of the database file.">
         <button onClick={() => downloadBackup().catch((err) => alert(err.message))}
-          className="px-4 py-2 rounded bg-gray-800 dark:bg-gray-700 hover:bg-gray-700 dark:hover:bg-gray-600 text-white text-sm font-medium transition-colors">
+          className="btn btn-ghost">
           💾 Download database backup
         </button>
       </Card>

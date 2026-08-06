@@ -92,79 +92,87 @@ export default function AuthorityList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">WA Authorities</h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="page-header">WA Authorities</h1>
+          <p className="page-sub">Local governments, directories, SLAs and signalised intersections</p>
+        </div>
         <div className="flex items-center gap-2">
           {user?.role === 'admin' && (
-            <label className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm cursor-pointer">
+            <label className="btn bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
               {importing ? 'Importing...' : 'Import Directory PDF'}
               <input type="file" accept="application/pdf" className="hidden" onChange={handleImport} disabled={importing} />
             </label>
           )}
-          <button onClick={() => setShowForm(!showForm)} className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">+ New Authority</button>
+          <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Authority</button>
         </div>
       </div>
       <input
         placeholder="Search by name, short name or zone..."
         value={search}
         onChange={e => setSearch(e.target.value)}
-        className="w-full px-3 py-2 border rounded-lg dark:bg-gray-800 dark:text-gray-100"
+        className="input w-full"
       />
       {showForm && (
-        <form onSubmit={handleCreate} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-3">
+        <form onSubmit={handleCreate} className="card p-4 space-y-3">
           <div className="grid grid-cols-3 gap-3">
-            <input placeholder="Name *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" required />
-            <input placeholder="Short Name" value={form.short_name} onChange={e => setForm({ ...form, short_name: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" />
-            <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700">
+            <input placeholder="Name *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input" required />
+            <input placeholder="Short Name" value={form.short_name} onChange={e => setForm({ ...form, short_name: e.target.value })} className="input" />
+            <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="input">
               <option value="lga">LGA</option><option value="mrwa">MRWA</option><option value="pta">PTA</option><option value="hvs">HVS</option><option value="other">Other</option>
             </select>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <input placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" />
-            <input placeholder="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" />
-            <input placeholder="Contact Person" value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" />
+            <input placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input" />
+            <input placeholder="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input" />
+            <input placeholder="Contact Person" value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} className="input" />
           </div>
           <div className="grid grid-cols-4 gap-3">
-            <select value={form.council_type} onChange={e => setForm({ ...form, council_type: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700">
+            <select value={form.council_type} onChange={e => setForm({ ...form, council_type: e.target.value })} className="input">
               <option value="shire">Shire</option><option value="town">Town</option><option value="city">City</option>
             </select>
-            <input placeholder="Band (1-4)" value={form.band} onChange={e => setForm({ ...form, band: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" />
-            <input placeholder="ABN" value={form.abn} onChange={e => setForm({ ...form, abn: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" />
-            <input placeholder="Zone" value={form.zone} onChange={e => setForm({ ...form, zone: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" />
+            <input placeholder="Band (1-4)" value={form.band} onChange={e => setForm({ ...form, band: e.target.value })} className="input" />
+            <input placeholder="ABN" value={form.abn} onChange={e => setForm({ ...form, abn: e.target.value })} className="input" />
+            <input placeholder="Zone" value={form.zone} onChange={e => setForm({ ...form, zone: e.target.value })} className="input" />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <input placeholder="Mayor / President" value={form.mayor} onChange={e => setForm({ ...form, mayor: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" />
-            <input placeholder="Deputy" value={form.deputy} onChange={e => setForm({ ...form, deputy: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" />
-            <input placeholder="CEO" value={form.ceo} onChange={e => setForm({ ...form, ceo: e.target.value })} className="px-3 py-2 border rounded-lg dark:bg-gray-700" />
+            <input placeholder="Mayor / President" value={form.mayor} onChange={e => setForm({ ...form, mayor: e.target.value })} className="input" />
+            <input placeholder="Deputy" value={form.deputy} onChange={e => setForm({ ...form, deputy: e.target.value })} className="input" />
+            <input placeholder="CEO" value={form.ceo} onChange={e => setForm({ ...form, ceo: e.target.value })} className="input" />
           </div>
           <div className="flex gap-2">
-            <button type="submit" className="bg-green-500 text-white px-3 py-2 rounded text-sm">Save</button>
-            <button type="button" onClick={() => setShowForm(false)} className="bg-gray-300 dark:bg-gray-600 px-3 py-2 rounded text-sm">Cancel</button>
+            <button type="submit" className="btn btn-primary">Save</button>
+            <button type="button" onClick={() => setShowForm(false)} className="btn btn-ghost">Cancel</button>
           </div>
         </form>
       )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-2">
           {filtered.map(a => (
-            <div key={a.id} onClick={() => loadDetail(a.id)} className={`bg-white dark:bg-gray-800 rounded-lg shadow p-3 cursor-pointer transition ${selected?.id === a.id ? 'ring-2 ring-amber-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+            <div key={a.id} onClick={() => loadDetail(a.id)} className={`card p-3 cursor-pointer transition ${selected?.id === a.id ? 'ring-2 ring-lux-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{a.short_name || a.name}</span>
-                  <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{a.type?.toUpperCase()}</span>
-                  {a.band && <span className="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200">Band {a.band}</span>}
+                  <span className="badge bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{a.type?.toUpperCase()}</span>
+                  {a.band && <span className="badge bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200">Band {a.band}</span>}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }} className="text-red-500 hover:text-red-700 text-xs">Del</button>
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }} className="text-red-500 hover:text-red-700 text-xs font-medium">Del</button>
               </div>
               <p className="text-xs text-gray-500 mt-1">{a.name}</p>
               {a.zone && <p className="text-xs text-gray-400 mt-0.5">{a.zone}</p>}
             </div>
           ))}
-          {!filtered.length && <p className="text-gray-500 text-center py-4 text-sm">No authorities match</p>}
+          {!filtered.length && (
+            <div className="empty-state !py-8">
+              <span className="text-3xl mb-2">🏛️</span>
+              <p className="text-gray-500 text-sm">No authorities match</p>
+            </div>
+          )}
         </div>
         <div className="lg:col-span-2">
           {selected ? (
             <div className="space-y-4">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <div className="card p-4">
                 <h2 className="font-semibold text-lg">{selected.name}</h2>
                 {selected.zone && <p className="text-xs text-gray-500">{selected.zone}{selected.band ? ` · Band ${selected.band}` : ''}</p>}
                 <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
@@ -177,7 +185,7 @@ export default function AuthorityList() {
                 </div>
               </div>
               {selected.zone && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div className="card p-4">
                   <h3 className="font-semibold mb-2">Directory</h3>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div><span className="text-gray-500">Mayor / President:</span> {selected.mayor || '-'}</div>
@@ -222,36 +230,41 @@ export default function AuthorityList() {
                   )}
                 </div>
               )}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <div className="card p-4">
                 <h3 className="font-semibold mb-2">SLA Rules</h3>
                 {selected.sla_rules?.length > 0 ? (
                   <table className="w-full text-sm">
-                    <thead><tr className="border-b"><th className="text-left py-2">Complexity</th><th className="text-left py-2">Assessment</th><th className="text-left py-2">Notice</th><th className="text-left py-2">Buffer</th><th className="py-2"></th></tr></thead>
-                    <tbody>{selected.sla_rules.map(r => (
-                      <tr key={r.id} className="border-b"><td className="py-2 font-medium">{r.complexity}</td><td>{r.assessment_days}d</td><td>{r.public_notice_days}d</td><td>{r.buffer_days}d</td><td><button onClick={() => handleDeleteSLA(r.id)} className="text-red-500 text-xs">Del</button></td></tr>
+                    <thead><tr className="border-b border-gray-200 dark:border-gray-700"><th className="table-th">Complexity</th><th className="table-th">Assessment</th><th className="table-th">Notice</th><th className="table-th">Buffer</th><th className="table-th"></th></tr></thead>
+                    <tbody className="divide-y dark:divide-gray-700">{selected.sla_rules.map(r => (
+                      <tr key={r.id}><td className="table-td font-medium">{r.complexity}</td><td className="table-td">{r.assessment_days}d</td><td className="table-td">{r.public_notice_days}d</td><td className="table-td">{r.buffer_days}d</td><td className="table-td"><button onClick={() => handleDeleteSLA(r.id)} className="text-red-500 text-xs font-medium">Del</button></td></tr>
                     ))}</tbody>
                   </table>
                 ) : <p className="text-sm text-gray-500">No SLA rules</p>}
                 <form onSubmit={handleAddSLA} className="mt-3 flex gap-2 items-end">
-                  <select value={slaForm.complexity} onChange={e => setSlaForm({ ...slaForm, complexity: e.target.value })} className="px-2 py-1 border rounded text-sm dark:bg-gray-700">
+                  <select value={slaForm.complexity} onChange={e => setSlaForm({ ...slaForm, complexity: e.target.value })} className="input !py-1">
                     <option value="simple">Simple</option><option value="standard">Standard</option><option value="complex">Complex</option><option value="complex_with_notice">Complex+Notice</option>
                   </select>
-                  <input type="number" placeholder="Days" value={slaForm.assessment_days} onChange={e => setSlaForm({ ...slaForm, assessment_days: parseInt(e.target.value) || 0 })} className="w-20 px-2 py-1 border rounded text-sm dark:bg-gray-700" />
-                  <button type="submit" className="bg-green-500 text-white px-2 py-1 rounded text-sm">Add</button>
+                  <input type="number" placeholder="Days" value={slaForm.assessment_days} onChange={e => setSlaForm({ ...slaForm, assessment_days: parseInt(e.target.value) || 0 })} className="input !py-1 w-20" />
+                  <button type="submit" className="btn btn-primary btn-sm">Add</button>
                 </form>
               </div>
               {selected.signalised_intersections?.length > 0 && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div className="card p-4">
                   <h3 className="font-semibold mb-2">Signalised Intersections (30m Rule)</h3>
                   {selected.signalised_intersections.map(i => (
-                    <div key={i.id} className="text-sm p-2 bg-gray-50 dark:bg-gray-700 rounded mb-1">
+                    <div key={i.id} className="text-sm p-2 bg-gray-50 dark:bg-gray-700 rounded-lg mb-1">
                       {i.intersection_name} - {i.road_name || 'Unknown road'}, {i.suburb || 'Unknown suburb'} ({i.distance_meters}m)
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          ) : <p className="text-gray-500 text-center py-8">Select an authority to view details</p>}
+          ) : (
+            <div className="empty-state">
+              <span className="text-4xl mb-2">🏛️</span>
+              <p className="text-gray-500 text-sm">Select an authority to view details</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

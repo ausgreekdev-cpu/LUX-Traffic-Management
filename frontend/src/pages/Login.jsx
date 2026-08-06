@@ -23,29 +23,41 @@ export default function Login({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-amber-500">LUX Traffic</h1>
-          <p className="text-gray-500 mt-2">Traffic Management System</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-950 via-gray-900 to-lux-900/50 p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-8">
+          <div className="text-center mb-8">
+            <div className="h-14 w-14 mx-auto rounded-2xl bg-lux-500 flex items-center justify-center shadow-lg shadow-lux-500/30 mb-4">
+              <span className="font-black text-gray-900 text-lg tracking-tight">LUX</span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">LUX Traffic Management</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1.5 text-sm">Sign in to your workspace</p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+            <div>
+              <label className="label">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                className="input w-full" placeholder="you@company.com.au" required />
+            </div>
+            <div>
+              <label className="label">Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                className="input w-full" placeholder="••••••••" required />
+            </div>
+            <button type="submit" disabled={loading}
+              className="btn btn-primary w-full py-2.5">
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <div className="bg-red-50 text-red-700 px-4 py-2 rounded text-sm">{error}</div>}
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none" required />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none" required />
-          </div>
-          <button type="submit" disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50">
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
+          LUX Traffic Management · offline desktop app
+        </p>
       </div>
     </div>
   );

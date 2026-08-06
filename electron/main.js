@@ -1,11 +1,20 @@
 const { app, BrowserWindow, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
 
 let mainWindow = null;
-let backendProcess = null;
 const BACKEND_PORT = 3001;
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
 
 function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -13,14 +22,18 @@ function log(msg) {
   console.log(msg);
 }
 
-function findAvailablePort(startPort) {
-  const net = require('net');
+async function isBackendRunning(port) {
   return new Promise((resolve) => {
-    const server = net.createServer();
-    server.listen(startPort, () => {
-      server.close(() => resolve(startPort));
+    const http = require('http');
+    const req = http.get(`http://localhost:${port}/api/health`, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try { const j = JSON.parse(data); resolve(j.status === 'ok'); } catch { resolve(false); }
+      });
     });
-    server.on('error', () => resolve(findAvailablePort(startPort + 1)));
+    req.on('error', () => resolve(false));
+    req.setTimeout(1500, () => { req.destroy(); resolve(false); });
   });
 }
 
@@ -112,8 +125,13 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   try {
-    await startBackend();
-    log('Backend process started, checking health...');
+    const external = await isBackendRunning(BACKEND_PORT);
+    if (external) {
+      log('External backend detected on port ' + BACKEND_PORT + ' - reusing it');
+    } else {
+      await startBackend();
+      log('Backend process started, checking health...');
+    }
     await waitForHealth(BACKEND_PORT, 20);
     log('Backend health check passed, creating window');
   } catch (e) {
@@ -123,7 +141,6 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => { app.quit(); });
-app.on('before-quit', () => {});
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();

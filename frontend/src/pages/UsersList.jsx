@@ -43,52 +43,63 @@ export default function UsersList() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">User Management</h1>
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-wrap items-end gap-3">
+      <div>
+        <h1 className="page-header">User Management</h1>
+        <p className="page-sub">Create and manage accounts and roles</p>
+      </div>
+      <form onSubmit={handleSubmit} className="card p-4 flex flex-wrap items-end gap-3">
         <div>
-          <label className="text-xs text-gray-500 block">Name</label>
-          <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} className="border rounded px-2 py-1.5 text-sm w-40" required />
+          <label className="label !mb-1 text-xs text-gray-500">Name</label>
+          <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} className="input w-40" required />
         </div>
         {!editId && (
           <div>
-            <label className="text-xs text-gray-500 block">Email</label>
-            <input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className="border rounded px-2 py-1.5 text-sm w-44" required />
+            <label className="label !mb-1 text-xs text-gray-500">Email</label>
+            <input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className="input w-44" required />
           </div>
         )}
         {!editId && (
           <div>
-            <label className="text-xs text-gray-500 block">Password</label>
-            <input type="password" value={form.password} onChange={e => setForm(f => ({...f, password: e.target.value}))} className="border rounded px-2 py-1.5 text-sm w-36" required />
+            <label className="label !mb-1 text-xs text-gray-500">Password</label>
+            <input type="password" value={form.password} onChange={e => setForm(f => ({...f, password: e.target.value}))} className="input w-36" required />
           </div>
         )}
         <div>
-          <label className="text-xs text-gray-500 block">Role</label>
-          <select value={form.role} onChange={e => setForm(f => ({...f, role: e.target.value}))} className="border rounded px-2 py-1.5 text-sm">
+          <label className="label !mb-1 text-xs text-gray-500">Role</label>
+          <select value={form.role} onChange={e => setForm(f => ({...f, role: e.target.value}))} className="input">
             <option value="admin">Admin</option>
             <option value="planner">Planner</option>
             <option value="viewer">Viewer</option>
           </select>
         </div>
-        <button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm">{editId ? 'Update' : 'Add User'}</button>
+        <button type="submit" className="btn btn-primary">{editId ? 'Update' : 'Add User'}</button>
         {editId && <button type="button" onClick={handleCancel} className="text-gray-500 text-sm px-2 py-1.5">Cancel</button>}
       </form>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+      {users.length === 0 ? (
+        <div className="empty-state">
+          <span className="text-4xl mb-2">🔐</span>
+          <p className="text-gray-500 text-sm">No users yet</p>
+          <p className="text-gray-400 text-xs mt-1">Add your first team member above.</p>
+        </div>
+      ) : (
+      <div className="card overflow-hidden">
         <table className="w-full text-sm">
-          <thead><tr className="border-b"><th className="text-left p-3">Name</th><th className="text-left p-3">Email</th><th className="text-left p-3">Role</th><th className="text-left p-3">Created</th><th className="text-right p-3">Actions</th></tr></thead>
-          <tbody>{users.map(u => (
-            <tr key={u.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-700">
-              <td className="p-3">{u.name}</td>
-              <td className="p-3 text-gray-500">{u.email}</td>
-              <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : u.role === 'planner' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{u.role}</span></td>
-              <td className="p-3 text-gray-400">{u.created_at?.slice(0, 10)}</td>
-              <td className="p-3 text-right space-x-2">
-                <button onClick={() => handleEdit(u)} className="text-amber-600 hover:underline text-xs">Edit</button>
-                <button onClick={() => handleDelete(u.id)} className="text-red-500 hover:underline text-xs">Delete</button>
+          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><tr><th className="table-th">Name</th><th className="table-th">Email</th><th className="table-th">Role</th><th className="table-th">Created</th><th className="table-th text-right">Actions</th></tr></thead>
+          <tbody className="divide-y dark:divide-gray-700">{users.map(u => (
+            <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+              <td className="table-td font-medium">{u.name}</td>
+              <td className="table-td text-gray-500">{u.email}</td>
+              <td className="table-td"><span className={`badge ${u.role === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' : u.role === 'planner' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>{u.role}</span></td>
+              <td className="table-td text-gray-400">{u.created_at?.slice(0, 10)}</td>
+              <td className="table-td text-right space-x-2">
+                <button onClick={() => handleEdit(u)} className="text-lux-600 dark:text-lux-400 hover:underline text-xs font-medium">Edit</button>
+                <button onClick={() => handleDelete(u.id)} className="text-red-500 hover:underline text-xs font-medium">Delete</button>
               </td>
             </tr>
           ))}</tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

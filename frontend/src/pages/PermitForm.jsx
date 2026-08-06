@@ -14,7 +14,7 @@ export default function PermitForm() {
   const [missingStages, setMissingStages] = useState([]);
 
   useEffect(() => {
-    Promise.all([api.tmps.list(), api.authorities.list()]).then(([t, a]) => { setTmps(t); setAuthorities(a); });
+    Promise.all([api.tmps.list(), api.authorities.list()]).then(([t, a]) => { setTmps(t.data); setAuthorities(a); });
     if (isEdit) {
       api.permits.get(id).then(p => setForm({
         tmp_id: p.tmp_id || '', authority_id: p.authority_id || '', status: p.status || 'draft', complexity: p.complexity || 'standard',
@@ -48,7 +48,10 @@ export default function PermitForm() {
         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">TMP *</label>
-            <select value={form.tmp_id} onChange={e => setForm({ ...form, tmp_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg" required>
+            <select value={form.tmp_id} onChange={e => {
+              const tmp = tmps.find(t => t.id === e.target.value);
+              setForm(f => ({ ...f, tmp_id: e.target.value, complexity: (!isEdit && tmp) ? (tmp.complexity || 'standard') : f.complexity }));
+            }} className="w-full px-3 py-2 border rounded-lg" required>
               <option value="">Select TMP</option>{tmps.map(t => <option key={t.id} value={t.id}>{t.reference} - {t.title}</option>)}
             </select>
           </div>

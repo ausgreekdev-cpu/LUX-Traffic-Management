@@ -20,16 +20,16 @@ router.get('/:id', (req, res) => {
 
 router.post('/', validate('site'), (req, res) => {
   const id = uuid();
-  const { name, road_name, suburb, state, postcode, latitude, longitude, description } = req.validated;
-  db.prepare('INSERT INTO sites (id, name, road_name, suburb, state, postcode, latitude, longitude, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, name, road_name || null, suburb || null, state || 'WA', postcode || null, latitude || null, longitude || null, description || null);
+  const { name, road_name, suburb, state, postcode, latitude, longitude, description, road_class, speed_limit, aadt, pedestrian_activity, cyclist_activity, rail_corridor, school_zone } = req.validated;
+  db.prepare('INSERT INTO sites (id, name, road_name, suburb, state, postcode, latitude, longitude, description, road_class, speed_limit, aadt, pedestrian_activity, cyclist_activity, rail_corridor, school_zone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, name, road_name || null, suburb || null, state || 'WA', postcode || null, latitude || null, longitude || null, description || null, road_class || null, speed_limit || null, aadt || null, pedestrian_activity || null, cyclist_activity || null, rail_corridor ? 1 : 0, school_zone ? 1 : 0);
   res.status(201).json({ id, name, road_name, suburb, state });
 });
 
 router.put('/:id', validate('site'), (req, res) => {
   const existing = db.prepare('SELECT * FROM sites WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Site not found' });
-  const { name, road_name, suburb, state, postcode, latitude, longitude, description } = req.validated;
-  db.prepare('UPDATE sites SET name=?, road_name=?, suburb=?, state=?, postcode=?, latitude=?, longitude=?, description=?, updated_at=datetime(\'now\') WHERE id=?').run(name, road_name !== undefined ? (road_name || null) : existing.road_name, suburb !== undefined ? (suburb || null) : existing.suburb, state !== undefined ? (state || 'WA') : existing.state, postcode !== undefined ? (postcode || null) : existing.postcode, latitude !== undefined ? latitude : existing.latitude, longitude !== undefined ? longitude : existing.longitude, description !== undefined ? (description || null) : existing.description, req.params.id);
+  const { name, road_name, suburb, state, postcode, latitude, longitude, description, road_class, speed_limit, aadt, pedestrian_activity, cyclist_activity, rail_corridor, school_zone } = req.validated;
+  db.prepare('UPDATE sites SET name=?, road_name=?, suburb=?, state=?, postcode=?, latitude=?, longitude=?, description=?, road_class=?, speed_limit=?, aadt=?, pedestrian_activity=?, cyclist_activity=?, rail_corridor=?, school_zone=?, updated_at=datetime(\'now\') WHERE id=?').run(name, road_name !== undefined ? (road_name || null) : existing.road_name, suburb !== undefined ? (suburb || null) : existing.suburb, state !== undefined ? (state || 'WA') : existing.state, postcode !== undefined ? (postcode || null) : existing.postcode, latitude !== undefined ? latitude : existing.latitude, longitude !== undefined ? longitude : existing.longitude, description !== undefined ? (description || null) : existing.description, road_class !== undefined ? (road_class || null) : existing.road_class, speed_limit !== undefined ? speed_limit : existing.speed_limit, aadt !== undefined ? aadt : existing.aadt, pedestrian_activity !== undefined ? (pedestrian_activity || null) : existing.pedestrian_activity, cyclist_activity !== undefined ? (cyclist_activity || null) : existing.cyclist_activity, rail_corridor !== undefined ? (rail_corridor ? 1 : 0) : existing.rail_corridor, school_zone !== undefined ? (school_zone ? 1 : 0) : existing.school_zone, req.params.id);
   res.json(db.prepare('SELECT * FROM sites WHERE id = ?').get(req.params.id));
 });
 

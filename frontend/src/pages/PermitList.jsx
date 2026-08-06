@@ -88,76 +88,87 @@ export default function PermitList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Permits</h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="page-header">Permits</h1>
+          <p className="page-sub">Track authority permits, SLAs and expiry dates</p>
+        </div>
         <div className="flex gap-2">
-          <button onClick={() => api.export.downloadCSV(`/export/permits-csv${filter ? '?status=' + filter : ''}`, 'permits.csv')} className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded text-sm">CSV</button>
-          <Link to="/permits/new" className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New Permit</Link>
+          <button onClick={() => api.export.downloadCSV(`/export/permits-csv${filter ? '?status=' + filter : ''}`, 'permits.csv')} className="btn btn-secondary">CSV</button>
+          <Link to="/permits/new" className="btn btn-primary">+ New Permit</Link>
         </div>
       </div>
       <div className="flex gap-2 flex-wrap">
-        <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="px-3 py-1 border rounded text-sm">
+        <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="input">
           <option value="">All Statuses</option>
           {statuses.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
         </select>
-        <select value={authFilter} onChange={e => { setAuthFilter(e.target.value); setPage(1); }} className="px-3 py-1 border rounded text-sm">
+        <select value={authFilter} onChange={e => { setAuthFilter(e.target.value); setPage(1); }} className="input">
           <option value="">All Authorities</option>
           {authorities.map(a => <option key={a.id} value={a.id}>{a.short_name || a.name}</option>)}
         </select>
-        <input placeholder="Search..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="border rounded px-3 py-1 text-sm ml-auto w-48" />
+        <input placeholder="Search..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="input ml-auto w-48" />
       </div>
       {selected.size > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-2">
           <span className="text-sm font-medium">{selected.size} selected</span>
-          <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="border rounded px-2 py-1 text-sm">
+          <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="input !py-1">
             <option value="">Set status…</option>
             {statuses.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
           </select>
-          <button onClick={applyBulk} disabled={busy} className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white px-3 py-1 rounded text-sm">Apply</button>
-          <button onClick={bulkDelete} disabled={busy} className="bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-3 py-1 rounded text-sm">Delete</button>
+          <button onClick={applyBulk} disabled={busy} className="btn btn-primary btn-sm">Apply</button>
+          <button onClick={bulkDelete} disabled={busy} className="btn btn-danger btn-sm">Delete</button>
           <button onClick={() => setSelected(new Set())} className="text-sm text-gray-500 hover:underline">Clear</button>
         </div>
       )}
-      {loading ? <p className="text-gray-500">Loading...</p> : data.data.length === 0 ? <p className="text-gray-500">No permits found</p> : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      {loading ? <p className="text-gray-500">Loading...</p> : data.data.length === 0 ? (
+        <div className="empty-state">
+          <span className="text-4xl mb-2">📄</span>
+          <p className="text-gray-500 text-sm">No permits found</p>
+          <p className="text-gray-400 text-xs mt-1">Try a different filter or search, or create a new permit.</p>
+        </div>
+      ) : (
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-100 dark:bg-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <tr>
-                <th className="px-4 py-3 w-8">
+                <th className="table-th w-8">
                   <input type="checkbox" checked={data.data.length > 0 && data.data.every(p => selected.has(p.id))} onChange={toggleAll} />
                 </th>
-                <th className="text-left px-4 py-3">TMP</th>
-                <th className="text-left px-4 py-3">Authority</th>
-                <th className="text-left px-4 py-3">Status</th>
-                <th className="text-left px-4 py-3">Complexity</th>
-                <th className="text-left px-4 py-3">Submitted</th>
-                <th className="text-left px-4 py-3">Expiry</th>
-                <th className="text-left px-4 py-3">30m Signal</th>
-                <th className="text-left px-4 py-3">MRWA</th>
+                <th className="table-th">TMP</th>
+                <th className="table-th">Authority</th>
+                <th className="table-th">Status</th>
+                <th className="table-th">Complexity</th>
+                <th className="table-th">Submitted</th>
+                <th className="table-th">Expiry</th>
+                <th className="table-th">30m Signal</th>
+                <th className="table-th">MRWA</th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
               {data.data.map(p => (
                 <tr key={p.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${selected.has(p.id) ? 'bg-amber-50 dark:bg-amber-900/20' : ''}`}>
-                  <td className="px-4 py-3"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td>
-                  <td className="px-4 py-3"><Link to={`/permits/${p.id}`} className="text-amber-600 hover:underline font-medium">{p.tmp_reference || '-'}</Link></td>
-                  <td className="px-4 py-3"><span className="font-medium">{p.authority_short}</span> <span className="text-xs text-gray-400">({p.authority_type?.toUpperCase()})</span></td>
-                  <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded ${badgeFor(PERMIT_BADGES, p.status)}`}>{statusLabel(p.status)}</span></td>
-                  <td className="px-4 py-3 text-gray-500">{p.complexity}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{p.submission_date || '-'}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{p.expiry_date || '-'}</td>
-                  <td className="px-4 py-3">{p.is_within_30m_signals ? <span className="text-red-500 text-xs font-bold">YES</span> : <span className="text-gray-300">-</span>}</td>
-                  <td className="px-4 py-3">{p.requires_mrwa ? <span className="text-amber-500 text-xs font-bold">YES</span> : <span className="text-gray-300">-</span>}</td>
+                  <td className="table-td"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td>
+                  <td className="table-td"><Link to={`/permits/${p.id}`} className="text-lux-600 dark:text-lux-400 hover:underline font-medium">{p.tmp_reference || '-'}</Link></td>
+                  <td className="table-td"><span className="font-medium">{p.authority_short}</span> <span className="text-xs text-gray-400">({p.authority_type?.toUpperCase()})</span></td>
+                  <td className="table-td"><span className={`badge ${badgeFor(PERMIT_BADGES, p.status)}`}>{statusLabel(p.status)}</span></td>
+                  <td className="table-td text-gray-500">{p.complexity}</td>
+                  <td className="table-td text-gray-400 text-xs">{p.submission_date || '-'}</td>
+                  <td className="table-td text-gray-400 text-xs">{p.expiry_date || '-'}</td>
+                  <td className="table-td">{p.is_within_30m_signals ? <span className="text-red-500 text-xs font-bold">YES</span> : <span className="text-gray-300">-</span>}</td>
+                  <td className="table-td">{p.requires_mrwa ? <span className="text-lux-500 text-xs font-bold">YES</span> : <span className="text-gray-300">-</span>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="flex items-center justify-between px-4 py-3 border-t text-sm text-gray-500">
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500">
             <span>{data.total} total</span>
-            <div className="flex gap-1">
-              <button disabled={data.page <= 1} onClick={() => setPage(p => p - 1)} className="px-2 py-1 rounded bg-gray-100 disabled:opacity-30">Prev</button>
-              <span className="px-2 py-1">Page {data.page} of {data.pages}</span>
-              <button disabled={data.page >= data.pages} onClick={() => setPage(p => p + 1)} className="px-2 py-1 rounded bg-gray-100 disabled:opacity-30">Next</button>
+            <div className="flex items-center gap-2">
+              <button disabled={data.page <= 1} onClick={() => setPage(p => p - 1)} className="btn btn-ghost btn-sm">Prev</button>
+              <span className="px-2 py-1 text-xs">Page {data.page} of {data.pages}</span>
+              <button disabled={data.page >= data.pages} onClick={() => setPage(p => p + 1)} className="btn btn-ghost btn-sm">Next</button>
             </div>
           </div>
         </div>

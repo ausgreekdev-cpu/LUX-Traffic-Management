@@ -12,7 +12,7 @@ Release pipeline (from the repo root, C:\Users\yiann\OneDrive\Documents\lux):
    - `release/LUX Traffic Management Setup 1.0.0.exe` (NSIS, oneClick, perMachine)
    - `release/LUX Traffic Management-1.0.0-portable.exe`
    - `release/win-unpacked/` (used for the ISO)
-   Note: `@electron/rebuild` runs anyway despite `ELECTRON_SKIP_REBUILD=1`; this is expected and must NOT fail — `better-sqlite3` must stay compiled for Electron ABI 137.
+   Note: `better-sqlite3` v13 uses ABI-independent N-API prebuilds, so no rebuild step is needed after packaging. `backend/data` and `backend/uploads` are excluded from the package, so the dev DB never ships.
 3. Rebuild the ISO with oscdimg (available at C:\Users\yiann\AppData\Local\Microsoft\WinGet\Links\oscdimg.exe):
    `Remove-Item "release\LUX-Traffic-Management.iso" -Force` then
    `oscdimg -m -o -u2 -udfver102 -l"LUX_TRAFFIC" "release\win-unpacked" "release\LUX-Traffic-Management.iso"`.

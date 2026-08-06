@@ -6,6 +6,7 @@ import { v4 as uuid } from 'uuid';
 import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
+import { emitEvent } from '../events.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadDir = process.env.UPLOADS_DIR || path.resolve(__dirname, '..', '..', 'uploads');
@@ -42,6 +43,7 @@ router.post('/upload/:tmpId', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const id = uuid();
   db.prepare('INSERT INTO documents (id, tmp_id, filename, original_name, mime_type, size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, req.params.tmpId, req.file.filename, req.file.originalname, req.file.mimetype, req.file.size, req.user.id);
+  emitEvent('document.uploaded', { id, tmp_id: req.params.tmpId, filename: req.file.filename, original_name: req.file.originalname, mime_type: req.file.mimetype, size: req.file.size, uploaded_by: req.user.id });
   res.status(201).json({ id, filename: req.file.filename, original_name: req.file.originalname });
 });
 
@@ -72,6 +74,7 @@ router.delete('/:id', (req, res) => {
   const filePath = path.join(uploadDir, doc.filename);
   try { fs.unlinkSync(filePath); } catch {}
   db.prepare('DELETE FROM documents WHERE id = ?').run(req.params.id);
+  emitEvent('document.deleted', { id: req.params.id, tmp_id: doc.tmp_id, original_name: doc.original_name }, { by: req.user.id });
   res.json({ success: true });
 });
 

@@ -5,11 +5,12 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "demo-data": "node scripts/demo-data.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.0.0",
+    "better-sqlite3": "^13.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",

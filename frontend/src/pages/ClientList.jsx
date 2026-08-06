@@ -37,40 +37,51 @@ export default function ClientList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Clients</h1>
-        <button onClick={() => setShowForm(!showForm)} className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">+ New Client</button>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="page-header">Clients</h1>
+          <p className="page-sub">Companies and contacts you work with</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Client</button>
       </div>
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="card p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <input placeholder="Name *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="px-3 py-2 border rounded-lg" required />
-            <input placeholder="Company" value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} className="px-3 py-2 border rounded-lg" />
-            <input placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="px-3 py-2 border rounded-lg" />
-            <input placeholder="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="px-3 py-2 border rounded-lg" />
+            <input placeholder="Name *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input" required />
+            <input placeholder="Company" value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} className="input" />
+            <input placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input" />
+            <input placeholder="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input" />
           </div>
           <div className="flex gap-2">
-            <button type="submit" className="bg-green-500 text-white px-3 py-2 rounded text-sm">{editId ? 'Update' : 'Save'}</button>
-            <button type="button" onClick={resetForm} className="bg-gray-300 px-3 py-2 rounded text-sm">Cancel</button>
+            <button type="submit" className="btn btn-primary">{editId ? 'Update' : 'Save'}</button>
+            <button type="button" onClick={resetForm} className="btn btn-ghost">Cancel</button>
           </div>
         </form>
       )}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      {clients.length === 0 ? (
+        <div className="empty-state">
+          <span className="text-4xl mb-2">👥</span>
+          <p className="text-gray-500 text-sm">No clients yet</p>
+          <p className="text-gray-400 text-xs mt-1">Create your first client to link projects to.</p>
+        </div>
+      ) : (
+      <div className="card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-100 dark:bg-gray-700"><tr><th className="text-left px-4 py-3">Name</th><th className="text-left px-4 py-3">Company</th><th className="text-left px-4 py-3">Email</th><th className="text-left px-4 py-3">Phone</th><th className="px-4 py-3"></th></tr></thead>
+          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><tr><th className="table-th">Name</th><th className="table-th">Company</th><th className="table-th">Email</th><th className="table-th">Phone</th><th className="table-th"></th></tr></thead>
           <tbody className="divide-y dark:divide-gray-700">
             {clients.map(c => (
               <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td className="px-4 py-3 font-medium">{c.name}</td><td className="px-4 py-3 text-gray-500">{c.company || '-'}</td><td className="px-4 py-3 text-gray-500">{c.email || '-'}</td><td className="px-4 py-3 text-gray-500">{c.phone || '-'}</td>
-                <td className="px-4 py-3 text-right space-x-2">
-                  <button onClick={() => handleEdit(c)} className="text-amber-600 hover:underline text-xs">Edit</button>
-                  <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700 text-xs">Delete</button>
+                <td className="table-td font-medium">{c.name}</td><td className="table-td text-gray-500">{c.company || '-'}</td><td className="table-td text-gray-500">{c.email || '-'}</td><td className="table-td text-gray-500">{c.phone || '-'}</td>
+                <td className="table-td text-right space-x-2">
+                  <button onClick={() => handleEdit(c)} className="text-lux-600 dark:text-lux-400 hover:underline text-xs font-medium">Edit</button>
+                  <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
