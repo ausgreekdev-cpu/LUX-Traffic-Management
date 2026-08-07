@@ -21,6 +21,7 @@ import Settings from './pages/Settings';
 import Help from './pages/Help';
 import WorkflowSettings from './pages/WorkflowSettings';
 import AutomationSettings from './pages/AutomationSettings';
+import Correspondence from './pages/Correspondence';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function ProtectedRoute({ children }) {
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="help" element={<Help />} />
           <Route path="workflows" element={<WorkflowSettings />} />
           <Route path="automations" element={<AutomationSettings />} />
+          <Route path="correspondence" element={<Correspondence />} />
           <Route path="users" element={<UsersList />} />
         </Route>
       </Routes>

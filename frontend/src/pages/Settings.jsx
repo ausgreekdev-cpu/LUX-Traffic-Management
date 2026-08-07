@@ -26,8 +26,9 @@ export default function Settings() {
   const [settings, setSettings] = useState({});
   const [form, setForm] = useState({
     company_name: '', company_abn: '', company_phone: '', company_email: '', company_address: '',
-    reminder_days: '14'
+    reminder_days: '14', webhook_secret: ''
   });
+  const [showSecret, setShowSecret] = useState(false);
   const [theme, setTheme] = useState('light');
   const [saved, setSaved] = useState('');
   const [loading, setLoading] = useState(true);
@@ -42,7 +43,8 @@ export default function Settings() {
           company_phone: s.company_phone || '',
           company_email: s.company_email || '',
           company_address: s.company_address || '',
-          reminder_days: s.reminder_days || '14'
+          reminder_days: s.reminder_days || '14',
+          webhook_secret: s.webhook_secret || ''
         });
         const t = s.theme === 'dark' ? 'dark' : 'light';
         setTheme(t);
@@ -139,6 +141,33 @@ export default function Settings() {
           <button onClick={() => toggleTheme('dark')}
             className={`tab ${theme === 'dark' ? 'tab-active' : 'tab-inactive'}`}>
             🌙 Dark
+          </button>
+        </div>
+      </Card>
+
+      <Card title="Inbound webhooks" description="Point your email/webhook provider here to ingest correspondence and match it to TMPs. Payloads appear on the Correspondence page for review.">
+        <div className="space-y-3">
+          <Field label="Webhook secret">
+            <div className="flex gap-2">
+              <input type={showSecret ? 'text' : 'password'} className={inputClass + ' font-mono'} value={form.webhook_secret} onChange={set('webhook_secret')} placeholder="Leave blank for unauthenticated delivery" />
+              <button type="button" onClick={() => setShowSecret(!showSecret)} className="btn btn-ghost shrink-0">{showSecret ? 'Hide' : 'Show'}</button>
+            </div>
+          </Field>
+          <Field label="Endpoint URLs">
+            <div className="space-y-1">
+              {['mailgun', 'sendgrid', 'postmark', 'generic'].map(p => (
+                <p key={p} className="text-xs font-mono text-gray-500 bg-gray-50 dark:bg-gray-800 rounded px-2 py-1 truncate">
+                  POST {window.location.origin}/api/integrations/webhook/{p}
+                </p>
+              ))}
+            </div>
+          </Field>
+          <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+            <p>Signature: HMAC-SHA256 hex digest of the raw request body, sent as <code className="font-mono">x-lux-signature</code> or <code className="font-mono">x-webhook-signature</code>.</p>
+            <p>Body may include <code className="font-mono">sender/from</code>, <code className="font-mono">subject</code> and <code className="font-mono">text/body</code> fields; emails are parsed for a TMP reference and outcome keywords (approved, rejected, request info…).</p>
+          </div>
+          <button onClick={() => save(['webhook_secret'], 'Webhook settings saved')} className="btn btn-primary">
+            Save webhook settings
           </button>
         </div>
       </Card>

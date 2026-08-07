@@ -119,7 +119,12 @@ const api = {
     config: (data) => request('/email/config', { method: 'POST', body: JSON.stringify(data) }),
     test: (to) => request('/email/test', { method: 'POST', body: JSON.stringify({ to }) }),
     sendTMP: (data) => request('/email/send-tmp', { method: 'POST', body: JSON.stringify(data) }),
-    logs: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/email/logs${q}`); }
+    logs: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/email/logs${q}`); },
+    templates: () => request('/email/templates'),
+    createTemplate: (data) => request('/email/templates', { method: 'POST', body: JSON.stringify(data) }),
+    updateTemplate: (id, data) => request(`/email/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteTemplate: (id) => request(`/email/templates/${id}`, { method: 'DELETE' }),
+    previewTemplate: (id, ctx) => request(`/email/templates/${id}/preview`, { method: 'POST', body: JSON.stringify({ ctx }) })
   },
   export: {
     tmpPDF: (id) => fetch(`${BASE}/export/tmp/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
@@ -173,6 +178,10 @@ const api = {
     run: (agentId, entityType, entityId) => request(`/agents/${agentId}/run`, { method: 'POST', body: JSON.stringify({ entity_type: entityType, entity_id: entityId }) }),
     runs: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/agents/runs${q}`); },
     apply: (runId) => request(`/agents/runs/${runId}/apply`, { method: 'POST' })
+  },
+  correspondence: {
+    list: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/integrations/correspondence${q}`); },
+    review: (id, review_status) => request(`/integrations/correspondence/${id}/review`, { method: 'POST', body: JSON.stringify({ review_status }) })
   }
 };
 

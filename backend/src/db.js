@@ -408,5 +408,39 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agent_runs_agent ON agent_runs(agent_id);
 `);
 
+// Phase 6: email templates + correspondence ingest.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS email_templates (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    event_type TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS correspondence (
+    id TEXT PRIMARY KEY,
+    source TEXT,
+    provider TEXT,
+    sender TEXT,
+    subject TEXT,
+    received_at TEXT,
+    raw_text TEXT,
+    tmp_reference TEXT,
+    matched_tmp_id TEXT,
+    matched_permit_id TEXT,
+    extracted_status TEXT,
+    extracted_reason TEXT,
+    review_status TEXT DEFAULT 'new' CHECK(review_status IN ('new','reviewed','applied','dismissed')),
+    reviewed_by TEXT,
+    reviewed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_correspondence_tmp ON correspondence(matched_tmp_id);
+  CREATE INDEX IF NOT EXISTS idx_correspondence_status ON correspondence(review_status);
+`);
+
 export default db;
 export { dbPath };

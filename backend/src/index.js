@@ -22,6 +22,7 @@ import settingsRoutes from './routes/settings.js';
 import workflowRoutes, { ensureWorkflowSeeds } from './routes/workflows.js';
 import automationRoutes from './routes/automations.js';
 import agentRoutes from './routes/agents.js';
+import integrationRoutes from './routes/integrations.js';
 import { ensureAutomationPresets } from './automation-presets.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
 import { cleanupRateLimitBuckets } from './middleware/rate-limit.js';
@@ -33,7 +34,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || ['http://localhost:5173', 'http://localhost:3001'] }));
-app.use(express.json());
+app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 
 const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
 app.use(express.static(frontendDist));
@@ -61,6 +62,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/workflows', workflowRoutes);
 app.use('/api/automations', automationRoutes);
 app.use('/api/agents', agentRoutes);
+app.use('/api/integrations', integrationRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

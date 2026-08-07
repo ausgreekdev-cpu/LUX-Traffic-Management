@@ -30,3 +30,10 @@ export async function sendEmail(to, subject, body, tmpId = null) {
     .run(uuid(), to, subject, body, tmpId || null, 'sent');
   return info;
 }
+
+export function renderTemplate(name, ctx) {
+  const tpl = db.prepare('SELECT * FROM email_templates WHERE name = ?').get(name);
+  if (!tpl) return null;
+  const fill = (str) => String(str || '').replace(/\{([\w.]+)\}/g, (m, key) => (ctx[key] !== undefined && ctx[key] !== null ? ctx[key] : m));
+  return { ...tpl, subject: fill(tpl.subject), body: fill(tpl.body) };
+}

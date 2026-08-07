@@ -126,8 +126,15 @@ async function executeAction(action, event, ctx, rule) {
     }
     case 'notify_email': {
       const to = template(params.to, ctx);
-      const subject = template(params.subject, ctx);
-      const body = template(params.body, ctx);
+      let subject = params.subject !== undefined ? template(params.subject, ctx) : null;
+      let body = params.body !== undefined ? template(params.body, ctx) : null;
+      if (params.template) {
+        const { renderTemplate } = await import('./emailer.js');
+        const tpl = renderTemplate(params.template, ctx);
+        if (!tpl) return { type, skipped: `template "${params.template}" not found` };
+        if (subject === null) subject = tpl.subject;
+        if (body === null) body = tpl.body;
+      }
       if (!to) return { type, skipped: 'no recipient' };
       try {
         const info = await sendEmail(to, subject, body, event.entity?.tmp_id || entityId || null);

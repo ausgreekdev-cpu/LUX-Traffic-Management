@@ -6,7 +6,8 @@ const EVENT_TYPES = [
   'tmp.created', 'tmp.status_changed', 'tmp.completed', 'tmp.complexity_changed', 'tmp.expiring', 'tmp.expired',
   'permit.created', 'permit.status_changed', 'permit.complexity_changed', 'permit.expiring', 'permit.expired',
   'fee.created', 'document.uploaded', 'document.deleted', 'email.sent',
-  'stage.completed', 'sla.deadline_approaching', 'sla.overdue', 'agent.completed'
+  'stage.completed', 'sla.deadline_approaching', 'sla.overdue', 'agent.completed',
+  'correspondence.received', 'correspondence.matched'
 ];
 const OPS = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains', 'in', 'exists'];
 const FIELDS = ['status', 'previous_status', 'complexity', 'plan_type', 'reference', 'tmp_id', 'authority_id', 'is_within_30m_signals', 'requires_mrwa', 'fee_type', 'amount', 'days_left', 'days_overdue', 'entity_type'];
@@ -45,8 +46,9 @@ const ACTION_PARAMS = {
   ],
   notify_email: [
     { key: 'to', label: 'To', hint: 'email or {field}' },
-    { key: 'subject', label: 'Subject', hint: 'Supports {field} placeholders' },
-    { key: 'body', label: 'Body', hint: 'Supports {field} placeholders' }
+    { key: 'template', label: 'Template name', hint: 'rendered from Email Templates tab' },
+    { key: 'subject', label: 'Subject override', hint: 'optional; defaults to template' },
+    { key: 'body', label: 'Body override', hint: 'optional; defaults to template' }
   ],
   set_field: [
     { key: 'entity_type', label: 'Entity', hint: 'tmp / permit (optional)' },
@@ -119,12 +121,15 @@ export default function AutomationSettings() {
   const [saved, setSaved] = useState('');
   const [agents, setAgents] = useState([]);
   const [agentRuns, setAgentRuns] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [tplForm, setTplForm] = useState(null);
 
   const load = () => Promise.all([
     api.automations.rules().then(r => setRules(r.data)),
     api.automations.runs({ limit: 20 }).then(r => setRuns(r.data)),
     api.agents.list().then(r => setAgents(r.data)),
-    api.agents.runs({ limit: 50 }).then(r => setAgentRuns(r.data))
+    api.agents.runs({ limit: 50 }).then(r => setAgentRuns(r.data)),
+    api.email.templates().then(setTemplates)
   ]);
 
   useEffect(() => { setLoading(true); load().finally(() => setLoading(false)); /* eslint-disable-next-line */ }, []);
@@ -231,6 +236,19 @@ export default function AutomationSettings() {
     } catch (err) { alert(err.message); }
   };
 
+  const handleTemplateSave = async (e) => {
+    e.preventDefault();
+    if (!tplForm.name.trim() || !tplForm.subject.trim() || !tplForm.body.trim()) return alert('Name, subject and body are required');
+    try {
+      if (tplForm.id) await api.email.updateTemplate(tplForm.id, { name: tplForm.name, subject: tplForm.subject, body: tplForm.body, event_type: tplForm.event_type || undefined });
+      else await api.email.createTemplate({ name: tplForm.name, subject: tplForm.subject, body: tplForm.body, event_type: tplForm.event_type || undefined });
+      setSaved('Email template saved');
+      setTimeout(() => setSaved(''), 2500);
+      setTplForm(null);
+      await load();
+    } catch (err) { alert(err.message); }
+  };
+
   if (loading && !rules.length) return <p className="text-gray-500">Loading…</p>;
 
   return (
@@ -249,7 +267,7 @@ export default function AutomationSettings() {
       {saved && <p className="text-sm text-green-600 dark:text-green-400">{saved}</p>}
 
       <div className="flex gap-2 flex-wrap">
-        {[['rules', 'Rules'], ['presets', 'Preset library'], ['agents', 'AI Agents'], ['history', 'Run history']].map(([key, label]) => (
+        {[['rules', 'Rules'], ['presets', 'Preset library'], ['agents', 'AI Agents'], ['templates', 'Email templates'], ['history', 'Run history']].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
             className={`tab ${tab === key ? 'tab-active' : 'tab-inactive'}`}>
             {label}
@@ -511,6 +529,60 @@ export default function AutomationSettings() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'templates' && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Reusable email templates rendered with <b>{'{field}'}</b> placeholders (e.g. {'{reference}'}, {'{tmp_reference}'}, {'{expiry_date}'}). Reference a template by name in the <b>Send email</b> rule action.</p>
+          <div className="flex justify-end">
+            <button onClick={() => setTplForm({ name: '', subject: '', body: '', event_type: '', id: null })} className="btn btn-primary btn-sm">+ New template</button>
+          </div>
+          {tplForm && (
+            <form onSubmit={handleTemplateSave} className="card p-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Name *</label>
+                  <input value={tplForm.name} onChange={e => setTplForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. permit_approved" className="input w-full" />
+                </div>
+                <div>
+                  <label className="label">Event type (optional)</label>
+                  <input value={tplForm.event_type} onChange={e => setTplForm(f => ({ ...f, event_type: e.target.value }))} placeholder="e.g. permit.status_changed" className="input w-full" />
+                </div>
+              </div>
+              <div>
+                <label className="label">Subject *</label>
+                <input value={tplForm.subject} onChange={e => setTplForm(f => ({ ...f, subject: e.target.value }))} placeholder="Permit approved for {tmp_reference}" className="input w-full" />
+              </div>
+              <div>
+                <label className="label">Body *</label>
+                <textarea value={tplForm.body} onChange={e => setTplForm(f => ({ ...f, body: e.target.value }))} rows={5} placeholder="Dear customer,{newline}Your permit for {tmp_reference} has been approved..." className="input w-full font-mono text-xs" />
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" className="btn btn-primary btn-sm">{tplForm.id ? 'Update' : 'Create'}</button>
+                <button type="button" onClick={() => setTplForm(null)} className="btn btn-ghost btn-sm">Cancel</button>
+              </div>
+            </form>
+          )}
+          <div className="card divide-y dark:divide-gray-700">
+            {templates.length === 0 ? (
+              <p className="p-4 text-sm text-gray-500">No templates yet.</p>
+            ) : templates.map(t => (
+              <div key={t.id} className="px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm">{t.name}</p>
+                    <p className="text-xs text-gray-500 truncate">{t.subject}</p>
+                    {t.event_type && <p className="text-xs text-gray-400 mt-0.5">{t.event_type}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => setTplForm({ name: t.name, subject: t.subject, body: t.body, event_type: t.event_type || '', id: t.id })} className="text-amber-600 hover:underline text-xs">Edit</button>
+                    <button onClick={async () => { if (confirm(`Delete template "${t.name}"?`)) { try { await api.email.deleteTemplate(t.id); await load(); } catch (err) { alert(err.message); } } }} className="text-red-500 hover:underline text-xs">Delete</button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

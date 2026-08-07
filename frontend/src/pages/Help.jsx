@@ -155,6 +155,17 @@ const guides = [
       '<b>Admin</b> — full access, including user management. <b>Planner</b> — creates and manages TMPs, permits and records. <b>Viewer</b> — read-only.',
       'Roles can be changed later from the same page (Edit). Deleted users keep their history in activity logs.'
     ]
+  },
+  {
+    id: 'correspondence',
+    icon: '📨',
+    title: 'Correspondence & webhooks',
+    steps: [
+      'The <b>Correspondence</b> page shows inbound emails and webhook payloads, parsed for a TMP reference and an outcome (approved, rejected, request for information, under review, received).',
+      'Point your provider at <b>Settings → Inbound webhooks</b>: choose mailgun, sendgrid, postmark or generic. Set a <b>webhook secret</b> and send the HMAC-SHA256 digest of the request body in the <b>x-lux-signature</b> (or x-webhook-signature) header.',
+      'Matched emails are listed for review. <b>Apply to permit</b> pushes an approved/rejected outcome onto the linked permit (updating its status and recording the reason); <b>Dismiss</b> or <b>Mark reviewed</b> keeps the record without changing the permit.',
+      'Reusable <b>email templates</b> live under Automation & Triggers → Email templates, with {field} placeholders filled from the record — reference one by name in a <b>Send email</b> rule action.'
+    ]
   }
 ];
 

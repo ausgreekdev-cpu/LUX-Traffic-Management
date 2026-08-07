@@ -1,9 +1,10 @@
 import { Router } from 'express';
+import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { emitEvent } from '../events.js';
-import { getTransporter, resetTransporter, sendEmail } from '../emailer.js';
+import { getTransporter, resetTransporter, sendEmail, renderTemplate } from '../emailer.js';
 
 const router = Router();
 router.use(authenticate);
@@ -45,6 +46,42 @@ router.get('/logs', (req, res) => {
   if (req.query.tmp_id) { q += ' WHERE tmp_id = ?'; params.push(req.query.tmp_id); }
   q += ' ORDER BY created_at DESC LIMIT 50';
   res.json(db.prepare(q).all(...params));
+});
+
+router.get('/templates', (req, res) => {
+  res.json(db.prepare('SELECT * FROM email_templates ORDER BY name').all());
+});
+
+router.post('/templates', validate('emailTemplate'), (req, res) => {
+  const { name, subject, body, event_type } = req.validated;
+  const existing = db.prepare('SELECT id FROM email_templates WHERE name = ?').get(name);
+  if (existing) return res.status(409).json({ error: 'A template with this name already exists' });
+  const id = uuid();
+  db.prepare('INSERT INTO email_templates (id, name, subject, body, event_type) VALUES (?, ?, ?, ?, ?)')
+    .run(id, name, subject, body, event_type || null);
+  res.status(201).json(db.prepare('SELECT * FROM email_templates WHERE id = ?').get(id));
+});
+
+router.put('/templates/:id', validate('emailTemplate'), (req, res) => {
+  const existing = db.prepare('SELECT * FROM email_templates WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Template not found' });
+  const { name, subject, body, event_type } = req.validated;
+  db.prepare("UPDATE email_templates SET name = ?, subject = ?, body = ?, event_type = ?, updated_at = datetime('now') WHERE id = ?")
+    .run(name, subject, body, event_type || null, req.params.id);
+  res.json(db.prepare('SELECT * FROM email_templates WHERE id = ?').get(req.params.id));
+});
+
+router.delete('/templates/:id', (req, res) => {
+  const result = db.prepare('DELETE FROM email_templates WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Template not found' });
+  res.json({ success: true });
+});
+
+router.post('/templates/:id/preview', (req, res) => {
+  const tpl = db.prepare('SELECT * FROM email_templates WHERE id = ?').get(req.params.id);
+  if (!tpl) return res.status(404).json({ error: 'Template not found' });
+  const rendered = renderTemplate(tpl.name, req.body?.ctx || {});
+  res.json(rendered);
 });
 
 export default router;

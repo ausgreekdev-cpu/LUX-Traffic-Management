@@ -9,6 +9,7 @@ const mainNav = [
   { to: '/permits', label: 'Permits', icon: '📄' },
   { to: '/authorities', label: 'Authorities', icon: '🏛️' },
   { to: '/time-tracking', label: 'Time Tracking', icon: '⏱️' },
+  { to: '/correspondence', label: 'Correspondence', icon: '📨' },
   { to: '/analytics', label: 'Analytics', icon: '📈' },
   { to: '/clients', label: 'Clients', icon: '👥' },
   { to: '/sites', label: 'Sites', icon: '📍' },

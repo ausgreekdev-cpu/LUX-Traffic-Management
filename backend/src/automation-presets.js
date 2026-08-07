@@ -176,12 +176,26 @@ export const PRESETS = [
     ],
     dedupe_key_template: 'compliance-{id}',
     default_active: true
+  },
+  {
+    id: 'correspondence_status_notify',
+    name: 'Correspondence received notification',
+    description: 'Notify the TMP owner when correspondence is received and matched to a TMP, with the extracted outcome.',
+    entity_type: 'tmp',
+    event_type: 'correspondence.matched',
+    conditions: [],
+    actions: [
+      { type: 'notify_user', params: { title: 'Correspondence for {tmp_reference}: {extracted_status}', message: 'From {sender}: {subject}', notification_type: 'correspondence' } }
+    ],
+    dedupe_key_template: 'corr-{id}',
+    default_active: true
   }
 ];
 
 export function ensureAutomationPresets() {
-  const count = db.prepare('SELECT COUNT(*) as c FROM automation_rules').get().c;
-  if (count > 0) return { seeded: 0, skipped: count > 0 };
+  const existing = new Set(db.prepare('SELECT id FROM automation_rules').all().map(r => r.id));
+  const missing = PRESETS.filter(p => !existing.has(p.id));
+  if (!missing.length) return { seeded: 0, skipped: existing.size };
   const insert = db.prepare(`
     INSERT INTO automation_rules (id, name, description, is_active, entity_type, event_type, conditions_json, actions_json, dedupe_key_template, priority)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -202,8 +216,8 @@ export function ensureAutomationPresets() {
       );
     }
   });
-  tx(PRESETS);
-  return { seeded: PRESETS.length };
+  tx(missing);
+  return { seeded: missing.length, skipped: existing.size };
 }
 
 export function installPreset(id) {

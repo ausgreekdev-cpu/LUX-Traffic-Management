@@ -100,7 +100,7 @@ automation_runs(
 );
 ```
 
-**Action types (v1):** `notify_user(role|userId|created_by)`, `notify_email(smtp, template)`, `notify_sms(provider, phone_field)`, `create_task(subject, assignee_role, due_in_days)`, `create_permit_sub_task`, `set_field(field, value)`, `raise_trigger(type, description)`, `compute_risk_score`, `run_agent(agent_id)`, `webhook(url)`.
+**Action types:** `notify_user(role|userId|created_by)`, `notify_email(to, template?, subject?, body?)`, `create_task(subject, assignee_role, due_in_days)`, `create_permit_sub_task`, `set_field(field, value)`, `raise_trigger(type, description)`, `compute_risk_score`, `run_agent(agent_id)`, `webhook(url)`. `notify_email` falls back to inline `subject`/`body` when `template` is omitted or has no subject/body; templates render `{field}` placeholders.
 
 ### 4.3 Seed rule presets
 
@@ -133,7 +133,7 @@ Endpoints: `GET/POST/PUT/DELETE /api/automations/rules`, `POST /api/automations/
 | P3 | Workflow templates & branching; complexity triage UI on TMP form; per-authority stage sets | P2 |
 | P4 | Risk scoring model; site data fields (speed, AADT, class); triage rules | P2 |
 | P5 | ✅ AI agents (Triage, Drawing Validation, Compliance Checker) as `run_agent` actions — deterministic, human-in-the-loop (`agent_runs` + Apply) | P2 |
-| P6 | SMS provider, email templates, webhooks, correspondence ingest | P2 |
+| P6 | ✅ Email templates, inbound webhooks, correspondence ingest (SMS provider deliberately scrapped) | P2 |
 
 ## 6. Agents implementation notes (P5)
 
@@ -141,3 +141,14 @@ Endpoints: `GET/POST/PUT/DELETE /api/automations/rules`, `POST /api/automations/
 - Runs stored in `agent_runs`; verdict `ok|warn|fail`, score, findings + `recommended_json`. Apply is explicit (`POST /api/agents/runs/:id/apply`) and only the triage agent mutates (sets complexity + `complexity_source='auto'`, swaps workflow template, logs activity, emits `tmp.complexity_changed`).
 - Engine action `run_agent` (params: `agent`); on warn/fail it raises an `agent_blocker` workflow trigger (permit events) and notifies admins. Emits `agent.completed` so rules can react.
 - Presets: `risk_triage_agent`, `drawing_validate_agent`, `compliance_check_agent`. UI: Automation Settings → AI Agents tab + panels on TMP/Permit detail pages.
+
+## 7. Correspondence & inbound integrations implementation notes (P6)
+
+- **Webhook endpoint** `POST /api/integrations/webhook/:provider` (`mailgun|sendgrid|postmark|generic`) is public and mounted before auth. If the `webhook_secret` setting is set, requests must include an HMAC-SHA256 hex digest of the raw request body in `x-lux-signature` or `x-webhook-signature` (raw body captured via `express.json({ verify })`). 401 otherwise.
+- Provider field extraction: mailgun (`sender/from`, `subject/Subject`, `stripped-text`/`body-plain`/`body-html`), sendgrid (`from`/`subject`/`text`), postmark (`From`/`Subject`/`TextBody`), generic fallback (`sender/from/email`, `subject`, `text/body/message`).
+- `backend/src/correspondence.js` — `parseCorrespondence` extracts a `TMP-\d{4}-\d{3}` reference and an outcome status. **Order matters:** `rejected` (incl. `not approved`, `cannot be approved`) is checked before `approved` so negations never classify as approvals; then `requested_information`, `under_review`, `received`. Rejection reason = first sentence containing the rejection wording, cleaned of boilerplate.
+- `matchPermit` prefers a `submitted`/`under_review` permit on the TMP, else the latest. `ingestCorrespondence` emits `correspondence.received` (always) and `correspondence.matched` (when a TMP matched).
+- `reviewCorrespondence` (via `POST /api/integrations/correspondence/:id/review`) applies only `approved`/`rejected` when a permit is matched: updates the permit (+ `approval_date` / `rejection_reason`), writes a `permit_status_changed` activity, emits `permit.status_changed` with `{previous_status, by, from_correspondence: true}`. Other review states: `reviewed`, `dismissed`.
+- **Email templates** (`email_templates` table): CRUD + preview at `/api/email/templates*`; rendered by `emailer.renderTemplate(name, ctx)`; referenced by the `notify_email` action via its `template` param. UI: Automation Settings → Email templates tab + Correspondence page (`/correspondence`) for review queue.
+- Preset `correspondence_status_notify` (event `correspondence.matched`) notifies the TMP owner with the extracted outcome. `ensureAutomationPresets` seeds only presets missing from the rules table, so new presets install on existing databases at startup.
+- No SMS provider, `sms_logs` table, `users.phone` field, or `notify_sms` action — dropped by product decision during P6.

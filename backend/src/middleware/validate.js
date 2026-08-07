@@ -149,6 +149,13 @@ export const schemas = {
     subject: z.string().min(1),
     body: z.string().min(1),
     tmp_id: z.string().optional()
+  }),
+
+  emailTemplate: z.object({
+    name: z.string().min(1),
+    subject: z.string().min(1),
+    body: z.string().min(1),
+    event_type: z.string().optional()
   })
 };
 
