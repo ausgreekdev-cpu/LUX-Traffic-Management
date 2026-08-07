@@ -3,8 +3,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.resolve(__dirname, '..', process.env.DB_PATH || './data/tmpcms.db');
+const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const dbPath = isServerless
+  ? path.join('/tmp', process.env.DB_FILENAME || 'tmpcms.db')
+  : path.resolve(moduleDir, '..', process.env.DB_PATH || './data/tmpcms.db');
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 const db = new Database(dbPath);

@@ -33,7 +33,7 @@ router.get('/', (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const countQ = q.replace(/SELECT t\.\*.*?FROM/, 'SELECT COUNT(*) as total FROM');
+  const countQ = q.replace(/SELECT t\.[\s\S]*?FROM/, 'SELECT COUNT(*) as total FROM');
   const total = db.prepare(countQ).get(...params).total;
   q += ' LIMIT ? OFFSET ?';
   params.push(limit, offset);

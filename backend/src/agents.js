@@ -8,11 +8,11 @@ import { emitEvent } from './events.js';
 import { suggestComplexity, computeRisk } from './risk.js';
 import { incompleteRequiredStages, swapTemplateForEntity } from './routes/workflows.js';
 
-const require = createRequire(import.meta.url);
-const { PDFParse } = require('pdf-parse');
+const requirePdf = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
+const { PDFParse } = requirePdf('pdf-parse');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadDir = process.env.UPLOADS_DIR || path.resolve(__dirname, '..', 'uploads');
+const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+const uploadDir = process.env.UPLOADS_DIR || path.resolve(moduleDir, '..', 'uploads');
 
 export const AGENTS = [
   {

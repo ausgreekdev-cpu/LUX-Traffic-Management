@@ -2,6 +2,7 @@ import db from './db.js';
 import bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 
+export function seedDatabase() {
 const hash = bcrypt.hashSync('admin123', 12);
 const adminId = uuid();
 const clientId = uuid();
@@ -84,3 +85,8 @@ console.log('Database seeded successfully!');
 console.log('Admin: admin@tmpcms.com / admin123');
 console.log('Planner: planner@tmpcms.com / planner123');
 console.log('Viewer: viewer@tmpcms.com / viewer123');
+}
+
+if (import.meta.url === new URL(process.argv[1] || '', 'file://').href) {
+  seedDatabase();
+}

@@ -8,8 +8,8 @@ import { validate } from '../middleware/validate.js';
 import { deserializeAuthority, upsertDirectoryEntries } from '../seed-directory.js';
 import { buildDirectory } from '../lga-directory.js';
 
-const require = createRequire(import.meta.url);
-const { PDFParse } = require('pdf-parse');
+const requirePdf = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
+const { PDFParse } = requirePdf('pdf-parse');
 
 const router = Router();
 router.use(authenticate);

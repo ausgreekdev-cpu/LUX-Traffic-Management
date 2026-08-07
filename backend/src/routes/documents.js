@@ -8,8 +8,9 @@ import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { emitEvent } from '../events.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadDir = process.env.UPLOADS_DIR || path.resolve(__dirname, '..', '..', 'uploads');
+const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const uploadDir = process.env.UPLOADS_DIR || (isServerless ? '/tmp/uploads' : path.resolve(moduleDir, '..', '..', 'uploads'));
 try {
   fs.mkdirSync(uploadDir, { recursive: true });
 } catch (err) {

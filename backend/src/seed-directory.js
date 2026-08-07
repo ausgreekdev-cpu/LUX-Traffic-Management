@@ -5,8 +5,19 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import db from './db.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SEED_FILE = path.join(__dirname, '..', 'data', 'wa-lga-directory.json');
+const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+function findSeedFile(fromDir) {
+  let current = fromDir;
+  for (let depth = 0; depth < 6; depth++) {
+    const direct = path.join(current, 'data', 'wa-lga-directory.json');
+    if (fs.existsSync(direct)) return direct;
+    const nested = path.join(current, 'backend', 'data', 'wa-lga-directory.json');
+    if (fs.existsSync(nested)) return nested;
+    current = path.dirname(current);
+  }
+  return path.join(fromDir, '..', 'data', 'wa-lga-directory.json');
+}
+const SEED_FILE = findSeedFile(moduleDir);
 
 const STAT_KEYS = ['distance_km', 'electors', 'area_sqkm', 'dwellings', 'sealed_roads_km', 'rates_levied', 'unsealed_roads_km', 'revenue', 'population', 'employees'];
 
