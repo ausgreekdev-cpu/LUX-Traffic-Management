@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../api';
+import { useAppText } from '../context/AppText';
 
 const REVIEW_BADGES = {
   new: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
@@ -15,9 +16,8 @@ const STATUS_BADGES = {
   under_review: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
   received: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
 };
-const statusLabel = (s) => (s || '').replace(/_/g, ' ');
-
 export default function Correspondence() {
+  const { pageTitle, column, status } = useAppText();
   const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +43,7 @@ export default function Correspondence() {
     <div className="space-y-4">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="page-header">Correspondence</h1>
+          <h1 className="page-header">{pageTitle('correspondence', 'Correspondence')}</h1>
           <p className="page-sub">Inbound emails and webhook payloads matched to TMPs. Review extracted outcomes and apply them to permits.</p>
         </div>
         <div className="flex gap-2">
@@ -71,12 +71,12 @@ export default function Correspondence() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
-                <th className="table-th">Received</th>
-                <th className="table-th">From</th>
-                <th className="table-th">Subject</th>
-                <th className="table-th">TMP</th>
-                <th className="table-th">Extracted</th>
-                <th className="table-th">Review</th>
+                <th className="table-th">{column('correspondence', 'received', 'Received')}</th>
+                <th className="table-th">{column('correspondence', 'from', 'From')}</th>
+                <th className="table-th">{column('correspondence', 'subject', 'Subject')}</th>
+                <th className="table-th">{column('correspondence', 'tmp', 'TMP')}</th>
+                <th className="table-th">{column('correspondence', 'extracted', 'Extracted')}</th>
+                <th className="table-th">{column('correspondence', 'review', 'Review')}</th>
                 <th className="table-th"></th>
               </tr>
             </thead>
@@ -94,7 +94,7 @@ export default function Correspondence() {
                   <td className="table-td text-xs">{r.tmp_reference || '—'}</td>
                   <td className="table-td">
                     {r.extracted_status ? (
-                      <span className={`badge ${STATUS_BADGES[r.extracted_status] || 'bg-gray-100 text-gray-600'}`}>{statusLabel(r.extracted_status)}</span>
+                      <span className={`badge ${STATUS_BADGES[r.extracted_status] || 'bg-gray-100 text-gray-600'}`}>{status(r.extracted_status)}</span>
                     ) : <span className="text-xs text-gray-400">—</span>}
                     {r.extracted_reason && <p className="text-xs text-gray-500 mt-0.5 max-w-[200px] truncate">{r.extracted_reason}</p>}
                   </td>
@@ -124,7 +124,7 @@ export default function Correspondence() {
             <div className="px-4 py-3 border-b dark:border-gray-700 text-xs text-gray-500 space-y-1">
               <p>From: {selected.sender || '—'} · {selected.provider}{selected.created_at ? ` · ${selected.created_at.slice(0, 16)}` : ''}</p>
               {selected.tmp_reference && <p>Matched: <Link to={`/tmps/${selected.matched_tmp_id}`} className="text-amber-600 hover:underline">{selected.tmp_reference}</Link>{selected.matched_permit_id ? ' · has permit' : ' · no permit'}</p>}
-              {selected.extracted_status && <p>Extracted: <b>{statusLabel(selected.extracted_status)}</b>{selected.extracted_reason ? ` — ${selected.extracted_reason}` : ''}</p>}
+              {selected.extracted_status && <p>Extracted: <b>{status(selected.extracted_status)}</b>{selected.extracted_reason ? ` — ${selected.extracted_reason}` : ''}</p>}
             </div>
             <div className="px-4 py-3 overflow-y-auto text-sm whitespace-pre-wrap flex-1 min-h-0">{selected.raw_text || 'No body captured.'}</div>
             <div className="flex items-center gap-2 px-4 py-3 border-t dark:border-gray-700">

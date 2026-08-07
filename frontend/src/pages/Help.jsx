@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useAppText } from '../context/AppText';
 
 const guides = [
   {
@@ -237,9 +239,17 @@ const faqs = [
 ];
 
 export default function Help() {
+  const { pageTitle, settings } = useAppText();
+  const location = useLocation();
   const [query, setQuery] = useState('');
   const [openGuide, setOpenGuide] = useState('getting-started');
   const [openFaqs, setOpenFaqs] = useState(new Set());
+
+  useEffect(() => {
+    if (location.hash === '#privacy' || location.hash === '#terms') {
+      document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [location.hash]);
 
   const q = query.trim().toLowerCase();
   const filterText = (s) => q === '' || s.toLowerCase().includes(q);
@@ -255,7 +265,7 @@ export default function Help() {
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Help & Tutorials</h1>
+        <h1 className="text-2xl font-bold">{pageTitle('help', 'Help & Tutorials')}</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">Step-by-step guides for the whole workflow, plus answers to common questions.</p>
       </div>
 
@@ -317,6 +327,20 @@ export default function Help() {
           </div>
         )}
       </section>
+
+      {settings.privacy_policy && (
+        <section id="privacy" className="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
+          <h2 className="text-lg font-semibold mb-3">Privacy Policy</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">{settings.privacy_policy}</p>
+        </section>
+      )}
+
+      {settings.terms_of_service && (
+        <section id="terms" className="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
+          <h2 className="text-lg font-semibold mb-3">Terms of Service</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">{settings.terms_of_service}</p>
+        </section>
+      )}
     </div>
   );
 }

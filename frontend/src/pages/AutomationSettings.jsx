@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
+import { useAppText } from '../context/AppText';
 
 const ENTITY_TYPES = ['tmp', 'permit', 'fee', 'document'];
 const EVENT_TYPES = [
@@ -110,6 +111,7 @@ function previewText(rule) {
 }
 
 export default function AutomationSettings() {
+  const { pageTitle } = useAppText();
   const [tab, setTab] = useState('rules');
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -255,7 +257,7 @@ export default function AutomationSettings() {
     <div className="max-w-5xl space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="page-header">Automation & Trigger Settings</h1>
+          <h1 className="page-header">{pageTitle('automations', 'Automation & Trigger Settings')}</h1>
           <p className="page-sub mt-1">Event-driven rules that react to TMP, permit, fee, document and SLA events. All rules are user-editable and run in the background.</p>
         </div>
         <div className="flex gap-2">

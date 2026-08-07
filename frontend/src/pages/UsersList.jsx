@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { useAppText } from '../context/AppText';
 
 export default function UsersList() {
+  const { pageTitle, column } = useAppText();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ email: '', password: '', name: '', role: 'planner' });
@@ -44,7 +46,7 @@ export default function UsersList() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="page-header">User Management</h1>
+        <h1 className="page-header">{pageTitle('users', 'User Management')}</h1>
         <p className="page-sub">Create and manage accounts and roles</p>
       </div>
       <form onSubmit={handleSubmit} className="card p-4 flex flex-wrap items-end gap-3">
@@ -84,7 +86,7 @@ export default function UsersList() {
       ) : (
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><tr><th className="table-th">Name</th><th className="table-th">Email</th><th className="table-th">Role</th><th className="table-th">Created</th><th className="table-th text-right">Actions</th></tr></thead>
+          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><tr><th className="table-th">{column('users', 'name', 'Name')}</th><th className="table-th">{column('users', 'email', 'Email')}</th><th className="table-th">{column('users', 'role', 'Role')}</th><th className="table-th">{column('users', 'created', 'Created')}</th><th className="table-th text-right">Actions</th></tr></thead>
           <tbody className="divide-y dark:divide-gray-700">{users.map(u => (
             <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
               <td className="table-td font-medium">{u.name}</td>

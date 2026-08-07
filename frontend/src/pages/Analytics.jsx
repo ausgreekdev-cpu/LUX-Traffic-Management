@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { useAppText } from '../context/AppText';
 
 export default function Analytics() {
+  const { pageTitle } = useAppText();
   const [tab, setTab] = useState('overview');
   const [period, setPeriod] = useState(90);
   const [approval, setApproval] = useState(null);
@@ -28,7 +30,7 @@ export default function Analytics() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="page-header">Analytics</h1>
+          <h1 className="page-header">{pageTitle('analytics', 'Analytics')}</h1>
           <p className="page-sub">Approval times, financials and rejection analysis</p>
         </div>
         <select value={period} onChange={e => setPeriod(parseInt(e.target.value))} className="input">

@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api';
+import { useAppText } from '../context/AppText';
 
 export default function Login({ onLogin }) {
+  const { appName, settings } = useAppText();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -30,8 +33,8 @@ export default function Login({ onLogin }) {
             <div className="h-14 w-14 mx-auto rounded-2xl bg-lux-500 flex items-center justify-center shadow-lg shadow-lux-500/30 mb-4">
               <span className="font-black text-gray-900 text-lg tracking-tight">LUX</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">LUX Traffic Management</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1.5 text-sm">Sign in to your workspace</p>
+            <h1 className="text-2xl font-bold tracking-tight">{appName('LUX Traffic Management')}</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1.5 text-sm">{settings.login_subtitle || 'Sign in to your workspace'}</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
@@ -56,8 +59,14 @@ export default function Login({ onLogin }) {
           </form>
         </div>
         <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
-          LUX Traffic Management · offline desktop app
+          {appName('LUX Traffic Management')} · offline desktop app
         </p>
+        {(settings.privacy_policy || settings.terms_of_service) && (
+          <p className="text-center text-xs mt-2 space-x-3">
+            {settings.privacy_policy && <Link to="/help#privacy" className="text-gray-500 dark:text-gray-400 hover:text-lux-600 dark:hover:text-lux-400">Privacy Policy</Link>}
+            {settings.terms_of_service && <Link to="/help#terms" className="text-gray-500 dark:text-gray-400 hover:text-lux-600 dark:hover:text-lux-400">Terms of Service</Link>}
+          </p>
+        )}
       </div>
     </div>
   );

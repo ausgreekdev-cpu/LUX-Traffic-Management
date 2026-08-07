@@ -4,19 +4,48 @@ import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { emitEvent } from '../events.js';
-import { getTransporter, resetTransporter, sendEmail, renderTemplate } from '../emailer.js';
+import { getTransporter, resetTransporter, sendEmail, renderTemplate, getSmtpConfig } from '../emailer.js';
 
 const router = Router();
 router.use(authenticate);
 
-router.post('/config', validate('emailConfig'), (req, res) => {
-  const { host, port, user, pass } = req.validated;
-  if (host) process.env.SMTP_HOST = host;
-  if (port) process.env.SMTP_PORT = String(port);
-  if (user) process.env.SMTP_USER = user;
-  if (pass) process.env.SMTP_PASS = pass;
+const SMTP_KEYS = ['smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass', 'smtp_from_name', 'smtp_from_email'];
+
+router.get('/config', (req, res) => {
+  const cfg = getSmtpConfig();
+  res.json({
+    host: cfg.host === 'smtp.example.com' ? '' : cfg.host,
+    port: String(cfg.port),
+    secure: cfg.secure,
+    user: cfg.user,
+    pass: '',
+    has_pass: !!cfg.pass,
+    from_name: cfg.fromName,
+    from_email: cfg.fromEmail,
+    source: 'settings'
+  });
+});
+
+router.post('/config', (req, res) => {
+  const { host, port, secure, user, pass, from_name, from_email } = req.body || {};
+  const upsert = db.prepare(`
+    INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `);
+  const values = {};
+  if (host !== undefined) values.smtp_host = String(host).trim();
+  if (port !== undefined) values.smtp_port = String(parseInt(port, 10) || 587);
+  if (secure !== undefined) values.smtp_secure = secure ? 'true' : 'false';
+  if (user !== undefined) values.smtp_user = String(user).trim();
+  if (pass !== undefined && String(pass).length > 0) values.smtp_pass = String(pass);
+  if (from_name !== undefined) values.smtp_from_name = String(from_name).trim();
+  if (from_email !== undefined) values.smtp_from_email = String(from_email).trim();
+  const tx = db.transaction((entries) => {
+    for (const [key, value] of Object.entries(entries)) upsert.run(key, value);
+  });
+  tx(values);
   resetTransporter();
-  res.json({ success: true, message: 'Email configuration updated' });
+  res.json({ success: true, message: 'Email configuration saved', keys: Object.keys(values) });
 });
 
 router.post('/test', (req, res) => {

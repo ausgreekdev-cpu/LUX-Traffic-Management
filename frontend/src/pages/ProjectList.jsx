@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { useAppText } from '../context/AppText';
 
 export default function ProjectList() {
+  const { pageTitle } = useAppText();
   const [projects, setProjects] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -33,7 +35,7 @@ export default function ProjectList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="page-header">Projects</h1>
+          <h1 className="page-header">{pageTitle('projects', 'Projects')}</h1>
           <p className="page-sub">Group TMPs under client engagements</p>
         </div>
         <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Project</button>

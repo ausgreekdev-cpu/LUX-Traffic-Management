@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api.js';
+import { useAppText } from '../context/AppText';
 
 function Card({ title, description, children }) {
   return (
@@ -11,23 +12,107 @@ function Card({ title, description, children }) {
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, children, hint }) {
   return (
     <label className="block mb-3">
       <span className="label">{label}</span>
       {children}
+      {hint && <span className="text-xs text-gray-400 mt-1 block">{hint}</span>}
     </label>
   );
 }
 
+function LabelEditor({ items, values, onChange, placeholder }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+      {items.map(({ key, label }) => (
+        <div key={key}>
+          <label className="text-xs text-gray-400">{label}</label>
+          <input className="input w-full" value={values[key] || ''} placeholder={placeholder || label}
+            onChange={e => onChange({ ...values, [key]: e.target.value })} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const inputClass = 'input w-full';
+const parseJson = (s, fb) => { try { return JSON.parse(s); } catch { return fb || {}; } };
+
+const NAV_ITEMS = [
+  { key: '/', label: 'Dashboard' }, { key: '/tmps', label: 'TMPs' }, { key: '/projects', label: 'Projects' },
+  { key: '/permits', label: 'Permits' }, { key: '/authorities', label: 'Authorities' },
+  { key: '/time-tracking', label: 'Time Tracking' }, { key: '/correspondence', label: 'Correspondence' },
+  { key: '/analytics', label: 'Analytics' }, { key: '/clients', label: 'Clients' }, { key: '/sites', label: 'Sites' },
+  { key: '/settings', label: 'Settings' }, { key: '/help', label: 'Help & FAQ' },
+  { key: '/workflows', label: 'Workflows' }, { key: '/automations', label: 'Automation & Triggers' }, { key: '/users', label: 'Users' }
+];
+
+const PAGE_TITLES = [
+  { key: 'dashboard', label: 'Dashboard' }, { key: 'tmps', label: 'Traffic Management Plans' },
+  { key: 'projects', label: 'Projects' }, { key: 'permits', label: 'Permits' },
+  { key: 'authorities', label: 'WA Authorities' }, { key: 'time-tracking', label: 'Time Tracking' },
+  { key: 'correspondence', label: 'Correspondence' }, { key: 'analytics', label: 'Analytics' },
+  { key: 'clients', label: 'Clients' }, { key: 'sites', label: 'Sites' }, { key: 'settings', label: 'Settings' },
+  { key: 'help', label: 'Help & FAQ' }, { key: 'workflows', label: 'Workflows' },
+  { key: 'automations', label: 'Automation & Triggers' }, { key: 'users', label: 'Users' }
+];
+
+const SECTIONS = [
+  { key: 'tmp_details', label: 'Details' }, { key: 'tmp_permits', label: 'Permits' },
+  { key: 'tmp_documents', label: 'Documents' }, { key: 'tmp_activity', label: 'Activity' },
+  { key: 'tmp_agents', label: 'AI agent checks' }, { key: 'permit_details', label: 'Permit Details' },
+  { key: 'permit_sla', label: 'SLA Information' }, { key: 'permit_fees', label: 'Fees' },
+  { key: 'permit_triggers', label: 'Workflow Triggers' }, { key: 'permit_compliance', label: 'Compliance check' },
+  { key: 'permit_contact', label: 'Contact' }
+];
+
+const COLUMN_GROUPS = {
+  tmps: { reference: 'Reference', title: 'Title', site: 'Site', status: 'Status', type: 'Type', ends: 'Ends', created: 'Created' },
+  permits: { tmp: 'TMP', authority: 'Authority', status: 'Status', complexity: 'Complexity', submitted: 'Submitted', expiry: 'Expiry', signal: '30m Signal', mrwa: 'MRWA' },
+  clients: { name: 'Name', company: 'Company', email: 'Email', phone: 'Phone' },
+  sites: { name: 'Name', road: 'Road', class: 'Class', speed: 'Speed', aadt: 'AADT', suburb: 'Suburb' },
+  users: { name: 'Name', email: 'Email', role: 'Role', created: 'Created' },
+  time: { date: 'Date', tmp: 'TMP', cost_code: 'Cost Code', description: 'Description', hours: 'Hours', rate: 'Rate', cost: 'Cost', billable: 'Billable' },
+  correspondence: { received: 'Received', from: 'From', subject: 'Subject', tmp: 'TMP', extracted: 'Extracted', review: 'Review' }
+};
+
+const STATUS_ITEMS = [
+  { key: 'draft', label: 'Draft' }, { key: 'submitted', label: 'Submitted' }, { key: 'under_review', label: 'Under review' },
+  { key: 'approved', label: 'Approved' }, { key: 'rejected', label: 'Rejected' }, { key: 'expired', label: 'Expired' },
+  { key: 'cancelled', label: 'Cancelled' }, { key: 'completed', label: 'Completed' }
+];
+
+const COMPLEXITY_ITEMS = [
+  { key: 'simple', label: 'Simple' }, { key: 'standard', label: 'Standard' },
+  { key: 'complex', label: 'Complex' }, { key: 'complex_with_notice', label: 'Complex + notice' }
+];
 
 export default function Settings() {
+  const { pageTitle } = useAppText();
+  const [user, setUser] = useState(null);
   const [settings, setSettings] = useState({});
   const [form, setForm] = useState({
     company_name: '', company_abn: '', company_phone: '', company_email: '', company_address: '',
     reminder_days: '14', webhook_secret: ''
   });
+  const [branding, setBranding] = useState({ app_name: '', login_subtitle: '', footer_text: '', pdf_footer_text: '' });
+  const [navLabels, setNavLabels] = useState({});
+  const [pageTitles, setPageTitles] = useState({});
+  const [sections, setSections] = useState({});
+  const [columns, setColumns] = useState({});
+  const [statusLabels, setStatusLabels] = useState({});
+  const [complexityLabels, setComplexityLabels] = useState({});
+  const [legal, setLegal] = useState({ privacy_policy: '', terms_of_service: '' });
+  const [behaviour, setBehaviour] = useState({
+    default_currency: 'AUD', timezone: 'Australia/Perth', date_format: 'yyyymmdd', default_rate: '150',
+    session_timeout_minutes: '1440', default_sla_days: '14', risk_high_threshold: '10',
+    risk_extreme_threshold: '16', notif_retention_days: '180', email_retention_days: '365', maintenance_mode: false
+  });
+  const [smtp, setSmtp] = useState({ host: '', port: '587', secure: false, user: '', pass: '', has_pass: false, from_name: '', from_email: '' });
+  const [emailLogs, setEmailLogs] = useState([]);
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [testTo, setTestTo] = useState('');
   const [showSecret, setShowSecret] = useState(false);
   const [theme, setTheme] = useState('light');
   const [saved, setSaved] = useState('');
@@ -46,13 +131,44 @@ export default function Settings() {
           reminder_days: s.reminder_days || '14',
           webhook_secret: s.webhook_secret || ''
         });
+        setBranding({
+          app_name: s.app_name || '',
+          login_subtitle: s.login_subtitle || '',
+          footer_text: s.footer_text || '',
+          pdf_footer_text: s.pdf_footer_text || ''
+        });
+        setNavLabels(parseJson(s.nav_labels_json));
+        setPageTitles(parseJson(s.page_titles_json));
+        setSections(parseJson(s.sections_json));
+        setColumns(parseJson(s.columns_json));
+        setStatusLabels(parseJson(s.status_labels_json));
+        setComplexityLabels(parseJson(s.complexity_labels_json));
+        setLegal({ privacy_policy: s.privacy_policy || '', terms_of_service: s.terms_of_service || '' });
+        setBehaviour({
+          default_currency: s.default_currency || 'AUD',
+          timezone: s.timezone || 'Australia/Perth',
+          date_format: s.date_format || 'yyyymmdd',
+          default_rate: s.default_rate || '150',
+          session_timeout_minutes: s.session_timeout_minutes || '1440',
+          default_sla_days: s.default_sla_days || '14',
+          risk_high_threshold: s.risk_high_threshold || '10',
+          risk_extreme_threshold: s.risk_extreme_threshold || '16',
+          notif_retention_days: s.notif_retention_days || '180',
+          email_retention_days: s.email_retention_days || '365',
+          maintenance_mode: s.maintenance_mode === 'true'
+        });
         const t = s.theme === 'dark' ? 'dark' : 'light';
         setTheme(t);
         document.documentElement.classList.toggle('dark', t === 'dark');
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    api.auth.me().then(setUser).catch(() => {});
+    api.email.getConfig().then(setSmtp).catch(() => {});
+    api.email.logs().then(setEmailLogs).catch(() => {});
   }, []);
+
+  const notify = (msg) => { setSaved(msg); setTimeout(() => setSaved(''), 2500); };
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -61,16 +177,47 @@ export default function Settings() {
     for (const k of keys) payload[k] = form[k];
     await api.settings.update(payload);
     setSettings((s) => ({ ...s, ...payload }));
-    setSaved(message);
-    setTimeout(() => setSaved(''), 2500);
+    notify(message);
+  };
+
+  const saveJson = async (key, obj, message) => {
+    await api.settings.update({ [key]: JSON.stringify(obj) });
+    notify(message);
+  };
+
+  const saveScalar = async (key, value, message) => {
+    await api.settings.update({ [key]: String(value) });
+    notify(message);
   };
 
   const toggleTheme = async (t) => {
-    const next = t;
-    setTheme(next);
-    document.documentElement.classList.toggle('dark', next === 'dark');
-    await api.settings.update({ theme: next }).catch(() => {});
-    setSettings((s) => ({ ...s, theme: next }));
+    setTheme(t);
+    document.documentElement.classList.toggle('dark', t === 'dark');
+    await api.settings.update({ theme: t }).catch(() => {});
+    setSettings((s) => ({ ...s, theme: t }));
+  };
+
+  const saveSmtp = async () => {
+    setEmailBusy(true);
+    try {
+      await api.email.config({
+        host: smtp.host, port: smtp.port, secure: smtp.secure,
+        user: smtp.user, pass: smtp.pass, from_name: smtp.from_name, from_email: smtp.from_email
+      });
+      notify('SMTP settings saved');
+    } catch (err) { alert(err.message); }
+    finally { setEmailBusy(false); }
+  };
+
+  const sendTestEmail = async () => {
+    setEmailBusy(true);
+    try {
+      const res = await api.email.test(testTo || undefined);
+      notify(`Test email sent: ${res.messageId}`);
+      api.email.logs().then(setEmailLogs).catch(() => {});
+    } catch (err) {
+      alert(`Test failed: ${err.message}`);
+    } finally { setEmailBusy(false); }
   };
 
   const downloadBackup = async () => {
@@ -87,10 +234,12 @@ export default function Settings() {
 
   if (loading) return <p className="text-gray-500">Loading settings…</p>;
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <div className="max-w-2xl">
       <div className="mb-6">
-        <h1 className="page-header">Settings</h1>
+        <h1 className="page-header">{pageTitle('settings', 'Settings')}</h1>
         <p className="page-sub">Company profile, reminders and appearance</p>
       </div>
       {saved && <p className="mb-4 text-sm text-green-600 dark:text-green-400">{saved}</p>}
@@ -145,6 +294,61 @@ export default function Settings() {
         </div>
       </Card>
 
+      <Card title="Email (SMTP)" description="Outgoing mail server used for notifications, rule emails and tests. Settings persist in the database and override the SMTP_* environment variables at runtime.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="SMTP host">
+            <input className={inputClass} value={smtp.host} onChange={e => setSmtp(s => ({ ...s, host: e.target.value }))} placeholder="e.g. smtp.gmail.com" />
+          </Field>
+          <Field label="Port">
+            <input type="number" className={inputClass} value={smtp.port} onChange={e => setSmtp(s => ({ ...s, port: e.target.value }))} placeholder="587" />
+          </Field>
+        </div>
+        <div className="flex items-center gap-3 mb-3">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={smtp.secure} onChange={e => setSmtp(s => ({ ...s, secure: e.target.checked }))} />
+            Use TLS/SSL (check for port 465, uncheck for 587 STARTTLS)
+          </label>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Username">
+            <input className={inputClass} value={smtp.user} onChange={e => setSmtp(s => ({ ...s, user: e.target.value }))} placeholder="e.g. admin@lux.com.au" />
+          </Field>
+          <Field label="Password" hint={smtp.has_pass ? 'Stored — leave blank to keep the existing password.' : undefined}>
+            <div className="flex gap-2">
+              <input type={showSecret ? 'text' : 'password'} className={inputClass + ' font-mono'} value={smtp.pass}
+                onChange={e => setSmtp(s => ({ ...s, pass: e.target.value }))} placeholder={smtp.has_pass ? '••••••••' : 'App password or mailbox password'} />
+              <button type="button" onClick={() => setShowSecret(!showSecret)} className="btn btn-ghost shrink-0">{showSecret ? 'Hide' : 'Show'}</button>
+            </div>
+          </Field>
+          <Field label="From name">
+            <input className={inputClass} value={smtp.from_name} onChange={e => setSmtp(s => ({ ...s, from_name: e.target.value }))} placeholder="e.g. LUX Traffic Management" />
+          </Field>
+          <Field label="From email">
+            <input className={inputClass} value={smtp.from_email} onChange={e => setSmtp(s => ({ ...s, from_email: e.target.value }))} placeholder="e.g. admin@lux.com.au" />
+          </Field>
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <button onClick={saveSmtp} disabled={emailBusy} className="btn btn-primary">Save SMTP</button>
+          <button onClick={sendTestEmail} disabled={emailBusy} className="btn btn-ghost">
+            {emailBusy ? 'Working…' : 'Send test email'}
+          </button>
+          <input value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="Test recipient (optional)" className="input flex-1" />
+        </div>
+        {emailLogs.length > 0 && (
+          <div className="mt-4">
+            <p className="label">Recent email log</p>
+            <div className="text-xs space-y-1 max-h-40 overflow-y-auto bg-gray-50 dark:bg-gray-800 rounded p-2">
+              {emailLogs.slice(0, 8).map(l => (
+                <p key={l.id} className="truncate">
+                  <span className="text-gray-400">{l.created_at}</span> → {l.to_address} · {l.subject} · <span className={l.status === 'sent' ? 'text-green-600' : 'text-red-500'}>{l.status}</span>
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-gray-400 mt-3">Need help? See <b>docs/email-setup.md</b> for a full provider-by-provider guide.</p>
+      </Card>
+
       <Card title="Inbound webhooks" description="Point your email/webhook provider here to ingest correspondence and match it to TMPs. Payloads appear on the Correspondence page for review.">
         <div className="space-y-3">
           <Field label="Webhook secret">
@@ -178,6 +382,134 @@ export default function Settings() {
           💾 Download database backup
         </button>
       </Card>
+
+      {isAdmin && (
+        <>
+          <div className="mb-6 mt-10">
+            <h2 className="text-lg font-semibold">Developer & branding</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Administrator-only customisation — rename menus, pages, columns and statuses, edit legal content and tune system behaviour. Overrides stored in the database; leave a field blank to keep the default.</p>
+          </div>
+
+          <Card title="App branding" description="Applied to the login screen, sidebar and exported documents.">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="App name">
+                <input className={inputClass} value={branding.app_name} onChange={e => setBranding(b => ({ ...b, app_name: e.target.value }))} placeholder="LUX Traffic Management" />
+              </Field>
+              <Field label="Login subtitle">
+                <input className={inputClass} value={branding.login_subtitle} onChange={e => setBranding(b => ({ ...b, login_subtitle: e.target.value }))} placeholder="Traffic management made simple" />
+              </Field>
+              <Field label="Footer text" hint="Shown at the bottom of the sidebar.">
+                <input className={inputClass} value={branding.footer_text} onChange={e => setBranding(b => ({ ...b, footer_text: e.target.value }))} placeholder="© LUX Traffic Management" />
+              </Field>
+              <Field label="PDF footer text" hint="Printed at the bottom of exported PDFs.">
+                <input className={inputClass} value={branding.pdf_footer_text} onChange={e => setBranding(b => ({ ...b, pdf_footer_text: e.target.value }))} placeholder="Confidential — for internal use only" />
+              </Field>
+            </div>
+            <button onClick={() => saveScalar('app_name', branding.app_name, 'App branding saved')
+              .then(() => saveScalar('login_subtitle', branding.login_subtitle))
+              .then(() => saveScalar('footer_text', branding.footer_text))
+              .then(() => saveScalar('pdf_footer_text', branding.pdf_footer_text))} className="btn btn-primary mt-2">
+              Save branding
+            </button>
+          </Card>
+
+          <Card title="Menu names" description="Rename items in the sidebar navigation.">
+            <LabelEditor items={NAV_ITEMS} values={navLabels} onChange={setNavLabels} />
+            <button onClick={() => saveJson('nav_labels_json', navLabels, 'Menu names saved')} className="btn btn-primary">Save menu names</button>
+          </Card>
+
+          <Card title="Page titles & sub-category names" description="Rename page headings and section headings on TMP and permit detail pages.">
+            <p className="label">Page headings</p>
+            <LabelEditor items={PAGE_TITLES} values={pageTitles} onChange={setPageTitles} />
+            <p className="label">Detail-page sections</p>
+            <LabelEditor items={SECTIONS} values={sections} onChange={setSections} />
+            <button onClick={() => saveJson('page_titles_json', pageTitles, 'Page titles saved')
+              .then(() => saveJson('sections_json', sections, 'Section names saved'))} className="btn btn-primary">Save titles</button>
+          </Card>
+
+          <Card title="Table columns" description="Rename column headers on the list pages.">
+            {Object.entries(COLUMN_GROUPS).map(([page, items]) => (
+              <div key={page} className="mb-3">
+                <p className="label capitalize">{page}</p>
+                <LabelEditor items={Object.entries(items).map(([key, label]) => ({ key, label }))}
+                  values={columns[page] || {}} onChange={(v) => setColumns(c => ({ ...c, [page]: v }))} />
+              </div>
+            ))}
+            <button onClick={() => saveJson('columns_json', columns, 'Column names saved')} className="btn btn-primary">Save columns</button>
+          </Card>
+
+          <Card title="Status & complexity labels" description="Rename how statuses and complexity levels are displayed (badge colours stay the same).">
+            <p className="label">Statuses</p>
+            <LabelEditor items={STATUS_ITEMS} values={statusLabels} onChange={setStatusLabels} />
+            <p className="label">Complexity</p>
+            <LabelEditor items={COMPLEXITY_ITEMS} values={complexityLabels} onChange={setComplexityLabels} />
+            <button onClick={() => saveJson('status_labels_json', statusLabels, 'Status labels saved')
+              .then(() => saveJson('complexity_labels_json', complexityLabels, 'Complexity labels saved'))} className="btn btn-primary">Save labels</button>
+          </Card>
+
+          <Card title="Legal content" description="Privacy policy and terms of service — linked from the login screen and shown in Help.">
+            <Field label="Privacy policy">
+              <textarea rows={5} className={inputClass + ' font-mono text-xs'} value={legal.privacy_policy}
+                onChange={e => setLegal(l => ({ ...l, privacy_policy: e.target.value }))} placeholder="Describe how collected data is used, stored and shared…" />
+            </Field>
+            <Field label="Terms of service">
+              <textarea rows={5} className={inputClass + ' font-mono text-xs'} value={legal.terms_of_service}
+                onChange={e => setLegal(l => ({ ...l, terms_of_service: e.target.value }))} placeholder="Acceptable use, liability, disclaimers…" />
+            </Field>
+            <button onClick={() => saveScalar('privacy_policy', legal.privacy_policy, 'Legal content saved')
+              .then(() => saveScalar('terms_of_service', legal.terms_of_service))} className="btn btn-primary">Save legal content</button>
+          </Card>
+
+          <Card title="System behaviour" description="Defaults and thresholds that control how the system runs.">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Default currency">
+                <select className={inputClass} value={behaviour.default_currency} onChange={e => setBehaviour(b => ({ ...b, default_currency: e.target.value }))}>
+                  <option value="AUD">AUD ($)</option><option value="USD">USD ($)</option>
+                  <option value="GBP">GBP (£)</option><option value="EUR">EUR (€)</option><option value="NZD">NZD ($)</option>
+                </select>
+              </Field>
+              <Field label="Timezone">
+                <input className={inputClass} value={behaviour.timezone} onChange={e => setBehaviour(b => ({ ...b, timezone: e.target.value }))} placeholder="Australia/Perth" />
+              </Field>
+              <Field label="Date format">
+                <select className={inputClass} value={behaviour.date_format} onChange={e => setBehaviour(b => ({ ...b, date_format: e.target.value }))}>
+                  <option value="yyyymmdd">YYYY-MM-DD</option><option value="ddmmyyyy">DD/MM/YYYY</option>
+                </select>
+              </Field>
+              <Field label="Default hourly rate" hint="Prefilled in Time Tracking.">
+                <input type="number" className={inputClass} value={behaviour.default_rate} onChange={e => setBehaviour(b => ({ ...b, default_rate: e.target.value }))} />
+              </Field>
+              <Field label="Session timeout (minutes)" hint="How long a login stays valid before re-authentication.">
+                <input type="number" min="5" className={inputClass} value={behaviour.session_timeout_minutes} onChange={e => setBehaviour(b => ({ ...b, session_timeout_minutes: e.target.value }))} />
+              </Field>
+              <Field label="Default SLA days" hint="Fallback assessment days when an authority has no SLA rule.">
+                <input type="number" min="1" className={inputClass} value={behaviour.default_sla_days} onChange={e => setBehaviour(b => ({ ...b, default_sla_days: e.target.value }))} />
+              </Field>
+              <Field label="Risk high threshold" hint="Score at or above this is High.">
+                <input type="number" className={inputClass} value={behaviour.risk_high_threshold} onChange={e => setBehaviour(b => ({ ...b, risk_high_threshold: e.target.value }))} />
+              </Field>
+              <Field label="Risk extreme threshold" hint="Score at or above this is Extreme.">
+                <input type="number" className={inputClass} value={behaviour.risk_extreme_threshold} onChange={e => setBehaviour(b => ({ ...b, risk_extreme_threshold: e.target.value }))} />
+              </Field>
+              <Field label="Notification retention (days)" hint="Old notifications are purged by the hourly scan.">
+                <input type="number" min="7" className={inputClass} value={behaviour.notif_retention_days} onChange={e => setBehaviour(b => ({ ...b, notif_retention_days: e.target.value }))} />
+              </Field>
+              <Field label="Email log retention (days)">
+                <input type="number" min="7" className={inputClass} value={behaviour.email_retention_days} onChange={e => setBehaviour(b => ({ ...b, email_retention_days: e.target.value }))} />
+              </Field>
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer mb-3">
+              <input type="checkbox" checked={behaviour.maintenance_mode}
+                onChange={e => setBehaviour(b => ({ ...b, maintenance_mode: e.target.checked }))} />
+              Maintenance mode — block all data changes app-wide (read-only banner shown; Settings remains open so you can turn it off)
+            </label>
+            <button onClick={() => {
+              const payload = Object.fromEntries(Object.entries(behaviour).map(([k, v]) => [k, v === true ? 'true' : v === false ? 'false' : v]));
+              api.settings.update(payload).then(() => notify('System behaviour saved'));
+            }} className="btn btn-primary">Save behaviour</button>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

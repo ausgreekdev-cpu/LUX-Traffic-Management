@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { useAppText } from '../context/AppText';
 
 export default function ClientList() {
+  const { pageTitle, column } = useAppText();
   const [clients, setClients] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -39,7 +41,7 @@ export default function ClientList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="page-header">Clients</h1>
+          <h1 className="page-header">{pageTitle('clients', 'Clients')}</h1>
           <p className="page-sub">Companies and contacts you work with</p>
         </div>
         <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Client</button>
@@ -67,7 +69,7 @@ export default function ClientList() {
       ) : (
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><tr><th className="table-th">Name</th><th className="table-th">Company</th><th className="table-th">Email</th><th className="table-th">Phone</th><th className="table-th"></th></tr></thead>
+          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><tr><th className="table-th">{column('clients', 'name', 'Name')}</th><th className="table-th">{column('clients', 'company', 'Company')}</th><th className="table-th">{column('clients', 'email', 'Email')}</th><th className="table-th">{column('clients', 'phone', 'Phone')}</th><th className="table-th"></th></tr></thead>
           <tbody className="divide-y dark:divide-gray-700">
             {clients.map(c => (
               <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">

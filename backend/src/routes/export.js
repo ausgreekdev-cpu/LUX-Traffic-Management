@@ -14,6 +14,28 @@ function getSetting(key, fallback) {
   return row ? row.value : fallback;
 }
 
+function fmtDate(str) {
+  if (!str) return str;
+  const m = String(str).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return str;
+  return getSetting('date_format', 'yyyymmdd') === 'ddmmyyyy' ? `${m[3]}/${m[2]}/${m[1]}` : `${m[1]}-${m[2]}-${m[3]}`;
+}
+
+function fmtAmount(amount) {
+  const currency = getSetting('default_currency', 'AUD');
+  const symbol = { AUD: '$', USD: '$', GBP: '£', EUR: '€', NZD: '$' }[currency] || '';
+  const n = Number(amount || 0);
+  return `${symbol}${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function addFooter(doc) {
+  const footer = getSetting('pdf_footer_text', '');
+  if (!footer) return;
+  doc.moveDown(2);
+  doc.fontSize(8).fillColor('#666').text(footer, { align: 'center' });
+  doc.fillColor('#000');
+}
+
 router.get('/db-backup', (req, res) => {
   const backupPath = path.join(os.tmpdir(), `lux-backup-${Date.now()}.db`);
   db.backup(backupPath)
@@ -62,8 +84,8 @@ router.get('/tmp/:id', (req, res) => {
   if (tmp.project_name) doc.text(`Project: ${tmp.project_name}`);
   if (tmp.client_name) doc.text(`Client: ${tmp.client_name}${tmp.client_company ? ' (' + tmp.client_company + ')' : ''}`);
   if (tmp.description) { doc.moveDown(); doc.text('Description:'); doc.text(tmp.description); }
-  if (tmp.start_date) doc.text(`Start Date: ${tmp.start_date}`);
-  if (tmp.end_date) doc.text(`End Date: ${tmp.end_date}`);
+  if (tmp.start_date) doc.text(`Start Date: ${fmtDate(tmp.start_date)}`);
+  if (tmp.end_date) doc.text(`End Date: ${fmtDate(tmp.end_date)}`);
   const stages = db.prepare('SELECT s.name, s.is_optional, COALESCE(c.is_done, 0) as is_done FROM workflow_stages s LEFT JOIN workflow_checklist c ON c.stage_id = s.id AND c.entity_type = ? AND c.entity_id = ? WHERE s.entity_type = ? ORDER BY s.sort_order').all('tmp', tmp.id, 'tmp');
   if (stages.length) {
     doc.moveDown();
@@ -74,7 +96,8 @@ router.get('/tmp/:id', (req, res) => {
     });
   }
   doc.moveDown();
-  doc.fontSize(10).text(`Generated: ${new Date().toISOString().slice(0, 10)}`, { align: 'right' });
+  addFooter(doc);
+  doc.fontSize(10).text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
 });
 
@@ -96,9 +119,10 @@ router.get('/permits-summary', (req, res) => {
   doc.moveDown();
   doc.fontSize(10);
   permits.forEach(p => {
-    doc.text(`${p.tmp_reference || 'N/A'} | ${p.authority_short || 'N/A'} | ${p.status} | ${p.complexity}`);
+    doc.text(`${p.tmp_reference || 'N/A'} | ${p.authority_short || 'N/A'} | ${p.status} | ${p.complexity}${p.expiry_date ? ' | Expires ' + fmtDate(p.expiry_date) : ''}`);
   });
   if (!permits.length) doc.text('No permits found.');
+  addFooter(doc);
   doc.end();
 });
 
@@ -129,10 +153,11 @@ router.get('/audit-report', (req, res) => {
     doc.text('No activity recorded.');
   }
   for (const a of activities) {
-    doc.text(`${a.created_at}  |  ${a.user_name || 'unknown'}  |  ${a.action}  |  ${a.description || ''}${a.tmp_reference ? '  |  ' + a.tmp_reference : ''}`);
+    doc.text(`${fmtDate(a.created_at)}  |  ${a.user_name || 'unknown'}  |  ${a.action}  |  ${a.description || ''}${a.tmp_reference ? '  |  ' + a.tmp_reference : ''}`);
   }
   doc.moveDown();
-  doc.fontSize(10).text(`Generated: ${new Date().toISOString().slice(0, 10)}`, { align: 'right' });
+  addFooter(doc);
+  doc.fontSize(10).text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
 });
 
@@ -154,7 +179,7 @@ router.get('/tmps-csv', (req, res) => {
   q += ' ORDER BY t.created_at DESC';
   const tmps = db.prepare(q).all(...params);
   const header = 'Reference,Title,Status,Type,Site,Project,Start Date,End Date,Created';
-  const rows = tmps.map(t => [t.reference, t.title, t.status, t.plan_type, t.site_name, t.project_name, t.start_date, t.end_date, t.created_at].map(csvEscape).join(','));
+  const rows = tmps.map(t => [t.reference, t.title, t.status, t.plan_type, t.site_name, t.project_name, fmtDate(t.start_date), fmtDate(t.end_date), fmtDate(t.created_at)].map(csvEscape).join(','));
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="tmps.csv"');
   res.send([header, ...rows].join('\n'));
@@ -176,7 +201,7 @@ router.get('/permits-csv', (req, res) => {
   q += ' ORDER BY p.created_at DESC';
   const permits = db.prepare(q).all(...params);
   const header = 'TMP Reference,Authority,Status,Complexity,Submitted,Approved,Expiry';
-  const rows = permits.map(p => [p.tmp_ref, p.authority, p.status, p.complexity, p.submission_date, p.approval_date, p.expiry_date].map(csvEscape).join(','));
+  const rows = permits.map(p => [p.tmp_ref, p.authority, p.status, p.complexity, fmtDate(p.submission_date), fmtDate(p.approval_date), fmtDate(p.expiry_date)].map(csvEscape).join(','));
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="permits.csv"');
   res.send([header, ...rows].join('\n'));

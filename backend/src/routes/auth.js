@@ -16,7 +16,8 @@ router.post('/login', rateLimit('login', 10, 15), validate('login'), (req, res) 
     return res.status(401).json({ error: 'Invalid credentials' });
   }
   rateLimitSucceeded(req.rateLimitKey);
-  const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+  const minutes = parseInt(db.prepare("SELECT value FROM settings WHERE key = 'session_timeout_minutes'").get()?.value || '1440', 10) || 1440;
+  const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: `${Math.max(5, minutes)}m` });
   res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
 });
 

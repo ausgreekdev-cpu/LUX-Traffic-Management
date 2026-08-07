@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../api';
+import { useAppText } from '../context/AppText';
 
 const EMPTY_FORM = {
   name: '', short_name: '', type: 'lga', email: '', phone: '', website: '', contact_person: '',
@@ -17,6 +18,7 @@ const STAT_LABELS = {
 const fmt = (n) => (n == null ? '-' : Number(n).toLocaleString('en-AU'));
 
 export default function AuthorityList() {
+  const { pageTitle } = useAppText();
   const [authorities, setAuthorities] = useState([]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
@@ -94,7 +96,7 @@ export default function AuthorityList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="page-header">WA Authorities</h1>
+          <h1 className="page-header">{pageTitle('authorities', 'WA Authorities')}</h1>
           <p className="page-sub">Local governments, directories, SLAs and signalised intersections</p>
         </div>
         <div className="flex items-center gap-2">

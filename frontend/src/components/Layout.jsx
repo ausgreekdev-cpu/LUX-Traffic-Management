@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api.js';
+import { useAppText } from '../context/AppText.jsx';
 
 const mainNav = [
   { to: '/', label: 'Dashboard', icon: '📊' },
@@ -48,6 +49,7 @@ function initials(name = '') {
 export default function Layout({ user, onLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { nav, appName } = useAppText();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -107,14 +109,15 @@ export default function Layout({ user, onLogout }) {
 
   const renderNavItem = (item) => {
     const active = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to));
+    const label = nav(item.to, item.label);
     return (
-      <Link key={item.to} to={item.to} title={sidebarOpen ? undefined : item.label}
+      <Link key={item.to} to={item.to} title={sidebarOpen ? undefined : label}
         className={`relative flex items-center gap-3 rounded-lg text-sm font-medium transition-all ${active
           ? 'bg-lux-500 text-white shadow-md shadow-lux-500/20'
           : 'text-gray-400 hover:text-white hover:bg-gray-800'} ${sidebarOpen ? 'px-3 py-2.5' : 'justify-center px-0 py-2.5'}`}>
         {active && sidebarOpen && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-white" />}
         <span className="text-base leading-none shrink-0">{item.icon}</span>
-        {sidebarOpen && <span className="truncate">{item.label}</span>}
+        {sidebarOpen && <span className="truncate">{label}</span>}
       </Link>
     );
   };
@@ -130,7 +133,7 @@ export default function Layout({ user, onLogout }) {
             </div>
             {sidebarOpen && (
               <div className="min-w-0 ml-2.5 text-left">
-                <p className="font-bold text-sm leading-tight truncate">LUX Traffic</p>
+                <p className="font-bold text-sm leading-tight truncate">{appName('LUX Traffic')}</p>
                 <p className="text-[10px] text-gray-400 leading-tight">Management</p>
               </div>
             )}

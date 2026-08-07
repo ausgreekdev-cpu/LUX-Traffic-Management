@@ -74,11 +74,23 @@ function detectSlaDeadlines() {
   }
 }
 
+function cleanupOldRecords() {
+  const notifDays = Math.max(7, parseInt(getSetting('notif_retention_days', '180'), 10) || 180);
+  const emailDays = Math.max(7, parseInt(getSetting('email_retention_days', '365'), 10) || 365);
+  const cutoff = (days) => new Date(Date.now() - days * 86400000).toISOString();
+  const removedNotifications = db.prepare('DELETE FROM notifications WHERE created_at < ?').run(cutoff(notifDays)).changes;
+  const removedEmails = db.prepare('DELETE FROM email_logs WHERE created_at < ?').run(cutoff(emailDays)).changes;
+  if (removedNotifications || removedEmails) {
+    console.log(`Retention cleanup: removed ${removedNotifications} notifications, ${removedEmails} email log entries`);
+  }
+}
+
 export function runScheduledChecks() {
   const reminderDays = Math.max(0, parseInt(getSetting('reminder_days', '14'), 10) || 14);
   detectExpiringTmps(reminderDays);
   detectExpiringPermits(reminderDays);
   detectSlaDeadlines();
+  cleanupOldRecords();
   return { ok: true, reminder_days: reminderDays };
 }
 

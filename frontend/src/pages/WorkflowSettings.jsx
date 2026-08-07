@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
+import { useAppText } from '../context/AppText';
 
 const types = [
   { value: 'tmp', label: 'TMP' },
@@ -12,10 +13,8 @@ const complexities = [
   { value: 'complex', label: 'Complex' },
   { value: 'complex_with_notice', label: 'Complex + notice' }
 ];
-
-const complexityLabel = (v) => complexities.find(c => c.value === v)?.label || v || '—';
-
 export default function WorkflowSettings() {
+  const { pageTitle, complexity } = useAppText();
   const [entityType, setEntityType] = useState('tmp');
   const [templates, setTemplates] = useState([]);
   const [authorities, setAuthorities] = useState([]);
@@ -135,7 +134,7 @@ export default function WorkflowSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-header">Workflow Templates</h1>
+        <h1 className="page-header">{pageTitle('workflows', 'Workflow Templates')}</h1>
         <p className="page-sub mt-1">Stages now branch by <b>complexity</b> and <b>authority</b>. A record uses the most specific template that matches (authority + complexity → complexity → default → global fallback). Required stages gate approval/completion; optional ones are tracked but not enforced.</p>
       </div>
 
@@ -159,7 +158,7 @@ export default function WorkflowSettings() {
           <button key={t.id} onClick={() => { setSelection(t.id); setEditingStageId(null); }}
             className={`px-3 py-1.5 rounded text-sm flex items-center gap-1.5 ${selection === t.id ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>
             {t.is_default ? '⭐ ' : ''}{t.name}
-            <span className="text-xs opacity-70">({complexityLabel(t.complexity)}{t.authority_short ? ` · ${t.authority_short}` : ''})</span>
+            <span className="text-xs opacity-70">({complexity(t.complexity)}{t.authority_short ? ` · ${t.authority_short}` : ''})</span>
           </button>
         ))}
         <button onClick={() => { setShowTemplateForm(true); setEditingTemplateId(null); setTemplateForm({ name: '', description: '', complexity: 'standard', authority_id: '', is_default: false }); }}
@@ -215,7 +214,7 @@ export default function WorkflowSettings() {
             <h2 className="font-semibold text-sm">{selection === 'global' ? 'Global fallback stages' : selected?.name || 'Stages'}</h2>
             {selection !== 'global' && selected && (
               <p className="text-xs text-gray-500">
-                {complexityLabel(selected.complexity)} · {selected.authority_name || 'All authorities'}{selected.is_default ? ' · Default' : ''}
+                {complexity(selected.complexity)} · {selected.authority_name || 'All authorities'}{selected.is_default ? ' · Default' : ''}
               </p>
             )}
           </div>

@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import db from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import clientRoutes from './routes/clients.js';
@@ -35,6 +36,15 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || ['http://localhost:5173', 'http://localhost:3001'] }));
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
+
+app.use('/api', (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.path === '/health' || req.path.startsWith('/auth') || req.path.startsWith('/settings')) return next();
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'maintenance_mode'").get();
+  if (row && row.value === 'true') {
+    return res.status(503).json({ error: 'Maintenance mode is enabled — the system is read-only. Disable it in Settings to continue.' });
+  }
+  next();
+});
 
 const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
 app.use(express.static(frontendDist));

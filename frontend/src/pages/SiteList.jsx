@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { useAppText } from '../context/AppText';
 
 export default function SiteList() {
+  const { pageTitle, column } = useAppText();
   const [sites, setSites] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -34,7 +36,7 @@ export default function SiteList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="page-header">Sites</h1>
+          <h1 className="page-header">{pageTitle('sites', 'Sites')}</h1>
           <p className="page-sub">Road locations and characteristics used in risk assessments</p>
         </div>
         <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Site</button>
@@ -83,7 +85,7 @@ export default function SiteList() {
       ) : (
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><tr><th className="table-th">Name</th><th className="table-th">Road</th><th className="table-th">Class</th><th className="table-th">Speed</th><th className="table-th">AADT</th><th className="table-th">Suburb</th><th className="table-th"></th></tr></thead>
+          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><tr><th className="table-th">{column('sites', 'name', 'Name')}</th><th className="table-th">{column('sites', 'road', 'Road')}</th><th className="table-th">{column('sites', 'class', 'Class')}</th><th className="table-th">{column('sites', 'speed', 'Speed')}</th><th className="table-th">{column('sites', 'aadt', 'AADT')}</th><th className="table-th">{column('sites', 'suburb', 'Suburb')}</th><th className="table-th"></th></tr></thead>
           <tbody className="divide-y dark:divide-gray-700">
             {sites.map(s => (<tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
               <td className="table-td font-medium">{s.name}</td>

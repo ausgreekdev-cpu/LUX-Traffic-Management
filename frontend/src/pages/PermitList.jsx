@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-import { PERMIT_BADGES, badgeFor, statusLabel } from '../utils/status';
+import { PERMIT_BADGES, badgeFor } from '../utils/status';
+import { useAppText } from '../context/AppText';
 
 const statuses = ['draft', 'submitted', 'under_review', 'approved', 'rejected', 'expired', 'completed', 'cancelled'];
 
 export default function PermitList() {
+  const { pageTitle, column, status, complexity } = useAppText();
   const [data, setData] = useState({ data: [], total: 0, page: 1, pages: 1 });
   const [filter, setFilter] = useState('');
   const [authFilter, setAuthFilter] = useState('');
@@ -90,7 +92,7 @@ export default function PermitList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="page-header">Permits</h1>
+          <h1 className="page-header">{pageTitle('permits', 'Permits')}</h1>
           <p className="page-sub">Track authority permits, SLAs and expiry dates</p>
         </div>
         <div className="flex gap-2">
@@ -136,14 +138,14 @@ export default function PermitList() {
                 <th className="table-th w-8">
                   <input type="checkbox" checked={data.data.length > 0 && data.data.every(p => selected.has(p.id))} onChange={toggleAll} />
                 </th>
-                <th className="table-th">TMP</th>
-                <th className="table-th">Authority</th>
-                <th className="table-th">Status</th>
-                <th className="table-th">Complexity</th>
-                <th className="table-th">Submitted</th>
-                <th className="table-th">Expiry</th>
-                <th className="table-th">30m Signal</th>
-                <th className="table-th">MRWA</th>
+                <th className="table-th">{column('permits', 'tmp', 'TMP')}</th>
+                <th className="table-th">{column('permits', 'authority', 'Authority')}</th>
+                <th className="table-th">{column('permits', 'status', 'Status')}</th>
+                <th className="table-th">{column('permits', 'complexity', 'Complexity')}</th>
+                <th className="table-th">{column('permits', 'submitted', 'Submitted')}</th>
+                <th className="table-th">{column('permits', 'expiry', 'Expiry')}</th>
+                <th className="table-th">{column('permits', 'signal', '30m Signal')}</th>
+                <th className="table-th">{column('permits', 'mrwa', 'MRWA')}</th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
@@ -152,8 +154,8 @@ export default function PermitList() {
                   <td className="table-td"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td>
                   <td className="table-td"><Link to={`/permits/${p.id}`} className="text-lux-600 dark:text-lux-400 hover:underline font-medium">{p.tmp_reference || '-'}</Link></td>
                   <td className="table-td"><span className="font-medium">{p.authority_short}</span> <span className="text-xs text-gray-400">({p.authority_type?.toUpperCase()})</span></td>
-                  <td className="table-td"><span className={`badge ${badgeFor(PERMIT_BADGES, p.status)}`}>{statusLabel(p.status)}</span></td>
-                  <td className="table-td text-gray-500">{p.complexity}</td>
+                  <td className="table-td"><span className={`badge ${badgeFor(PERMIT_BADGES, p.status)}`}>{status(p.status)}</span></td>
+                  <td className="table-td text-gray-500">{complexity(p.complexity)}</td>
                   <td className="table-td text-gray-400 text-xs">{p.submission_date || '-'}</td>
                   <td className="table-td text-gray-400 text-xs">{p.expiry_date || '-'}</td>
                   <td className="table-td">{p.is_within_30m_signals ? <span className="text-red-500 text-xs font-bold">YES</span> : <span className="text-gray-300">-</span>}</td>

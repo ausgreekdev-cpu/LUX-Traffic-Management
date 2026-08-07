@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import WorkflowChecklist from '../components/WorkflowChecklist';
-import { PERMIT_BADGES, FEE_BADGES, badgeFor, statusLabel } from '../utils/status';
+import { PERMIT_BADGES, FEE_BADGES, badgeFor } from '../utils/status';
+import { useAppText } from '../context/AppText';
 
 export default function PermitDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { nav, section, status, complexity } = useAppText();
   const [permit, setPermit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [feeForm, setFeeForm] = useState({ fee_type: 'application_fee', amount: '', status: 'pending' });
@@ -54,9 +56,9 @@ export default function PermitDetail() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <Link to="/permits" className="text-sm text-gray-500 hover:text-lux-600 dark:hover:text-lux-400">← Back to Permits</Link>
-          <h1 className="page-header mt-1">Permit - {permit.authority_short || permit.authority_name}</h1>
-          <p className="text-gray-500 text-sm">{permit.tmp_reference} • {permit.complexity}</p>
+          <Link to="/permits" className="text-sm text-gray-500 hover:text-lux-600 dark:hover:text-lux-400">← Back to {nav('/permits', 'Permits')}</Link>
+          <h1 className="page-header mt-1">{permit.authority_short || permit.authority_name} - {section('permit_details', 'Permit Details')}</h1>
+          <p className="text-gray-500 text-sm">{permit.tmp_reference} • {complexity(permit.complexity)}</p>
         </div>
         <div className="flex gap-2">
           {permit.status !== 'approved' && permit.status !== 'cancelled' && permit.status !== 'completed' && (
@@ -72,11 +74,11 @@ export default function PermitDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="card p-4">
-            <h2 className="font-semibold mb-2">Permit Details</h2>
+            <h2 className="font-semibold mb-2">{section('permit_details', 'Permit Details')}</h2>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-gray-500">Status:</span> <span className={`badge ml-1 ${badgeFor(PERMIT_BADGES, permit.status)}`}>{statusLabel(permit.status)}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className={`badge ml-1 ${badgeFor(PERMIT_BADGES, permit.status)}`}>{status(permit.status)}</span></div>
               <div><span className="text-gray-500">Authority:</span> <span className="ml-1">{permit.authority_name} ({permit.authority_type?.toUpperCase()})</span></div>
-              <div><span className="text-gray-500">Complexity:</span> <span className="ml-1">{permit.complexity}</span></div>
+              <div><span className="text-gray-500">Complexity:</span> <span className="ml-1">{complexity(permit.complexity)}</span></div>
               <div><span className="text-gray-500">Submitted:</span> <span className="ml-1">{permit.submission_date || 'Not submitted'}</span></div>
               <div><span className="text-gray-500">Approved:</span> <span className="ml-1">{permit.approval_date || 'Not approved'}</span></div>
               <div><span className="text-gray-500">Expiry:</span> <span className="ml-1">{permit.expiry_date || 'N/A'}</span></div>
@@ -92,7 +94,7 @@ export default function PermitDetail() {
 
           {permit.sla && (
             <div className="card p-4">
-              <h2 className="font-semibold mb-2">SLA Information</h2>
+              <h2 className="font-semibold mb-2">{section('permit_sla', 'SLA Information')}</h2>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-gray-500">Assessment:</span> <span className="ml-1">{permit.sla.assessment_days} days</span></div>
                 <div><span className="text-gray-500">Public Notice:</span> <span className="ml-1">{permit.sla.public_notice_days} days</span></div>
@@ -105,7 +107,7 @@ export default function PermitDetail() {
           )}
 
           <div className="card p-4">
-            <h2 className="font-semibold mb-2">Fees ({(permit.fees||[]).length})</h2>
+            <h2 className="font-semibold mb-2">{section('permit_fees', 'Fees')} ({(permit.fees||[]).length})</h2>
             {(permit.fees||[]).length > 0 && (
               <div className="overflow-x-auto">
               <table className="w-full text-sm mb-3">
@@ -145,7 +147,7 @@ export default function PermitDetail() {
         <div className="space-y-4">
           {permit.triggers?.length > 0 && (
             <div className="card p-4">
-              <h2 className="font-semibold mb-2">Workflow Triggers</h2>
+              <h2 className="font-semibold mb-2">{section('permit_triggers', 'Workflow Triggers')}</h2>
               {permit.triggers.map(t => (
                 <div key={t.id} className={`p-2 rounded-lg mb-2 text-sm ${t.is_resolved ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
                   <p className={t.is_resolved ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>{t.description}</p>
@@ -159,7 +161,7 @@ export default function PermitDetail() {
           )}
           <div className="card p-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold mb-2">Compliance check</h2>
+              <h2 className="font-semibold mb-2">{section('permit_compliance', 'Compliance check')}</h2>
               <span className="text-xs text-gray-400">{(agentRuns || []).length} runs</span>
             </div>
             {(agentRuns || []).length === 0 ? (
@@ -196,7 +198,7 @@ export default function PermitDetail() {
             )}
           </div>
           <div className="card p-4">
-            <h2 className="font-semibold mb-2">Contact</h2>
+            <h2 className="font-semibold mb-2">{section('permit_contact', 'Contact')}</h2>
             <p className="text-sm text-gray-600">{permit.authority_email || 'No email on file'}</p>
           </div>
         </div>

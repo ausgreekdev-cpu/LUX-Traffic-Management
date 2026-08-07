@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-import { TMP_BADGES, badgeFor, statusLabel } from '../utils/status';
+import { TMP_BADGES, badgeFor } from '../utils/status';
+import { useAppText } from '../context/AppText';
 
 const statuses = ['draft', 'submitted', 'approved', 'rejected', 'completed'];
 
 export default function TMPList() {
+  const { pageTitle, column, status } = useAppText();
   const [data, setData] = useState({ data: [], total: 0, page: 1, pages: 1 });
   const [filter, setFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -92,7 +94,7 @@ export default function TMPList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="page-header">Traffic Management Plans</h1>
+          <h1 className="page-header">{pageTitle('tmps', 'Traffic Management Plans')}</h1>
           <p className="page-sub">Track, filter and manage your TMPs</p>
         </div>
         <div className="flex gap-2">
@@ -135,13 +137,13 @@ export default function TMPList() {
                 <th className="table-th w-8">
                   <input type="checkbox" checked={data.data.length > 0 && data.data.every(t => selected.has(t.id))} onChange={toggleAll} />
                 </th>
-                <th className="table-th">Reference</th>
-                <th className="table-th">Title</th>
-                <th className="table-th">Site</th>
-                <th className="table-th">Status</th>
-                <th className="table-th">Type</th>
-                <th className="table-th">Ends</th>
-                <th className="table-th">Created</th>
+                <th className="table-th">{column('tmps', 'reference', 'Reference')}</th>
+                <th className="table-th">{column('tmps', 'title', 'Title')}</th>
+                <th className="table-th">{column('tmps', 'site', 'Site')}</th>
+                <th className="table-th">{column('tmps', 'status', 'Status')}</th>
+                <th className="table-th">{column('tmps', 'type', 'Type')}</th>
+                <th className="table-th">{column('tmps', 'ends', 'Ends')}</th>
+                <th className="table-th">{column('tmps', 'created', 'Created')}</th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
@@ -151,7 +153,7 @@ export default function TMPList() {
                   <td className="table-td font-medium">{tmp.reference}</td>
                   <td className="table-td"><Link to={`/tmps/${tmp.id}`} className="text-lux-600 dark:text-lux-400 hover:underline font-medium">{tmp.title}</Link></td>
                   <td className="table-td text-gray-500">{tmp.site_name || '-'}</td>
-                  <td className="table-td"><span className={`badge ${badgeFor(TMP_BADGES, tmp.status)}`}>{statusLabel(tmp.status)}</span></td>
+                  <td className="table-td"><span className={`badge ${badgeFor(TMP_BADGES, tmp.status)}`}>{status(tmp.status)}</span></td>
                   <td className="table-td text-gray-500">{tmp.plan_type}</td>
                   <td className="table-td text-gray-500 text-xs">{tmp.end_date || '-'}</td>
                   <td className="table-td text-gray-400 text-xs">{tmp.created_at?.slice(0, 10)}</td>

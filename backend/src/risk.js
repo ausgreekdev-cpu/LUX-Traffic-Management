@@ -65,8 +65,14 @@ export function computeLikelihood({ plan_type = 'temporary', start_date, end_dat
 }
 
 export function riskBand(score) {
-  if (score >= 16) return 'extreme';
-  if (score >= 10) return 'high';
+  const get = (key, fallback) => {
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+    return row ? parseInt(row.value, 10) : fallback;
+  };
+  const high = get('risk_high_threshold', 10);
+  const extreme = get('risk_extreme_threshold', 16);
+  if (score >= extreme) return 'extreme';
+  if (score >= high) return 'high';
   if (score >= 5) return 'medium';
   return 'low';
 }

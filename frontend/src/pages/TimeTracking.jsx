@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { useAppText } from '../context/AppText';
+
+const CURRENCY = { AUD: '$', USD: '$', GBP: '£', EUR: '€', NZD: '$' };
 
 export default function TimeTracking() {
+  const { pageTitle, column, settings } = useAppText();
+  const defaultRate = settings.default_rate || '150';
+  const cur = () => CURRENCY[settings.default_currency] || `${settings.default_currency} `;
   const [entries, setEntries] = useState([]);
   const [costCodes, setCostCodes] = useState([]);
   const [tmps, setTmps] = useState([]);
@@ -9,6 +15,13 @@ export default function TimeTracking() {
   const [showForm, setShowForm] = useState(false);
   const [filterCode, setFilterCode] = useState('');
   const [form, setForm] = useState({ tmp_id: '', cost_code: '', description: '', duration_hours: '', rate_per_hour: '150', is_billable: true, date: new Date().toISOString().slice(0, 10) });
+
+  useEffect(() => {
+    if (form.rate_per_hour === '150' && defaultRate !== '150') {
+      setForm(f => ({ ...f, rate_per_hour: defaultRate }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultRate]);
 
   useEffect(() => {
     api.timeEntries.costCodes().then(setCostCodes);
@@ -22,7 +35,7 @@ export default function TimeTracking() {
     const res = await api.timeEntries.create({ ...form, duration_hours: parseFloat(form.duration_hours), rate_per_hour: parseFloat(form.rate_per_hour) });
     setEntries([{ ...form, id: res.id, total_cost: form.duration_hours * form.rate_per_hour }, ...entries]);
     setShowForm(false);
-    setForm({ tmp_id: '', cost_code: '', description: '', duration_hours: '', rate_per_hour: '150', is_billable: true, date: new Date().toISOString().slice(0, 10) });
+    setForm({ tmp_id: '', cost_code: '', description: '', duration_hours: '', rate_per_hour: defaultRate, is_billable: true, date: new Date().toISOString().slice(0, 10) });
     api.timeEntries.summary({ period_days: 30 }).then(setSummary);
   };
 
@@ -35,13 +48,13 @@ export default function TimeTracking() {
 
   const filtered = filterCode ? entries.filter(e => e.cost_code === filterCode) : entries;
   const totalHours = filtered.reduce((sum, e) => sum + (e.duration_hours || 0), 0);
-  const totalBillable = filtered.filter(e => e.is_billable).reduce((sum, e) => sum + (e.total_cost || e.duration_hours * (e.rate_per_hour || 150)), 0);
+  const totalBillable = filtered.filter(e => e.is_billable).reduce((sum, e) => sum + (e.total_cost || e.duration_hours * (e.rate_per_hour || defaultRate)), 0);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="page-header">Time Tracking</h1>
+          <h1 className="page-header">{pageTitle('time-tracking', 'Time Tracking')}</h1>
           <p className="page-sub">Log hours and costs against TMPs and cost codes</p>
         </div>
         <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ Log Time</button>
@@ -58,7 +71,7 @@ export default function TimeTracking() {
             <div className="text-xs text-gray-500">Total Hours</div>
           </div>
           <div className="card p-3 text-center">
-            <div className="text-2xl font-bold text-lux-500">${(summary.totals.billable_cost || 0).toFixed(0)}</div>
+            <div className="text-2xl font-bold text-lux-500">{cur()}{(summary.totals.billable_cost || 0).toFixed(0)}</div>
             <div className="text-xs text-gray-500">Billable Cost</div>
           </div>
           <div className="card p-3 text-center">
@@ -98,7 +111,7 @@ export default function TimeTracking() {
         <select value={filterCode} onChange={e => setFilterCode(e.target.value)} className="input">
           <option value="">All Cost Codes</option>{costCodes.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
         </select>
-        <span className="text-sm text-gray-500 self-center">{filtered.length} entries • {totalHours.toFixed(1)}h • ${totalBillable.toFixed(0)}</span>
+        <span className="text-sm text-gray-500 self-center">{filtered.length} entries • {totalHours.toFixed(1)}h • {cur()}{totalBillable.toFixed(0)}</span>
       </div>
 
       {filtered.length === 0 ? (
@@ -112,7 +125,7 @@ export default function TimeTracking() {
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <tr><th className="table-th">Date</th><th className="table-th">TMP</th><th className="table-th">Cost Code</th><th className="table-th">Description</th><th className="table-th">Hours</th><th className="table-th">Rate</th><th className="table-th">Cost</th><th className="table-th">Billable</th><th className="table-th"></th></tr>
+            <tr><th className="table-th">{column('time', 'date', 'Date')}</th><th className="table-th">{column('time', 'tmp', 'TMP')}</th><th className="table-th">{column('time', 'cost_code', 'Cost Code')}</th><th className="table-th">{column('time', 'description', 'Description')}</th><th className="table-th">{column('time', 'hours', 'Hours')}</th><th className="table-th">{column('time', 'rate', 'Rate')}</th><th className="table-th">{column('time', 'cost', 'Cost')}</th><th className="table-th">{column('time', 'billable', 'Billable')}</th><th className="table-th"></th></tr>
           </thead>
           <tbody className="divide-y dark:divide-gray-700">
             {filtered.map(e => (
@@ -122,8 +135,8 @@ export default function TimeTracking() {
                 <td className="table-td text-xs font-mono">{e.cost_code}</td>
                 <td className="table-td text-xs">{e.description || '-'}</td>
                 <td className="table-td text-xs">{e.duration_hours}h</td>
-                <td className="table-td text-xs">${e.rate_per_hour || 150}/h</td>
-                <td className="table-td text-xs font-medium">${(e.total_cost || e.duration_hours * (e.rate_per_hour || 150)).toFixed(0)}</td>
+                <td className="table-td text-xs">{cur()}{e.rate_per_hour || defaultRate}/h</td>
+                <td className="table-td text-xs font-medium">{cur()}{(e.total_cost || e.duration_hours * (e.rate_per_hour || defaultRate)).toFixed(0)}</td>
                 <td className="table-td">{e.is_billable ? <span className="text-green-500 text-xs">Yes</span> : <span className="text-gray-400 text-xs">No</span>}</td>
                 <td className="table-td"><button onClick={() => handleDelete(e.id)} className="text-red-500 hover:underline text-xs font-medium">Del</button></td>
               </tr>

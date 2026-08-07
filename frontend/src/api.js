@@ -116,6 +116,7 @@ const api = {
     dashboard: () => request('/analytics/dashboard')
   },
   email: {
+    getConfig: () => request('/email/config'),
     config: (data) => request('/email/config', { method: 'POST', body: JSON.stringify(data) }),
     test: (to) => request('/email/test', { method: 'POST', body: JSON.stringify({ to }) }),
     sendTMP: (data) => request('/email/send-tmp', { method: 'POST', body: JSON.stringify(data) }),

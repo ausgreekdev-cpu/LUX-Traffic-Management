@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import WorkflowChecklist from '../components/WorkflowChecklist';
+import { useAppText } from '../context/AppText';
 
 const previewable = (name) => /\.(pdf|png|jpe?g|gif|webp)$/i.test(name);
 
 export default function TMPDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { nav, section, status, complexity } = useAppText();
   const [tmp, setTmp] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -61,7 +63,7 @@ export default function TMPDetail() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <Link to="/tmps" className="text-sm text-gray-500 hover:text-lux-600 dark:hover:text-lux-400">← Back to TMPs</Link>
+          <Link to="/tmps" className="text-sm text-gray-500 hover:text-lux-600 dark:hover:text-lux-400">← Back to {nav('/tmps', 'TMPs')}</Link>
           <h1 className="page-header mt-1">{tmp.title}</h1>
           <p className="text-gray-500 text-sm">{tmp.reference}</p>
         </div>
@@ -74,11 +76,11 @@ export default function TMPDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="card p-4">
-            <h2 className="font-semibold mb-2">Details</h2>
+            <h2 className="font-semibold mb-2">{section('tmp_details', 'Details')}</h2>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-gray-500">Status:</span> <span className={`badge ml-1 ${tmp.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>{tmp.status}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className={`badge ml-1 ${tmp.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>{status(tmp.status)}</span></div>
               <div><span className="text-gray-500">Type:</span> <span className="ml-1">{tmp.plan_type}</span></div>
-              <div><span className="text-gray-500">Complexity:</span> <span className="badge ml-1 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">{tmp.complexity || 'standard'}</span></div>
+              <div><span className="text-gray-500">Complexity:</span> <span className="badge ml-1 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">{complexity(tmp.complexity || 'standard')}</span></div>
               <div><span className="text-gray-500">Site:</span> <span className="ml-1">{tmp.site_name || '-'}</span></div>
               <div><span className="text-gray-500">Project:</span> <span className="ml-1">{tmp.project_name || '-'}</span></div>
               {tmp.risk_band && (
@@ -101,20 +103,20 @@ export default function TMPDetail() {
           </div>
           {tmp.permits && tmp.permits.length > 0 && (
             <div className="card p-4">
-              <h2 className="font-semibold mb-2">Permits ({tmp.permits.length})</h2>
+              <h2 className="font-semibold mb-2">{section('tmp_permits', 'Permits')} ({tmp.permits.length})</h2>
               <div className="space-y-2">
                 {tmp.permits.map(p => (
                   <Link key={p.id} to={`/permits/${p.id}`} className="block p-2 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 text-sm transition">
                     <span className="font-medium">{p.authority_short || p.authority_name}</span>
-                    <span className={`badge ml-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200`}>{p.status}</span>
-                    <span className="ml-2 text-xs text-gray-500">{p.complexity}</span>
+                    <span className={`badge ml-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200`}>{status(p.status)}</span>
+                    <span className="ml-2 text-xs text-gray-500">{complexity(p.complexity)}</span>
                   </Link>
                 ))}
               </div>
             </div>
           )}
           <div className="card p-4">
-            <h2 className="font-semibold mb-2">Documents ({(tmp.documents||[]).length})</h2>
+            <h2 className="font-semibold mb-2">{section('tmp_documents', 'Documents')} ({(tmp.documents||[]).length})</h2>
             <div className="space-y-1 mb-3">
               {(tmp.documents||[]).map((d, i) => (
                 <div key={d.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm">
@@ -142,7 +144,7 @@ export default function TMPDetail() {
         </div>
         <div className="space-y-4">
           <div className="card p-4">
-            <h2 className="font-semibold mb-2">Activity</h2>
+            <h2 className="font-semibold mb-2">{section('tmp_activity', 'Activity')}</h2>
             {tmp.activities && tmp.activities.length > 0 ? (
               <div className="space-y-2">
                 {tmp.activities.map(a => (
@@ -157,7 +159,7 @@ export default function TMPDetail() {
           </div>
           <div className="card p-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold mb-2">AI agent checks</h2>
+              <h2 className="font-semibold mb-2">{section('tmp_agents', 'AI agent checks')}</h2>
               <span className="text-xs text-gray-400">{(agentRuns || []).length} runs</span>
             </div>
             {(agentRuns || []).length === 0 ? (

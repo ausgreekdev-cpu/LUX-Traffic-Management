@@ -4,24 +4,45 @@ import db from './db.js';
 
 let transporter = null;
 
+const getSetting = (key) => {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  return row ? row.value : '';
+};
+
+export function getSmtpConfig() {
+  const env = (name) => process.env[name] !== undefined ? process.env[name] : null;
+  const host = getSetting('smtp_host') || env('SMTP_HOST') || 'smtp.example.com';
+  const port = parseInt(getSetting('smtp_port') || env('SMTP_PORT') || '587', 10);
+  const secure = (getSetting('smtp_secure') || env('SMTP_SECURE') || 'false') === 'true';
+  const user = getSetting('smtp_user') || env('SMTP_USER') || '';
+  const pass = getSetting('smtp_pass') || env('SMTP_PASS') || '';
+  const fromName = getSetting('smtp_from_name') || env('SMTP_FROM_NAME') || '';
+  const fromEmail = getSetting('smtp_from_email') || env('SMTP_FROM_EMAIL') || user;
+  return { host, port, secure, user, pass, fromName, fromEmail };
+}
+
 export function resetTransporter() {
   transporter = null;
 }
 
 export function getTransporter() {
   if (transporter) return transporter;
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.example.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-  });
+  const cfg = getSmtpConfig();
+  const transport = {
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure
+  };
+  if (cfg.user) transport.auth = { user: cfg.user, pass: cfg.pass };
+  transporter = nodemailer.createTransport(transport);
   return transporter;
 }
 
 export async function sendEmail(to, subject, body, tmpId = null) {
+  const cfg = getSmtpConfig();
+  const from = cfg.fromEmail ? (cfg.fromName ? `"${cfg.fromName.replace(/"/g, '\\"')}" <${cfg.fromEmail}>` : cfg.fromEmail) : undefined;
   const info = await getTransporter().sendMail({
-    from: process.env.SMTP_USER,
+    from,
     to,
     subject,
     text: body

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-import { TMP_BADGES, badgeFor, statusLabel } from '../utils/status';
+import { TMP_BADGES, badgeFor } from '../utils/status';
+import { useAppText } from '../context/AppText';
 
 export default function Dashboard() {
+  const { pageTitle, status } = useAppText();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,7 +21,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-header">Dashboard</h1>
+        <h1 className="page-header">{pageTitle('dashboard', 'Dashboard')}</h1>
         <p className="page-sub">Live overview of TMPs, permits and activity</p>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -60,7 +62,7 @@ export default function Dashboard() {
                 <Link key={tmp.id} to={`/tmps/${tmp.id}`} className="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-sm">{tmp.title}</span>
-                    <span className={`badge ${badgeFor(TMP_BADGES, tmp.status)}`}>{statusLabel(tmp.status)}</span>
+                    <span className={`badge ${badgeFor(TMP_BADGES, tmp.status)}`}>{status(tmp.status)}</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">{tmp.reference} {tmp.site_name ? '• ' + tmp.site_name : ''}</p>
                 </Link>

@@ -11,7 +11,20 @@ router.use(authenticate);
 
 function calculateSLA(authorityId, complexity, submissionDate) {
   const rule = db.prepare('SELECT * FROM sla_rules WHERE authority_id = ? AND complexity = ?').get(authorityId, complexity);
-  if (!rule) return null;
+  if (!rule) {
+    const fallbackDays = parseInt(db.prepare("SELECT value FROM settings WHERE key = 'default_sla_days'").get()?.value || '14', 10) || 14;
+    const submission = new Date(submissionDate);
+    const expected = new Date(submission);
+    expected.setDate(expected.getDate() + fallbackDays);
+    return {
+      assessment_days: fallbackDays,
+      public_notice_days: 0,
+      buffer_days: 0,
+      total_days: fallbackDays,
+      expected_date: expected.toISOString().slice(0, 10),
+      requires_public_notice: false
+    };
+  }
   const totalDays = rule.assessment_days + rule.buffer_days + (rule.requires_public_notice ? rule.public_notice_days : 0);
   const submission = new Date(submissionDate);
   const expected = new Date(submission);
