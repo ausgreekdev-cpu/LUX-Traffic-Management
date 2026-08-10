@@ -4,12 +4,10 @@ import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { emitEvent } from '../events.js';
-import { getTransporter, resetTransporter, sendEmail, renderTemplate, getSmtpConfig } from '../emailer.js';
+import { resetTransporter, sendEmail, renderTemplate, getSmtpConfig } from '../emailer.js';
 
 const router = Router();
 router.use(authenticate);
-
-const SMTP_KEYS = ['smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass', 'smtp_from_name', 'smtp_from_email'];
 
 router.get('/config', (req, res) => {
   const cfg = getSmtpConfig();

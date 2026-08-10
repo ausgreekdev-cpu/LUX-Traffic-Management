@@ -4,9 +4,10 @@ import bcrypt from 'bcryptjs';
 import db from '../db.js';
 import { validate } from '../middleware/validate.js';
 import { rateLimit, rateLimitFailed, rateLimitSucceeded } from '../middleware/rate-limit.js';
+import { getJwtSecret } from '../secrets.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'lux-traffic-jwt-secret-change-in-production';
+const JWT_SECRET = getJwtSecret();
 
 router.post('/login', rateLimit('login', 10, 15), validate('login'), (req, res) => {
   const { email, password } = req.validated;

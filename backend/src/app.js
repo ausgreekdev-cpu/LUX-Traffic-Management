@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import db from './db.js';
+import db, { isServerless } from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import clientRoutes from './routes/clients.js';
@@ -26,7 +26,8 @@ import agentRoutes from './routes/agents.js';
 import integrationRoutes from './routes/integrations.js';
 import { ensureAutomationPresets } from './automation-presets.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
-import { seedDatabase } from './seed.js';
+import { seedDatabase, seedAdminFromEnv } from './seed.js';
+import { globalRateLimit } from './middleware/rate-limit.js';
 import './automation-engine.js';
 
 const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
@@ -34,6 +35,8 @@ const app = express();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-tmp.netlify.app'] }));
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
+
+app.use('/api', globalRateLimit(300, 1));
 
 app.use('/api', (req, res, next) => {
   if (req.method === 'GET' || req.method === 'HEAD' || req.path === '/health' || req.path.startsWith('/auth') || req.path.startsWith('/settings')) return next();
@@ -75,7 +78,11 @@ ensureAutomationPresets();
 
 const { c: userCount } = db.prepare('SELECT COUNT(*) as c FROM users').get();
 if (userCount === 0) {
-  seedDatabase();
+  if (isServerless) {
+    seedAdminFromEnv();
+  } else {
+    seedDatabase();
+  }
 }
 
 export default app;

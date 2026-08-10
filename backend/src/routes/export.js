@@ -3,11 +3,15 @@ import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import db, { dbPath } from '../db.js';
+import multer from 'multer';
+import Database from 'better-sqlite3';
+import db, { dbPath, reopenDatabase, isServerless } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 router.use(authenticate);
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
 function getSetting(key, fallback) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -45,6 +49,55 @@ router.get('/db-backup', (req, res) => {
       });
     })
     .catch((err) => res.status(500).json({ error: 'Backup failed: ' + err.message }));
+});
+
+router.post('/db-restore', upload.single('file'), (req, res) => {
+  if (isServerless) {
+    return res.status(400).json({ error: 'Restore is not available on serverless deployments — the database is ephemeral there.' });
+  }
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin role required to restore the database.' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded.' });
+  }
+  const buf = req.file.buffer;
+  const magic = Buffer.from('SQLite format 3\u0000', 'utf8');
+  if (buf.length < 16 || !buf.subarray(0, 16).equals(magic)) {
+    return res.status(400).json({ error: 'File is not a SQLite database.' });
+  }
+  const tmpPath = path.join(os.tmpdir(), `lux-restore-${Date.now()}.db`);
+  let check = null;
+  try {
+    fs.writeFileSync(tmpPath, buf);
+    check = new Database(tmpPath, { readonly: true });
+    const ok = check.pragma('integrity_check', { simple: true });
+    if (ok !== 'ok') throw new Error('integrity check failed: ' + ok);
+    check.close();
+    check = null;
+
+    const safetyPath = dbPath + '.pre-restore';
+    try { fs.copyFileSync(dbPath, safetyPath); } catch {}
+    try { fs.copyFileSync(tmpPath, dbPath); }
+    catch (err) { return res.status(500).json({ error: 'Could not write database file: ' + err.message }); }
+
+    reopenDatabase();
+    const { c: userCount } = db.prepare('SELECT COUNT(*) as c FROM users').get();
+    const { c: tmpCount } = db.prepare('SELECT COUNT(*) as c FROM traffic_management_plans').get();
+    res.json({ ok: true, users: userCount, tmps: tmpCount, message: 'Database restored successfully.' });
+  } catch (err) {
+    try { check && check.close(); } catch {}
+    try {
+      const safetyPath = dbPath + '.pre-restore';
+      if (fs.existsSync(safetyPath)) {
+        fs.copyFileSync(safetyPath, dbPath);
+        reopenDatabase();
+      }
+    } catch {}
+    res.status(500).json({ error: 'Restore failed: ' + err.message });
+  } finally {
+    try { fs.unlinkSync(tmpPath); } catch {}
+  }
 });
 
 router.get('/tmp/:id', (req, res) => {

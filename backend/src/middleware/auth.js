@@ -1,7 +1,8 @@
 import jwt from 'jsonwebtoken';
 import db from '../db.js';
+import { getJwtSecret } from '../secrets.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'lux-traffic-jwt-secret-change-in-production';
+const JWT_SECRET = getJwtSecret();
 
 export function authenticate(req, res, next) {
   const header = req.headers.authorization || (req.query.token ? `Bearer ${req.query.token}` : null);

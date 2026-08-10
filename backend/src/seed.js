@@ -87,6 +87,22 @@ console.log('Planner: planner@tmpcms.com / planner123');
 console.log('Viewer: viewer@tmpcms.com / viewer123');
 }
 
+// Serverless (Netlify) bootstrap: no default credentials on a public endpoint.
+// Creates a single admin from environment variables when the (ephemeral) DB is empty.
+export function seedAdminFromEnv() {
+  const email = process.env.NETLIFY_ADMIN_EMAIL;
+  const password = process.env.NETLIFY_ADMIN_PASSWORD;
+  if (!email || !password) {
+    console.warn('seedAdminFromEnv: NETLIFY_ADMIN_EMAIL / NETLIFY_ADMIN_PASSWORD not set — no users will exist. Set both to create the initial admin on each cold start.');
+    return false;
+  }
+  const name = process.env.NETLIFY_ADMIN_NAME || 'Admin User';
+  db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)')
+    .run(uuid(), String(email).trim().toLowerCase(), bcrypt.hashSync(String(password), 12), String(name).trim(), 'admin');
+  console.log(`seedAdminFromEnv: created admin ${email} (serverless bootstrap)`);
+  return true;
+}
+
 if (import.meta.url === new URL(process.argv[1] || '', 'file://').href) {
   seedDatabase();
 }

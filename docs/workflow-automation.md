@@ -64,7 +64,7 @@ Principle: **agents are automation actions with human-in-the-loop gates** — th
 - **Rules are data, not code**: hard-coded `checkTriggers` becomes seed data for rules.
 - **All automations user-editable**: CRUD + enable/disable + test, admin-only, with run history.
 - **Execution**: in-process async queue; `automation_runs` log (rule, entity, matched, actions, result, error). Dry-run endpoint for the builder UI.
-- **Scheduler**: hourly tick for SLA/expiry watches (replaces manual `/scan`), plus `POST /api/automations/run-scheduled` for manual trigger.
+- **Scheduler**: hourly tick for SLA/expiry watches (replaces manual `/scan`), plus `POST /api/automations/run-scheduled` for manual trigger. If `reminder_email_enabled` is on and SMTP is configured, the scan also sends a summary digest of expiring/expired TMPs and permits to `reminder_email_to` (or all admins).
 
 ### 4.2 Data model
 

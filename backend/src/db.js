@@ -4,13 +4,15 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 
 const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
-const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
+export const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
 const dbPath = isServerless
   ? path.join('/tmp', process.env.DB_FILENAME || 'tmpcms.db')
   : path.resolve(moduleDir, '..', process.env.DB_PATH || './data/tmpcms.db');
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
-const db = new Database(dbPath);
+let db = null;
+export function initDatabase() {
+db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -445,5 +447,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_correspondence_status ON correspondence(review_status);
 `);
 
-export default db;
+}
+
+export function reopenDatabase() {
+  if (db) db.close();
+  try { fs.rmSync(dbPath + '-wal', { force: true }); } catch {}
+  try { fs.rmSync(dbPath + '-shm', { force: true }); } catch {}
+  initDatabase();
+}
+initDatabase();
+
+export { db as default };
 export { dbPath };

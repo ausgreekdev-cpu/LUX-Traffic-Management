@@ -5,7 +5,7 @@ import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { incompleteRequiredStages, swapTemplateForEntity } from './workflows.js';
 import { emitEvent } from '../events.js';
-import { suggestComplexity, computeRisk, applyRiskToTmp, riskPreviewQuery } from '../risk.js';
+import { suggestComplexity, computeRisk, riskPreviewQuery } from '../risk.js';
 
 const router = Router();
 router.use(authenticate);

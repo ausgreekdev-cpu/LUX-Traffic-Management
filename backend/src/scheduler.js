@@ -1,5 +1,6 @@
 import db from './db.js';
 import { emitEvent } from './events.js';
+import { sendEmail, getSmtpConfig } from './emailer.js';
 
 function getSetting(key, fallback) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -18,13 +19,18 @@ function detectExpiringTmps(reminderDays) {
       AND status NOT IN ('completed','cancelled')
   `).all();
 
+  const expiring = [];
+  const expired = [];
   for (const tmp of tmps) {
     if (tmp.end_date >= todayStr && tmp.end_date <= windowEnd) {
       emitEvent('tmp.expiring', tmp, { window_days: reminderDays });
+      expiring.push(tmp);
     } else if (tmp.end_date < todayStr) {
       emitEvent('tmp.expired', tmp);
+      expired.push(tmp);
     }
   }
+  return { expiring, expired };
 }
 
 function detectExpiringPermits(reminderDays) {
@@ -41,13 +47,18 @@ function detectExpiringPermits(reminderDays) {
       AND pe.status IN ('approved')
   `).all();
 
+  const expiring = [];
+  const expired = [];
   for (const permit of permits) {
     if (permit.expiry_date >= todayStr && permit.expiry_date <= windowEnd) {
       emitEvent('permit.expiring', permit, { window_days: reminderDays });
+      expiring.push(permit);
     } else if (permit.expiry_date < todayStr) {
       emitEvent('permit.expired', permit);
+      expired.push(permit);
     }
   }
+  return { expiring, expired };
 }
 
 function detectSlaDeadlines() {
@@ -85,13 +96,57 @@ function cleanupOldRecords() {
   }
 }
 
-export function runScheduledChecks() {
+export async function runScheduledChecks() {
   const reminderDays = Math.max(0, parseInt(getSetting('reminder_days', '14'), 10) || 14);
-  detectExpiringTmps(reminderDays);
-  detectExpiringPermits(reminderDays);
+  const tmpResults = detectExpiringTmps(reminderDays);
+  const permitResults = detectExpiringPermits(reminderDays);
   detectSlaDeadlines();
   cleanupOldRecords();
+  await sendReminderDigest({ ...tmpResults, ...permitResults }, reminderDays);
   return { ok: true, reminder_days: reminderDays };
+}
+
+async function sendReminderDigest({ expiring = [], expired = [], expiringPermits = [], expiredPermits = [] }, reminderDays) {
+  try {
+    if (getSetting('reminder_email_enabled', 'false') !== 'true') return;
+    const cfg = getSmtpConfig();
+    if (!cfg.host || cfg.host === 'smtp.example.com' || !cfg.fromEmail) return;
+
+    const configured = String(getSetting('reminder_email_to', '')).trim();
+    const recipients = configured
+      ? configured.split(',').map(s => s.trim()).filter(Boolean)
+      : db.prepare("SELECT email FROM users WHERE role = 'admin' AND email != ''").all().map(u => u.email);
+    if (!recipients.length) return;
+
+    const lines = [];
+    const count = expiring.length + expired.length + expiringPermits.length + expiredPermits.length;
+    if (expiring.length) {
+      lines.push(`TMPs expiring within ${reminderDays} days:`);
+      for (const t of expiring) lines.push(`  - ${t.reference} (${t.title}) ends ${t.end_date}`);
+    }
+    if (expired.length) {
+      lines.push('TMPs past their end date (not completed):');
+      for (const t of expired) lines.push(`  - ${t.reference} (${t.title}) ended ${t.end_date}`);
+    }
+    if (expiringPermits.length) {
+      lines.push(`Approved permits expiring within ${reminderDays} days:`);
+      for (const p of expiringPermits) lines.push(`  - ${p.tmp_reference || p.id} (${p.authority_id}) expires ${p.expiry_date}`);
+    }
+    if (expiredPermits.length) {
+      lines.push('Approved permits past expiry:');
+      for (const p of expiredPermits) lines.push(`  - ${p.tmp_reference || p.id} (${p.authority_id}) expired ${p.expiry_date}`);
+    }
+    if (!lines.length) return;
+
+    const appName = getSetting('app_name', 'LUX Traffic Management');
+    const body = `${appName} reminder summary\n${'='.repeat(40)}\n\n${lines.join('\n')}\n`;
+    for (const to of recipients) {
+      await sendEmail(to, `${appName} — ${count} item${count === 1 ? '' : 's'} need attention`, body);
+    }
+    console.log(`Reminder digest emailed to ${recipients.length} recipient(s): ${count} item(s)`);
+  } catch (err) {
+    console.error('Reminder digest email failed:', err.message);
+  }
 }
 
 let intervalHandle = null;

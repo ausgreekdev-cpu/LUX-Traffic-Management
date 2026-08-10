@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api from '../api.js';
 import { useAppText } from '../context/AppText';
 
@@ -94,7 +94,7 @@ export default function Settings() {
   const [settings, setSettings] = useState({});
   const [form, setForm] = useState({
     company_name: '', company_abn: '', company_phone: '', company_email: '', company_address: '',
-    reminder_days: '14', webhook_secret: ''
+    reminder_days: '14', webhook_secret: '', reminder_email_enabled: false, reminder_email_to: ''
   });
   const [branding, setBranding] = useState({ app_name: '', login_subtitle: '', footer_text: '', pdf_footer_text: '' });
   const [navLabels, setNavLabels] = useState({});
@@ -113,6 +113,7 @@ export default function Settings() {
   const [emailLogs, setEmailLogs] = useState([]);
   const [emailBusy, setEmailBusy] = useState(false);
   const [testTo, setTestTo] = useState('');
+  const [webhookHas, setWebhookHas] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [theme, setTheme] = useState('light');
   const [saved, setSaved] = useState('');
@@ -129,8 +130,11 @@ export default function Settings() {
           company_email: s.company_email || '',
           company_address: s.company_address || '',
           reminder_days: s.reminder_days || '14',
-          webhook_secret: s.webhook_secret || ''
+          webhook_secret: '',
+          reminder_email_enabled: s.reminder_email_enabled === 'true',
+          reminder_email_to: s.reminder_email_to || ''
         });
+        setWebhookHas(!!s.webhook_secret);
         setBranding({
           app_name: s.app_name || '',
           login_subtitle: s.login_subtitle || '',
@@ -230,6 +234,28 @@ export default function Settings() {
     a.download = `lux-backup-${new Date().toISOString().slice(0, 10)}.db`;
     a.click();
     URL.revokeObjectURL(blob);
+  };
+
+  const restoreRef = useRef(null);
+  const [restoring, setRestoring] = useState(false);
+  const restoreDb = async (file) => {
+    if (!file) return;
+    if (!window.confirm(`Restore database from "${file.name}"?\n\nThis REPLACES all current data. A safety copy of the current database is kept, but it is strongly recommended to download a backup first.`)) return;
+    setRestoring(true);
+    try {
+      const token = localStorage.getItem('token');
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/export/db-restore', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Restore failed');
+      notify(`${body.message} ${body.users ?? ''} users, ${body.tmps ?? ''} TMPs`);
+    } catch (err) {
+      alert(`Restore failed: ${err.message}`);
+    } finally {
+      setRestoring(false);
+      if (restoreRef.current) restoreRef.current.value = '';
+    }
   };
 
   if (loading) return <p className="text-gray-500">Loading settings…</p>;
@@ -334,6 +360,18 @@ export default function Settings() {
           </button>
           <input value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="Test recipient (optional)" className="input flex-1" />
         </div>
+        <div className="mt-4 border-t pt-3">
+          <p className="label">Reminder digest</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Send one summary email on each hourly scan when TMPs or permits are expiring/expired. Leave recipients blank to use all admin user emails.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={form.reminder_email_enabled} onChange={e => setForm(f => ({ ...f, reminder_email_enabled: e.target.checked }))} />
+              Send reminder digest emails
+            </label>
+            <input value={form.reminder_email_to} onChange={e => setForm(f => ({ ...f, reminder_email_to: e.target.value }))} placeholder="Recipients (comma-separated, optional)" className="input" />
+          </div>
+          <button onClick={() => save(['reminder_email_enabled', 'reminder_email_to'], 'Reminder digest settings saved')} className="btn btn-primary mt-2">Save digest settings</button>
+        </div>
         {emailLogs.length > 0 && (
           <div className="mt-4">
             <p className="label">Recent email log</p>
@@ -353,7 +391,7 @@ export default function Settings() {
         <div className="space-y-3">
           <Field label="Webhook secret">
             <div className="flex gap-2">
-              <input type={showSecret ? 'text' : 'password'} className={inputClass + ' font-mono'} value={form.webhook_secret} onChange={set('webhook_secret')} placeholder="Leave blank for unauthenticated delivery" />
+              <input type={showSecret ? 'text' : 'password'} className={inputClass + ' font-mono'} value={form.webhook_secret} onChange={set('webhook_secret')} placeholder={webhookHas ? 'Stored — leave blank to keep it' : 'Leave blank for unauthenticated delivery'} />
               <button type="button" onClick={() => setShowSecret(!showSecret)} className="btn btn-ghost shrink-0">{showSecret ? 'Hide' : 'Show'}</button>
             </div>
           </Field>
@@ -370,17 +408,37 @@ export default function Settings() {
             <p>Signature: HMAC-SHA256 hex digest of the raw request body, sent as <code className="font-mono">x-lux-signature</code> or <code className="font-mono">x-webhook-signature</code>.</p>
             <p>Body may include <code className="font-mono">sender/from</code>, <code className="font-mono">subject</code> and <code className="font-mono">text/body</code> fields; emails are parsed for a TMP reference and outcome keywords (approved, rejected, request info…).</p>
           </div>
-          <button onClick={() => save(['webhook_secret'], 'Webhook settings saved')} className="btn btn-primary">
+          <button onClick={async () => {
+            try {
+              if (form.webhook_secret) await api.settings.update({ webhook_secret: form.webhook_secret });
+              setWebhookHas(!!form.webhook_secret || webhookHas);
+              setForm(f => ({ ...f, webhook_secret: '' }));
+              notify('Webhook settings saved');
+            } catch (err) { alert(err.message); }
+          }} className="btn btn-primary">
             Save webhook settings
           </button>
         </div>
       </Card>
 
-      <Card title="Data" description="Download a complete backup of the database file.">
-        <button onClick={() => downloadBackup().catch((err) => alert(err.message))}
-          className="btn btn-ghost">
-          💾 Download database backup
-        </button>
+      <Card title="Data" description="Download a complete backup of the database file, or restore from one.">
+        <div className="flex flex-wrap items-center gap-3">
+          <button onClick={() => downloadBackup().catch((err) => alert(err.message))}
+            className="btn btn-ghost">
+            💾 Download database backup
+          </button>
+          {isAdmin && (
+            <>
+              <input ref={restoreRef} type="file" accept=".db,application/x-sqlite3" className="hidden"
+                onChange={(e) => restoreDb(e.target.files[0])} />
+              <button onClick={() => restoreRef.current?.click()} disabled={restoring}
+                className="btn btn-ghost">
+                {restoring ? 'Restoring…' : '↩ Restore database from backup'}
+              </button>
+            </>
+          )}
+        </div>
+        {isAdmin && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Restore replaces all current data with the uploaded backup. Only SQLite database files are accepted.</p>}
       </Card>
 
       {isAdmin && (

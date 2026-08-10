@@ -152,7 +152,34 @@ docker compose exec lux-backend node -e "const D=require('better-sqlite3');const
 ```
 
 Copy the resulting file plus the `uploads` volume somewhere safe. Restore by stopping the
-server and replacing `tmpcms.db`.
+server and replacing `tmpcms.db` (in-app restore is also available under Settings → Data).
+
+---
+
+## Option 4 — Netlify (serverless) ⚠️ demo-only
+
+A `netlify.toml` + `netlify/functions/*` adapter deploys the Express API as serverless
+functions. **This is not a persistent deployment** — the SQLite database lives in the
+functions' ephemeral `/tmp` filesystem and is recreated on every cold start. Treat it as a
+public demo/CI smoke target, never as the real system.
+
+Consequences you must plan around:
+
+- **All data resets on cold starts** (per-function, and functions recycle frequently):
+  records, settings, SMTP config, webhook secrets and correspondence are lost.
+- **Default credentials are never created on serverless.** If the DB is empty the function
+  bootstraps a single admin from environment variables:
+  - `NETLIFY_ADMIN_EMAIL` (required)
+  - `NETLIFY_ADMIN_PASSWORD` (required)
+  - `NETLIFY_ADMIN_NAME` (optional, default `Admin User`)
+  If either variable is missing, **no users exist and login is impossible** — this is
+  intentional, so the public endpoint never ships `admin@tmpcms.com / admin123`.
+- The hourly scheduled function (`netlify/functions/scheduled.js`) runs the reminder scan,
+  but its results are ephemeral too.
+
+For any real shared deployment use **Option 2 (Docker)** or **Option 1 (standalone Node)** —
+the same `netlify.toml`/serverless files are inert in those modes (they check for the
+Netlify/Lambda environment before changing any behaviour).
 
 ---
 
@@ -160,8 +187,9 @@ server and replacing `tmpcms.db`.
 
 - **Seed** the DB once (`npm run seed` or the compose exec above) to create
   `admin@tmpcms.com / admin123`, then change the password from the Users page.
-- **Set `JWT_SECRET`** to a long random string on the server — the code falls back to a
-  hardcoded dev value otherwise.
+- **Set `JWT_SECRET`** to a long random string on the server — if unset, the code now
+  generates and persists one in the settings table (desktop/local mode) so a shared default
+  is never used.
 - Decide whether to expose SMTP creds; otherwise the Email settings in the app UI keep
   working on their own.
 - The embedded default users can be removed or roles tightened on the Users page.

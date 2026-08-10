@@ -5,10 +5,18 @@ import { authenticate } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticate);
 
+const MASKED_KEYS = new Set(['smtp_pass', 'jwt_secret', 'webhook_secret']);
+
 router.get('/', (req, res) => {
   const rows = db.prepare('SELECT key, value FROM settings').all();
   const settings = {};
-  for (const row of rows) settings[row.key] = row.value;
+  for (const row of rows) {
+    if (MASKED_KEYS.has(row.key)) {
+      settings[row.key] = row.value ? '••••••••' : '';
+    } else {
+      settings[row.key] = row.value;
+    }
+  }
   res.json(settings);
 });
 

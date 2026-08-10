@@ -178,7 +178,7 @@ const faqs = [
   },
   {
     q: 'How do I restore a database backup?',
-    a: 'Backups are for safety and record-keeping — the app currently supports download only. Keep the file somewhere secure; if you ever need to move to a new machine, the backup file is the complete database.'
+    a: 'Admins: Settings → Data → Restore database from backup, then choose a .db backup file. The current database is replaced (a safety copy is kept on disk, but download a backup first). Restore is not available on serverless demo deployments.'
   },
   {
     q: 'Why don’t I see a reminder for a TMP that ends soon?',
