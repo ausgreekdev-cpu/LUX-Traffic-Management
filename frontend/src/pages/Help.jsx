@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAppText } from '../context/AppText';
 
@@ -174,7 +174,7 @@ const guides = [
 const faqs = [
   {
     q: 'Where is my data stored?',
-    a: 'Everything lives in a local SQLite database inside the app’s data folder (per-user, e.g. %APPDATA%\\LUX Traffic Management). It is not sent to any cloud service. Use Settings → Data → Download database backup to keep a copy.'
+    a: 'Everything lives in a local SQLite database inside the app’s data folder (per-user, e.g. %APPDATA%\\LUX Traffic Management). It is not sent to any cloud service. Use Settings → Data → Download database backup to keep a copy, and enable Scheduled backups there to take one automatically (default: every 24 hours, keep 30 days).'
   },
   {
     q: 'How do I restore a database backup?',

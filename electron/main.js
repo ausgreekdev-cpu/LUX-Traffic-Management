@@ -1,4 +1,5 @@
 const { app, BrowserWindow, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 
@@ -123,7 +124,41 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    log('Portable build detected - auto-update disabled');
+    return;
+  }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.logger = {
+    info: (m) => log('[AutoUpdater] ' + m),
+    warn: (m) => log('[AutoUpdater] ' + m),
+    error: (m) => log('[AutoUpdater] ' + m),
+    debug: (m) => log('[AutoUpdater] ' + m)
+  };
+  autoUpdater.on('error', (err) => log('Auto-update error: ' + err.message));
+  autoUpdater.on('update-available', (info) => log('Update available: ' + info.version));
+  autoUpdater.on('update-not-available', () => log('No updates available'));
+  autoUpdater.on('update-downloaded', (info) => {
+    log('Update downloaded: ' + info.version + ' - installing on quit');
+    if (mainWindow) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Update ready',
+        message: 'LUX Traffic Management ' + info.version + ' has been downloaded and will install when you quit the app.',
+        buttons: ['Restart now', 'Later']
+      }).then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      }).catch(() => {});
+    }
+  });
+  autoUpdater.checkForUpdatesAndNotify().catch((err) => log('Auto-update check failed: ' + err.message));
+}
+
 app.whenReady().then(async () => {
+  setupAutoUpdater();
   try {
     const external = await isBackendRunning(BACKEND_PORT);
     if (external) {

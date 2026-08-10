@@ -245,7 +245,7 @@ export function applyAgentRun(runId, { by = null } = {}) {
     }
   }
   db.prepare('UPDATE agent_runs SET applied = 1, applied_by = ?, applied_at = datetime(\'now\') WHERE id = ?').run(by || null, runId);
-  return { ...run, applied: 1, applied_by: by || null, applied_at: new Date().toISOString(), applied };
+  return { ...run, applied: 1, applied_by: by || null, applied_at: new Date().toISOString(), apply_result: applied };
 }
 
 export function latestRunFor(agentId, entityType, entityId) {

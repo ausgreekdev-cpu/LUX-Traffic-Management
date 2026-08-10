@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../api';
 import { useAppText } from '../context/AppText';
 
@@ -46,7 +46,7 @@ export default function WorkflowSettings() {
     return api.workflows.stages(null, selection).then(setStages);
   };
 
-  useEffect(() => { loadStages().catch(() => {}); /* eslint-disable-next-line */ }, [selection, entityType]);
+  useEffect(() => { loadStages().catch(() => {}); }, [selection, entityType]);
 
   const handleStageSubmit = async (e) => {
     e.preventDefault();

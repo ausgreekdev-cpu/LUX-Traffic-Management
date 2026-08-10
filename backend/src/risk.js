@@ -95,7 +95,6 @@ export function computeRisk({ plan_type, start_date, end_date, site = null }) {
 export function applyRiskToTmp(tmpId, { plan_type, start_date, end_date, site_id }) {
   const site = site_id ? db.prepare('SELECT * FROM sites WHERE id = ?').get(site_id) : null;
   const risk = computeRisk({ plan_type, start_date, end_date, site });
-  const existing = db.prepare('SELECT risk_score, risk_band FROM traffic_management_plans WHERE id = ?').get(tmpId);
   db.prepare('UPDATE traffic_management_plans SET risk_consequence = ?, risk_likelihood = ?, risk_score = ?, risk_band = ?, risk_mitigations = ? WHERE id = ?')
     .run(risk.consequence, risk.likelihood, risk.score, risk.band, JSON.stringify(risk.mitigations), tmpId);
   return risk;

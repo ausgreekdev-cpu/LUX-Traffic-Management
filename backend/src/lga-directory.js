@@ -130,7 +130,6 @@ export function parseDirectoryText(text) {
   let sectionName = null; // 'head' | 'deputy' | 'councillors' | 'exec' | 'ceo' | 'map' | 'suburbs' | 'meetings'
   let sectionLines = [];
   let councilWard = null;
-  let expectCeo = false;
 
   const buffer = (raw) => { sectionLines.push(raw); };
 

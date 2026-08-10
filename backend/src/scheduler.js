@@ -1,6 +1,7 @@
 import db from './db.js';
 import { emitEvent } from './events.js';
 import { sendEmail, getSmtpConfig } from './emailer.js';
+import { maybeAutoBackup } from './backups.js';
 
 function getSetting(key, fallback) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -63,8 +64,6 @@ function detectExpiringPermits(reminderDays) {
 
 function detectSlaDeadlines() {
   const today = new Date();
-  const toISO = (d) => d.toISOString().slice(0, 10);
-  const todayStr = toISO(today);
 
   const permits = db.prepare(`
     SELECT pe.*, t.title as tmp_title, t.reference as tmp_reference, t.created_by as tmp_created_by
@@ -102,6 +101,11 @@ export async function runScheduledChecks() {
   const permitResults = detectExpiringPermits(reminderDays);
   detectSlaDeadlines();
   cleanupOldRecords();
+  try {
+    await maybeAutoBackup();
+  } catch (err) {
+    console.error('Auto-backup failed:', err.message);
+  }
   await sendReminderDigest({ ...tmpResults, ...permitResults }, reminderDays);
   return { ok: true, reminder_days: reminderDays };
 }

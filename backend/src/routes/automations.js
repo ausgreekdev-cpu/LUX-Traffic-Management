@@ -98,7 +98,7 @@ router.post('/rules/:id/test', authorize('admin'), (req, res) => {
   if (!rule) return res.status(404).json({ error: 'Rule not found' });
   const { entity_type, entity_id } = req.body || {};
   if (!entity_id) return res.status(400).json({ error: 'entity_id required to test against' });
-  let entity = null;
+  let entity;
   if (entity_type === 'permit') {
     entity = db.prepare(`
       SELECT pe.*, t.reference as tmp_reference, t.title as tmp_title, t.created_by as tmp_created_by

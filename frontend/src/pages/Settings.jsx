@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import api from '../api.js';
 import { useAppText } from '../context/AppText';
 
@@ -91,10 +91,10 @@ const COMPLEXITY_ITEMS = [
 export default function Settings() {
   const { pageTitle } = useAppText();
   const [user, setUser] = useState(null);
-  const [settings, setSettings] = useState({});
   const [form, setForm] = useState({
     company_name: '', company_abn: '', company_phone: '', company_email: '', company_address: '',
-    reminder_days: '14', webhook_secret: '', reminder_email_enabled: false, reminder_email_to: ''
+    reminder_days: '14', webhook_secret: '', reminder_email_enabled: false, reminder_email_to: '',
+    auto_backup_enabled: false, auto_backup_interval_hours: '24', auto_backup_retention_days: '30'
   });
   const [branding, setBranding] = useState({ app_name: '', login_subtitle: '', footer_text: '', pdf_footer_text: '' });
   const [navLabels, setNavLabels] = useState({});
@@ -122,7 +122,6 @@ export default function Settings() {
   useEffect(() => {
     api.settings.get()
       .then((s) => {
-        setSettings(s);
         setForm({
           company_name: s.company_name || '',
           company_abn: s.company_abn || '',
@@ -132,9 +131,13 @@ export default function Settings() {
           reminder_days: s.reminder_days || '14',
           webhook_secret: '',
           reminder_email_enabled: s.reminder_email_enabled === 'true',
-          reminder_email_to: s.reminder_email_to || ''
+          reminder_email_to: s.reminder_email_to || '',
+          auto_backup_enabled: s.auto_backup_enabled === 'true',
+          auto_backup_interval_hours: s.auto_backup_interval_hours || '24',
+          auto_backup_retention_days: s.auto_backup_retention_days || '30'
         });
         setWebhookHas(!!s.webhook_secret);
+        loadBackups();
         setBranding({
           app_name: s.app_name || '',
           login_subtitle: s.login_subtitle || '',
@@ -180,7 +183,6 @@ export default function Settings() {
     const payload = {};
     for (const k of keys) payload[k] = form[k];
     await api.settings.update(payload);
-    setSettings((s) => ({ ...s, ...payload }));
     notify(message);
   };
 
@@ -198,7 +200,6 @@ export default function Settings() {
     setTheme(t);
     document.documentElement.classList.toggle('dark', t === 'dark');
     await api.settings.update({ theme: t }).catch(() => {});
-    setSettings((s) => ({ ...s, theme: t }));
   };
 
   const saveSmtp = async () => {
@@ -238,6 +239,67 @@ export default function Settings() {
 
   const restoreRef = useRef(null);
   const [restoring, setRestoring] = useState(false);
+  const [backingUp, setBackingUp] = useState(false);
+  const [backups, setBackups] = useState([]);
+  const loadBackups = () => {
+    const token = localStorage.getItem('token');
+    return fetch('/api/export/backups', { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then((body) => setBackups(body.backups || []))
+      .catch(() => {});
+  };
+  const runBackupNow = async () => {
+    setBackingUp(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/export/backups/run', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Backup failed');
+      notify('Backup created');
+      loadBackups();
+    } catch (err) { alert(err.message); }
+    finally { setBackingUp(false); }
+  };
+  const downloadBackupFile = async (name) => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`/api/export/backups/${encodeURIComponent(name)}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Download failed');
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(blob);
+  };
+  const restoreBackupFile = async (name) => {
+    if (!window.confirm(`Restore database from backup "${name}"?\n\nThis REPLACES all current data.`)) return;
+    setRestoring(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/export/backups/restore', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Restore failed');
+      notify(`${body.message} ${body.users ?? ''} users, ${body.tmps ?? ''} TMPs`);
+    } catch (err) { alert(`Restore failed: ${err.message}`); }
+    finally { setRestoring(false); }
+  };
+  const deleteBackupFile = async (name) => {
+    if (!window.confirm(`Delete backup "${name}"?`)) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/export/backups/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Delete failed');
+      notify('Backup deleted');
+      loadBackups();
+    } catch (err) { alert(err.message); }
+  };
   const restoreDb = async (file) => {
     if (!file) return;
     if (!window.confirm(`Restore database from "${file.name}"?\n\nThis REPLACES all current data. A safety copy of the current database is kept, but it is strongly recommended to download a backup first.`)) return;
@@ -435,10 +497,55 @@ export default function Settings() {
                 className="btn btn-ghost">
                 {restoring ? 'Restoring…' : '↩ Restore database from backup'}
               </button>
+              <button onClick={runBackupNow} disabled={backingUp}
+                className="btn btn-ghost">
+                {backingUp ? 'Backing up…' : '📀 Back up now'}
+              </button>
             </>
           )}
         </div>
         {isAdmin && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Restore replaces all current data with the uploaded backup. Only SQLite database files are accepted.</p>}
+
+        {isAdmin && (
+          <div className="mt-5 border-t pt-4">
+            <p className="label">Scheduled backups</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Create a timestamped backup file on the hourly scan and keep the newest few. Stored next to the database in the <code className="font-mono">backups</code> folder.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={form.auto_backup_enabled} onChange={e => setForm(f => ({ ...f, auto_backup_enabled: e.target.checked }))} />
+                Enable scheduled backups
+              </label>
+              <Field label="Interval (hours)">
+                <input type="number" min="1" className={inputClass} value={form.auto_backup_interval_hours} onChange={set('auto_backup_interval_hours')} />
+              </Field>
+              <Field label="Keep for (days)">
+                <input type="number" min="1" className={inputClass} value={form.auto_backup_retention_days} onChange={set('auto_backup_retention_days')} />
+              </Field>
+            </div>
+            <button onClick={() => save(['auto_backup_enabled', 'auto_backup_interval_hours', 'auto_backup_retention_days'], 'Backup schedule saved')}
+              className="btn btn-primary mt-2">Save backup schedule</button>
+
+            <div className="mt-4">
+              <p className="label">Existing backups</p>
+              {backups.length === 0 ? (
+                <p className="text-xs text-gray-400">No backups on disk yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {backups.map(b => (
+                    <div key={b.name} className="flex items-center gap-2 text-xs bg-gray-50 dark:bg-gray-800 rounded px-2 py-1">
+                      <span className="font-mono truncate flex-1">{b.name}</span>
+                      <span className="text-gray-400 shrink-0">{(b.size / 1024 / 1024).toFixed(1)} MB</span>
+                      <span className="text-gray-400 shrink-0">{b.modified.slice(0, 19).replace('T', ' ')}</span>
+                      <button onClick={() => downloadBackupFile(b.name)} className="text-lux-600 dark:text-lux-400 hover:underline shrink-0">Download</button>
+                      <button onClick={() => restoreBackupFile(b.name)} disabled={restoring} className="text-lux-600 dark:text-lux-400 hover:underline shrink-0">Restore</button>
+                      <button onClick={() => deleteBackupFile(b.name)} className="text-red-500 hover:underline shrink-0">Delete</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
 
       {isAdmin && (

@@ -127,3 +127,48 @@ test('scheduled checks run without errors', async () => {
   const result = await runScheduledChecks();
   assert.equal(result.ok, true);
 });
+
+test('manual backup creates a listed file, restore-by-name round-trips', async () => {
+  const { token } = await login();
+  const created = await fetch(`${base}/export/backups/run`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  assert.equal(created.status, 200);
+  const createdBody = await created.json();
+  assert.equal(createdBody.ok, true);
+  assert.ok(/^lux-backup-\d{4}-\d{2}-\d{2}_[\d-]+\.db$/.test(createdBody.name));
+
+  const listed = await fetch(`${base}/export/backups`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal(listed.status, 200);
+  const listedBody = await listed.json();
+  assert.ok(listedBody.backups.some((b) => b.name === createdBody.name), 'created backup should be listed');
+
+  const restored = await fetch(`${base}/export/backups/restore`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: createdBody.name })
+  });
+  assert.equal(restored.status, 200);
+  const restoredBody = await restored.json();
+  assert.equal(restoredBody.ok, true);
+
+  const deleted = await fetch(`${base}/export/backups/${encodeURIComponent(createdBody.name)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  assert.equal(deleted.status, 200);
+  const after = await fetch(`${base}/export/backups`, { headers: { Authorization: `Bearer ${token}` } });
+  const afterBody = await after.json();
+  assert.ok(!afterBody.backups.some((b) => b.name === createdBody.name), 'deleted backup should no longer be listed');
+});
+
+test('backup restore rejects path traversal names', async () => {
+  const { token } = await login();
+  const res = await fetch(`${base}/export/backups/restore`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: '../../etc/passwd' })
+  });
+  assert.equal(res.status, 400);
+});

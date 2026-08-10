@@ -161,7 +161,7 @@ async function executeAction(action, event, ctx, rule) {
     case 'compute_risk_score': {
       const table = event.type.startsWith('permit') ? 'permit' : event.type.startsWith('tmp') ? 'tmp' : null;
       if (!table || !entityId) return { type, skipped: 'no entity' };
-      const { computeRisk, applyRiskToTmp } = await import('./risk.js');
+      const { applyRiskToTmp } = await import('./risk.js');
       if (table === 'tmp') {
         const t = db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(entityId);
         if (!t) return { type, skipped: 'entity not found' };

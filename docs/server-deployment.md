@@ -154,6 +154,14 @@ docker compose exec lux-backend node -e "const D=require('better-sqlite3');const
 Copy the resulting file plus the `uploads` volume somewhere safe. Restore by stopping the
 server and replacing `tmpcms.db` (in-app restore is also available under Settings → Data).
 
+### Automatic backups
+
+Enable **Settings → Data → Scheduled backups** to have the hourly scan create a
+timestamped copy in `<data dir>/backups` (default: every 24 h, keep 30 days — both
+configurable). Backups are also listed in Settings → Data for download, restore or manual
+deletion, and `POST /api/export/backups/run` forces one on demand. Not available on
+serverless deployments.
+
 ---
 
 ## Option 4 — Netlify (serverless) ⚠️ demo-only

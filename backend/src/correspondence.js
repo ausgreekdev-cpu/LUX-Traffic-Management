@@ -12,7 +12,7 @@ const STATUS_PATTERNS = [
 
 const REF_PATTERN = /TMP-\d{4}-\d{3}/i;
 
-export function parseCorrespondence({ sender = '', subject = '', raw_text = '' }) {
+export function parseCorrespondence({ sender: _sender = '', subject = '', raw_text = '' }) {
   const text = [subject, raw_text].join('\n');
   const refMatch = text.match(REF_PATTERN);
   const tmp_reference = refMatch ? refMatch[0].toUpperCase() : null;

@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test-lint-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Backend — install, test, lint
+        working-directory: backend
+        run: |
+          npm ci
+          npm test
+          npm run lint
+
+      - name: Frontend — install, lint, build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run build

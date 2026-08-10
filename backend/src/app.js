@@ -1,8 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import db, { isServerless } from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
@@ -30,7 +28,6 @@ import { seedDatabase, seedAdminFromEnv } from './seed.js';
 import { globalRateLimit } from './middleware/rate-limit.js';
 import './automation-engine.js';
 
-const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-tmp.netlify.app'] }));
