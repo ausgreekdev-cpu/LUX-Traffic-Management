@@ -12,7 +12,12 @@
   included_files = ["backend/data/wa-lga-directory.json"]
 
 [functions.node]
-  node_version = "22"
+  node_version = "24"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
 
 [[redirects]]
   from = "/*"

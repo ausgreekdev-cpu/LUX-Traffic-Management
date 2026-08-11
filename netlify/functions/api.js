@@ -1,3 +1,4 @@
+import './dommatrix-polyfill.js';
 import serverless from 'serverless-http';
 
 let appHandler = null;
