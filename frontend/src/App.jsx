@@ -50,7 +50,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <AppTextProvider>
+      <AppTextProvider key={user ? 'authed' : 'anon'}>
         <Routes>
           <Route path="/login" element={<Login onLogin={handleLogin} />} />
           <Route path="/" element={<ProtectedRoute><Layout user={user} onLogout={handleLogout} /></ProtectedRoute>}>
