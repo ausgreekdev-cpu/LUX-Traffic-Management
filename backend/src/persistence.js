@@ -14,7 +14,12 @@ const dbPath = path.join('/tmp', process.env.DB_FILENAME || 'tmpcms.db');
 
 async function getStore() {
   const { getStore } = await import('@netlify/blobs');
-  return getStore({ name: BLOB_STORE, consistency: 'strong' });
+  const opts = { name: BLOB_STORE, consistency: 'strong' };
+  if (process.env.NETLIFY_BLOBS_SITE_ID && process.env.NETLIFY_BLOBS_TOKEN) {
+    opts.siteID = process.env.NETLIFY_BLOBS_SITE_ID;
+    opts.token = process.env.NETLIFY_BLOBS_TOKEN;
+  }
+  return getStore(opts);
 }
 
 export async function restoreDbFromBlob() {
