@@ -20,6 +20,7 @@ export function AppTextProvider({ children }) {
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
+    if (!localStorage.getItem('token')) { setSettings({}); return; }
     api.settings.get()
       .then(setSettings)
       .catch(() => setSettings({}));

@@ -43,14 +43,14 @@ export default function Login({ onLogin }) {
               </div>
             )}
             <div>
-              <label className="label">Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                className="input w-full" placeholder="you@company.com.au" required />
+              <label htmlFor="email" className="label">Email</label>
+              <input id="email" name="email" type="email" value={email} onChange={e => setEmail(e.target.value)}
+                className="input w-full" placeholder="you@company.com.au" autoComplete="email" required />
             </div>
             <div>
-              <label className="label">Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                className="input w-full" placeholder="••••••••" required />
+              <label htmlFor="password" className="label">Password</label>
+              <input id="password" name="password" type="password" value={password} onChange={e => setPassword(e.target.value)}
+                className="input w-full" placeholder="••••••••" autoComplete="current-password" required />
             </div>
             <button type="submit" disabled={loading}
               className="btn btn-primary w-full py-2.5">
