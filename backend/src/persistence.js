@@ -39,26 +39,35 @@ export async function restoreDbFromBlob() {
 }
 
 let lastSnapshot = 0;
-let snapshotQueued = false;
+let snapshotInFlight = null;
 const SNAPSHOT_MIN_INTERVAL_MS = 20000;
+const SNAPSHOT_TIMEOUT_MS = 8000;
 
+// Netlify freezes the process shortly after the response is flushed, so
+// background work never completes. The snapshot must therefore be awaited
+// INSIDE the request lifecycle, before the response is sent.
 export function snapshotDbNow() {
-  if (!isServerless) return;
+  if (!isServerless) return Promise.resolve();
   const now = Date.now();
-  if (now - lastSnapshot < SNAPSHOT_MIN_INTERVAL_MS || snapshotQueued) return;
-  snapshotQueued = true;
-  setTimeout(async () => {
-    snapshotQueued = false;
+  if (now - lastSnapshot < SNAPSHOT_MIN_INTERVAL_MS) return Promise.resolve();
+  if (snapshotInFlight) return snapshotInFlight;
+  snapshotInFlight = runSnapshot().finally(() => { snapshotInFlight = null; });
+  return snapshotInFlight;
+}
+
+async function runSnapshot() {
+  try {
+    const { default: db, dbPath: pathToDb } = await import('./db.js');
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    const bytes = fs.readFileSync(pathToDb);
+    const store = await getStore();
+    await Promise.race([
+      store.set(BLOB_KEY, bytes),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('blob upload timed out')), SNAPSHOT_TIMEOUT_MS))
+    ]);
     lastSnapshot = Date.now();
-    try {
-      const { default: db, dbPath: pathToDb } = await import('./db.js');
-      db.pragma('wal_checkpoint(TRUNCATE)');
-      const bytes = fs.readFileSync(pathToDb);
-      const store = await getStore();
-      await store.set(BLOB_KEY, bytes);
-      console.log(`snapshotDb: uploaded ${bytes.length} bytes to Netlify Blobs`);
-    } catch (err) {
-      console.warn(`snapshotDb: snapshot failed -> ${err.message}`);
-    }
-  }, 2000);
+    console.log(`snapshotDb: uploaded ${bytes.length} bytes to Netlify Blobs`);
+  } catch (err) {
+    console.warn(`snapshotDb: snapshot failed -> ${err.message}`);
+  }
 }

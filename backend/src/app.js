@@ -37,8 +37,10 @@ app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('
 app.use('/api', globalRateLimit(300, 1));
 
 app.use('/api', (req, res, next) => {
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-    res.on('finish', () => snapshotDbNow());
+  const mutating = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
+  if (mutating && !req.path.startsWith('/auth')) {
+    const origSend = res.send.bind(res);
+    res.send = (body) => snapshotDbNow().finally(() => origSend(body));
   }
   next();
 });
