@@ -26,6 +26,7 @@ import { ensureAutomationPresets } from './automation-presets.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
 import { seedDatabase, seedAdminFromEnv } from './seed.js';
 import { globalRateLimit } from './middleware/rate-limit.js';
+import { snapshotDbNow } from './persistence.js';
 import './automation-engine.js';
 
 const app = express();
@@ -34,6 +35,13 @@ app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split('
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 
 app.use('/api', globalRateLimit(300, 1));
+
+app.use('/api', (req, res, next) => {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    res.on('finish', () => snapshotDbNow());
+  }
+  next();
+});
 
 app.use('/api', (req, res, next) => {
   if (req.method === 'GET' || req.method === 'HEAD' || req.path === '/health' || req.path.startsWith('/auth') || req.path.startsWith('/settings')) return next();

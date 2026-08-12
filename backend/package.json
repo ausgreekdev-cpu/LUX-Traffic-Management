@@ -11,6 +11,7 @@
     "lint": "eslint src test"
   },
   "dependencies": {
+    "@netlify/blobs": "^10.7.12",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^13.0.2",
     "cors": "^2.8.5",

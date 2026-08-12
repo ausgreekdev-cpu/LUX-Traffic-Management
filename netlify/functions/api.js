@@ -9,6 +9,8 @@ export const config = {
 
 export async function handler(event, context) {
   if (!appHandler) {
+    const { restoreDbFromBlob } = await import('../../backend/src/persistence.js');
+    await restoreDbFromBlob();
     const { default: app } = await import('../../backend/src/app.js');
     appHandler = serverless(app);
   }
