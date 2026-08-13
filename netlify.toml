@@ -8,7 +8,22 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["pdf-parse", "pdfkit"]
+  external_node_modules = [
+    "@netlify/blobs",
+    "bcryptjs",
+    "better-sqlite3",
+    "cors",
+    "dotenv",
+    "express",
+    "jsonwebtoken",
+    "multer",
+    "nodemailer",
+    "pdf-parse",
+    "pdfkit",
+    "serverless-http",
+    "uuid",
+    "zod"
+  ]
   included_files = ["backend/data/wa-lga-directory.json"]
 
 [functions.node]
