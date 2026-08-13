@@ -153,9 +153,9 @@ const guides = [
     icon: '🔐',
     title: 'Users & roles',
     steps: [
-      'Only <b>admins</b> see the Users page. Add team members with their email and a starting password.',
-      '<b>Admin</b> — full access, including user management. <b>Planner</b> — creates and manages TMPs, permits and records. <b>Viewer</b> — read-only.',
-      'Roles can be changed later from the same page (Edit). Deleted users keep their history in activity logs.'
+      'Only <b>developers</b> see the Users page. Add team members with their email and a starting password.',
+      '<b>Developer</b> — full access, including user/automation/settings configuration. <b>Manager</b> — business data and correspondence, no user/settings/automation access. <b>Staff</b> — creates and manages TMPs, permits and records (no deletes, no correspondence). <b>Client</b> — read-only access to their own company projects, TMPs and documents.',
+      'Client accounts must be linked to a company. Roles can be changed later from the same page (Edit). Deleted users keep their history in activity logs.'
     ]
   },
   {

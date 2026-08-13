@@ -17,8 +17,12 @@ export default function Analytics() {
     const promises = [];
     if (tab === 'overview' || tab === 'approval') promises.push(api.analytics.approvalTimes(params).then(setApproval));
     if (tab === 'overview' || tab === 'financial') promises.push(api.analytics.financialSummary(params).then(setFinancial));
-    if (tab === 'overview' || tab === 'rejection') promises.push(api.analytics.rejectionAnalysis({ period_days: 180 }).then(setRejection));
-    await Promise.all(promises);
+    if (tab === 'overview' || tab === 'rejection') promises.push(api.analytics.rejectionAnalysis(params).then(setRejection));
+    try {
+      await Promise.all(promises);
+    } catch (err) {
+      alert(err.message);
+    }
     setLoading(false);
   };
 

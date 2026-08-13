@@ -4,6 +4,8 @@ import { onAny } from './events.js';
 import { notifyUsers, notifyRole } from './notify.js';
 import { sendEmail } from './emailer.js';
 
+const VALID_NOTIFY_ROLES = ['developer', 'manager', 'staff', 'client'];
+
 const SAFE_FIELDS = {
   tmp: ['status', 'description', 'start_date', 'end_date', 'plan_type', 'complexity', 'complexity_source', 'risk_score', 'risk_band', 'title'],
   permit: ['status', 'complexity', 'expiry_date', 'approval_date', 'rejection_reason', 'is_within_30m_signals', 'requires_mrwa']
@@ -101,14 +103,14 @@ async function executeAction(action, event, ctx, rule) {
       const dedupe = rule.dedupe_key_template ? template(rule.dedupe_key_template, ctx) : `${rule.id}:${event.type}:${entityId || 'x'}`;
       const created = ctx.created_by
         ? notifyUsers(ctx.created_by, { type: params.notification_type || 'automation', title, message, entity_type: entityTypeOf(event), entity_id: entityId, dedupe_key: dedupe })
-        : notifyRole('admin', { type: params.notification_type || 'automation', title, message, entity_type: entityTypeOf(event), entity_id: entityId, dedupe_key: dedupe });
+        : notifyRole('developer', { type: params.notification_type || 'automation', title, message, entity_type: entityTypeOf(event), entity_id: entityId, dedupe_key: dedupe });
       return { type, created };
     }
     case 'notify_role': {
       const title = template(params.title, ctx);
       const message = template(params.message, ctx);
       const dedupe = rule.dedupe_key_template ? template(rule.dedupe_key_template, ctx) : `${rule.id}:${event.type}:${entityId || 'x'}`;
-      const role = params.role && ['admin', 'planner', 'viewer'].includes(params.role) ? params.role : 'admin';
+      const role = params.role && VALID_NOTIFY_ROLES.includes(params.role) ? params.role : 'manager';
       const created = notifyRole(role, { type: params.notification_type || 'automation', title, message, entity_type: entityTypeOf(event), entity_id: entityId, dedupe_key: dedupe });
       return { type, created };
     }
@@ -120,7 +122,7 @@ async function executeAction(action, event, ctx, rule) {
         message = message + (message ? ' ' : '') + `Due ${due}.`;
       }
       const dedupe = `${rule.id}:task:${entityId || 'x'}`;
-      const role = params.role && ['admin', 'planner', 'viewer'].includes(params.role) ? params.role : 'admin';
+      const role = params.role && VALID_NOTIFY_ROLES.includes(params.role) ? params.role : 'manager';
       const created = notifyRole(role, { type: 'task', title, message, entity_type: entityTypeOf(event), entity_id: entityId, dedupe_key: dedupe });
       return { type, created };
     }
@@ -196,7 +198,7 @@ async function executeAction(action, event, ctx, rule) {
             extra.push('trigger_raised');
           }
         }
-        const created = notifyRole('admin', { type: 'agent_alert', title: `Agent ${agentId} flagged ${run.verdict}`, message: run.summary, entity_type: run.entity_type, entity_id: run.entity_id || null, dedupe_key: `agent-${run.id}` });
+        const created = notifyRole('developer', { type: 'agent_alert', title: `Agent ${agentId} flagged ${run.verdict}`, message: run.summary, entity_type: run.entity_type, entity_id: run.entity_id || null, dedupe_key: `agent-${run.id}` });
         extra.push(`notified ${created}`);
       }
       return { type, verdict: run.verdict, score: run.score, run_id: run.id, extra };

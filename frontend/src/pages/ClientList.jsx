@@ -1,28 +1,34 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import { useAppText } from '../context/AppText';
+import { useAuth, hasRole } from '../context/Auth';
 
 export default function ClientList() {
   const { pageTitle, column } = useAppText();
+  const { user } = useAuth();
+  const canEdit = hasRole(user, 'staff');
+  const canDelete = hasRole(user, 'manager');
   const [clients, setClients] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', address: '', abn: '' });
 
-  useEffect(() => { api.clients.list().then(setClients); }, []);
+  useEffect(() => { api.clients.list().then(setClients).catch(() => {}); }, []);
 
   const resetForm = () => { setForm({ name: '', company: '', email: '', phone: '', address: '', abn: '' }); setEditId(null); setShowForm(false); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editId) {
-      await api.clients.update(editId, form);
-    } else {
-      const res = await api.clients.create(form);
-      setClients([res, ...clients]);
-    }
-    resetForm();
-    api.clients.list().then(setClients);
+    try {
+      if (editId) {
+        await api.clients.update(editId, form);
+      } else {
+        const res = await api.clients.create(form);
+        setClients([res, ...clients]);
+      }
+      resetForm();
+      api.clients.list().then(setClients).catch(() => {});
+    } catch (err) { alert(err.message); }
   };
 
   const handleEdit = (c) => {
@@ -33,8 +39,10 @@ export default function ClientList() {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete client?')) return;
-    await api.clients.delete(id);
-    setClients(clients.filter(c => c.id !== id));
+    try {
+      await api.clients.delete(id);
+      setClients(clients.filter(c => c.id !== id));
+    } catch (err) { alert(err.message); }
   };
 
   return (
@@ -44,7 +52,7 @@ export default function ClientList() {
           <h1 className="page-header">{pageTitle('clients', 'Clients')}</h1>
           <p className="page-sub">Companies and contacts you work with</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Client</button>
+        {canEdit && <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Client</button>}
       </div>
       {showForm && (
         <form onSubmit={handleSubmit} className="card p-4 space-y-3">
@@ -75,8 +83,8 @@ export default function ClientList() {
               <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="table-td font-medium">{c.name}</td><td className="table-td text-gray-500">{c.company || '-'}</td><td className="table-td text-gray-500">{c.email || '-'}</td><td className="table-td text-gray-500">{c.phone || '-'}</td>
                 <td className="table-td text-right space-x-2">
-                  <button onClick={() => handleEdit(c)} className="text-lux-600 dark:text-lux-400 hover:underline text-xs font-medium">Edit</button>
-                  <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
+                  {canEdit && <button onClick={() => handleEdit(c)} className="text-lux-600 dark:text-lux-400 hover:underline text-xs font-medium">Edit</button>}
+                  {canDelete && <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>}
                 </td>
               </tr>
             ))}

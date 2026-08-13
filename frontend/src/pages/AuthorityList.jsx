@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../api';
 import { useAppText } from '../context/AppText';
+import { useAuth, hasRole } from '../context/Auth';
 
 const EMPTY_FORM = {
   name: '', short_name: '', type: 'lga', email: '', phone: '', website: '', contact_person: '',
@@ -19,35 +20,45 @@ const fmt = (n) => (n == null ? '-' : Number(n).toLocaleString('en-AU'));
 
 export default function AuthorityList() {
   const { pageTitle } = useAppText();
+  const { user } = useAuth();
+  const canEdit = hasRole(user, 'staff');
+  const canDelete = hasRole(user, 'manager');
   const [authorities, setAuthorities] = useState([]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [user, setUser] = useState(null);
   const [importing, setImporting] = useState(false);
   const [slaForm, setSlaForm] = useState({ complexity: 'simple', assessment_days: 14, public_notice_days: 0, buffer_days: 0, requires_public_notice: false });
   const detailsCache = useRef({});
 
-  useEffect(() => { api.authorities.list().then(setAuthorities); api.auth.me().then(setUser).catch(() => {}); }, []);
+  useEffect(() => { api.authorities.list().then(setAuthorities).catch(() => {}); }, []);
 
   const loadDetail = async (id) => {
     if (detailsCache.current[id]) {
       setSelected(detailsCache.current[id]);
       return;
     }
-    const detail = await api.authorities.get(id);
-    detailsCache.current[id] = detail;
-    setSelected(detail);
+    try {
+      const detail = await api.authorities.get(id);
+      detailsCache.current[id] = detail;
+      setSelected(detail);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    const payload = { ...form, band: form.band === '' ? null : parseInt(form.band, 10) };
-    const res = await api.authorities.create(payload);
-    setAuthorities([...authorities, res]);
-    setShowForm(false);
-    setForm(EMPTY_FORM);
+    try {
+      const payload = { ...form, band: form.band === '' ? null : parseInt(form.band, 10) };
+      const res = await api.authorities.create(payload);
+      setAuthorities([...authorities, res]);
+      setShowForm(false);
+      setForm(EMPTY_FORM);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -76,15 +87,24 @@ export default function AuthorityList() {
 
   const handleAddSLA = async (e) => {
     e.preventDefault();
-    await api.authorities.createSLA(selected.id, { ...slaForm, authority_id: selected.id });
-    delete detailsCache.current[selected.id];
-    await loadDetail(selected.id);
+    try {
+      await api.authorities.createSLA(selected.id, { ...slaForm, authority_id: selected.id });
+      delete detailsCache.current[selected.id];
+      await loadDetail(selected.id);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleDeleteSLA = async (ruleId) => {
-    await api.authorities.deleteSLA(selected.id, ruleId);
-    delete detailsCache.current[selected.id];
-    await loadDetail(selected.id);
+    if (!confirm('Delete this SLA rule?')) return;
+    try {
+      await api.authorities.deleteSLA(selected.id, ruleId);
+      delete detailsCache.current[selected.id];
+      await loadDetail(selected.id);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const filtered = useMemo(() => authorities.filter(a => {
@@ -100,13 +120,13 @@ export default function AuthorityList() {
           <p className="page-sub">Local governments, directories, SLAs and signalised intersections</p>
         </div>
         <div className="flex items-center gap-2">
-          {user?.role === 'admin' && (
+          {user?.role === 'developer' && (
             <label className="btn bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
               {importing ? 'Importing...' : 'Import Directory PDF'}
               <input type="file" accept="application/pdf" className="hidden" onChange={handleImport} disabled={importing} />
             </label>
           )}
-          <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Authority</button>
+          {canEdit && <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Authority</button>}
         </div>
       </div>
       <input
@@ -158,7 +178,7 @@ export default function AuthorityList() {
                   <span className="badge bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{a.type?.toUpperCase()}</span>
                   {a.band && <span className="badge bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200">Band {a.band}</span>}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }} className="text-red-500 hover:text-red-700 text-xs font-medium">Del</button>
+                {canDelete && <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }} className="text-red-500 hover:text-red-700 text-xs font-medium">Del</button>}
               </div>
               <p className="text-xs text-gray-500 mt-1">{a.name}</p>
               {a.zone && <p className="text-xs text-gray-400 mt-0.5">{a.zone}</p>}
@@ -238,17 +258,18 @@ export default function AuthorityList() {
                   <table className="w-full text-sm">
                     <thead><tr className="border-b border-gray-200 dark:border-gray-700"><th className="table-th">Complexity</th><th className="table-th">Assessment</th><th className="table-th">Notice</th><th className="table-th">Buffer</th><th className="table-th"></th></tr></thead>
                     <tbody className="divide-y dark:divide-gray-700">{selected.sla_rules.map(r => (
-                      <tr key={r.id}><td className="table-td font-medium">{r.complexity}</td><td className="table-td">{r.assessment_days}d</td><td className="table-td">{r.public_notice_days}d</td><td className="table-td">{r.buffer_days}d</td><td className="table-td"><button onClick={() => handleDeleteSLA(r.id)} className="text-red-500 text-xs font-medium">Del</button></td></tr>
+                      <tr key={r.id}><td className="table-td font-medium">{r.complexity}</td><td className="table-td">{r.assessment_days}d</td><td className="table-td">{r.public_notice_days}d</td><td className="table-td">{r.buffer_days}d</td><td className="table-td">{canDelete && <button onClick={() => handleDeleteSLA(r.id)} className="text-red-500 text-xs font-medium">Del</button>}</td></tr>
                     ))}</tbody>
                   </table>
                 ) : <p className="text-sm text-gray-500">No SLA rules</p>}
-                <form onSubmit={handleAddSLA} className="mt-3 flex gap-2 items-end">
+                {canEdit && <form onSubmit={handleAddSLA} className="mt-3 flex gap-2 items-end">
                   <select value={slaForm.complexity} onChange={e => setSlaForm({ ...slaForm, complexity: e.target.value })} className="input !py-1">
                     <option value="simple">Simple</option><option value="standard">Standard</option><option value="complex">Complex</option><option value="complex_with_notice">Complex+Notice</option>
                   </select>
-                  <input type="number" placeholder="Days" value={slaForm.assessment_days} onChange={e => setSlaForm({ ...slaForm, assessment_days: parseInt(e.target.value) || 0 })} className="input !py-1 w-20" />
+<input type="number" placeholder="Days" value={slaForm.assessment_days} onChange={e => setSlaForm({ ...slaForm, assessment_days: parseInt(e.target.value) || 0 })} className="input !py-1 w-20" />
                   <button type="submit" className="btn btn-primary btn-sm">Add</button>
                 </form>
+                }
               </div>
               {selected.signalised_intersections?.length > 0 && (
                 <div className="card p-4">

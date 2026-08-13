@@ -3,23 +3,37 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import { useAppText } from '../context/AppText';
 
+const demoAccounts = [
+  { role: 'Developer', email: 'developer@lux.com.au', password: 'Demo123!' },
+  { role: 'Manager', email: 'manager@lux.com.au', password: 'Demo123!' },
+  { role: 'Staff', email: 'staff@lux.com.au', password: 'Demo123!' },
+  { role: 'Client', email: 'client@lux.com.au', password: 'Demo123!' }
+];
+
 export default function Login({ onLogin }) {
   const { appName, settings } = useAppText();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [errorKind, setErrorKind] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setErrorKind('');
     setLoading(true);
     try {
       const res = await api.auth.login({ email, password });
       localStorage.setItem('token', res.token);
       onLogin(res.user);
     } catch (err) {
-      setError(err.message || 'Login failed');
+      const message = err.message || 'Login failed';
+      setError(message);
+      if (message.includes('seconds') || message.includes('Too many')) setErrorKind('lockout');
+      else if (message.includes('Invalid email or password') || message.includes('Invalid email')) setErrorKind('badcreds');
+      else setErrorKind('other');
     } finally {
       setLoading(false);
     }
@@ -38,7 +52,11 @@ export default function Login({ onLogin }) {
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg text-sm">
+              <div className={`px-4 py-2 rounded-lg text-sm ${errorKind === 'lockout'
+                ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'
+                : errorKind === 'badcreds'
+                  ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                  : 'bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'}`}>
                 {error}
               </div>
             )}
@@ -57,6 +75,24 @@ export default function Login({ onLogin }) {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+          <div className="mt-4 border-t border-gray-100 dark:border-gray-700 pt-3">
+            <button type="button" onClick={() => setShowDemo(!showDemo)}
+              className="text-xs text-gray-500 dark:text-gray-400 hover:text-lux-600 dark:hover:text-lux-400 font-medium">
+              {showDemo ? 'Hide demo accounts' : 'Demo accounts'}
+            </button>
+            {showDemo && (
+              <div className="mt-2 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 p-3 space-y-1.5">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Try a demo login (password: Demo123!):</p>
+                {demoAccounts.map(a => (
+                  <button key={a.role} type="button"
+                    onClick={() => { setEmail(a.email); setPassword(a.password); setError(''); setErrorKind(''); }}
+                    className="w-full text-left text-xs text-gray-600 dark:text-gray-300 hover:text-lux-600 dark:hover:text-lux-400 px-2 py-1 rounded hover:bg-white dark:hover:bg-gray-600 transition-colors">
+                    <span className="font-semibold">{a.role}</span> · {a.email}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
           {appName('LUX Traffic Management')} · offline desktop app

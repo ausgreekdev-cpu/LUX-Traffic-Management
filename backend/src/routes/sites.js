@@ -2,10 +2,12 @@ import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
+import { roleAtLeast } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
 const router = Router();
 router.use(authenticate);
+router.use(roleAtLeast('staff'));
 
 router.get('/', (req, res) => {
   const sites = db.prepare('SELECT * FROM sites ORDER BY created_at DESC').all();

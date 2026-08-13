@@ -3,20 +3,23 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 
 export function seedDatabase() {
-const hash = bcrypt.hashSync('admin123', 12);
+const demoPass = 'Demo123!';
 const adminId = uuid();
 const clientId = uuid();
 const siteId = uuid();
 const projectId = uuid();
 const tmpId = uuid();
 
-db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(adminId,'admin@tmpcms.com',hash,'Admin User','admin');
-db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(uuid(),'planner@tmpcms.com',bcrypt.hashSync('planner123',12),'Jane Planner','planner');
-db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(uuid(),'viewer@tmpcms.com',bcrypt.hashSync('viewer123',12),'View Only','viewer');
+db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(adminId,'developer@lux.com.au',bcrypt.hashSync(demoPass,12),'Dev User','developer');
+db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(uuid(),'manager@lux.com.au',bcrypt.hashSync(demoPass,12),'Manager User','manager');
+db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(uuid(),'staff@lux.com.au',bcrypt.hashSync(demoPass,12),'Staff User','staff');
+db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(uuid(),'client@lux.com.au',bcrypt.hashSync(demoPass,12),'Client User','client');
 
 db.prepare('INSERT OR IGNORE INTO clients (id,name,company,email,phone) VALUES (?,?,?,?,?)').run(clientId,'John Builder','BuilderCorp','john@buildercorp.com','0400 111 222');
 db.prepare('INSERT OR IGNORE INTO clients (id,name,company,email,phone) VALUES (?,?,?,?,?)').run(uuid(),'Sarah Roadworks','City Roads Pty Ltd','sarah@cityroads.com','0400 333 444');
 db.prepare('INSERT OR IGNORE INTO clients (id,name,company,email,phone) VALUES (?,?,?,?,?)').run(uuid(),'Mike Developments','Perth Properties','mike@perthprops.com','0400 555 666');
+
+db.prepare('UPDATE users SET client_id = ? WHERE email = ?').run(clientId, 'client@lux.com.au');
 
 db.prepare('INSERT OR IGNORE INTO sites (id,name,road_name,suburb,state) VALUES (?,?,?,?,?)').run(siteId,'Main St Intersection','Main Street','Perth CBD','WA');
 db.prepare('INSERT OR IGNORE INTO sites (id,name,road_name,suburb,state) VALUES (?,?,?,?,?)').run(uuid(),'Highway Overpass','Kwinana Freeway','Maddington','WA');
@@ -82,24 +85,25 @@ db.prepare('INSERT OR IGNORE INTO permit_fees (id,permit_id,fee_type,amount,stat
 db.prepare('INSERT OR IGNORE INTO permit_fees (id,permit_id,fee_type,amount,status,bond_returned) VALUES (?,?,?,?,?,?)').run(uuid(),permitId2,'bond',2000,'paid',0);
 
 console.log('Database seeded successfully!');
-console.log('Admin: admin@tmpcms.com / admin123');
-console.log('Planner: planner@tmpcms.com / planner123');
-console.log('Viewer: viewer@tmpcms.com / viewer123');
+console.log('Developer: developer@lux.com.au / Demo123!');
+console.log('Manager: manager@lux.com.au / Demo123!');
+console.log('Staff: staff@lux.com.au / Demo123!');
+console.log('Client: client@lux.com.au / Demo123!');
 }
 
 // Serverless (Netlify) bootstrap: no default credentials on a public endpoint.
-// Creates a single admin from environment variables when the (ephemeral) DB is empty.
+// Creates a single developer account from environment variables when the (ephemeral) DB is empty.
 export function seedAdminFromEnv() {
   const email = process.env.NETLIFY_ADMIN_EMAIL;
   const password = process.env.NETLIFY_ADMIN_PASSWORD;
   if (!email || !password) {
-    console.warn('seedAdminFromEnv: NETLIFY_ADMIN_EMAIL / NETLIFY_ADMIN_PASSWORD not set — no users will exist. Set both to create the initial admin on each cold start.');
+    console.warn('seedAdminFromEnv: NETLIFY_ADMIN_EMAIL / NETLIFY_ADMIN_PASSWORD not set — no users will exist. Set both to create the initial developer on each cold start.');
     return false;
   }
   const name = process.env.NETLIFY_ADMIN_NAME || 'Admin User';
   db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)')
-    .run(uuid(), String(email).trim().toLowerCase(), bcrypt.hashSync(String(password), 12), String(name).trim(), 'admin');
-  console.log(`seedAdminFromEnv: created admin ${email} (serverless bootstrap)`);
+    .run(uuid(), String(email).trim().toLowerCase(), bcrypt.hashSync(String(password), 12), String(name).trim(), 'developer');
+  console.log(`seedAdminFromEnv: created developer ${email} (serverless bootstrap)`);
   return true;
 }
 

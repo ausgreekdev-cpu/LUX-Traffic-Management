@@ -30,7 +30,7 @@ export default function WorkflowSettings() {
 
   const flash = (msg) => { setSaved(msg); setTimeout(() => setSaved(''), 2500); };
 
-  const loadTemplates = () => api.workflows.templates(entityType).then(setTemplates);
+  const loadTemplates = () => api.workflows.templates(entityType).then(setTemplates).catch(() => setTemplates([]));
 
   useEffect(() => {
     setLoading(true);
@@ -42,8 +42,8 @@ export default function WorkflowSettings() {
   }, [entityType]);
 
   const loadStages = () => {
-    if (selection === 'global') return api.workflows.stages(entityType).then(setStages);
-    return api.workflows.stages(null, selection).then(setStages);
+    if (selection === 'global') return api.workflows.stages(entityType).then(setStages).catch(() => setStages([]));
+    return api.workflows.stages(null, selection).then(setStages).catch(() => setStages([]));
   };
 
   useEffect(() => { loadStages().catch(() => {}); }, [selection, entityType]);

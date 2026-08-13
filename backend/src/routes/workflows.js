@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import { roleAtLeast } from '../middleware/auth.js';
 import { emitEvent } from '../events.js';
 
 const router = Router();
@@ -181,7 +182,7 @@ router.get('/templates', (req, res) => {
   res.json(db.prepare(q).all(...params));
 });
 
-router.post('/templates', authorize('admin'), (req, res) => {
+router.post('/templates', authorize('developer'), (req, res) => {
   const { name, description, entity_type, complexity, authority_id, is_default } = req.body || {};
   if (!entity_type || !['tmp', 'permit'].includes(entity_type)) return res.status(400).json({ error: 'Valid entity_type required (tmp or permit)' });
   if (!name || !name.trim()) return res.status(400).json({ error: 'Template name required' });
@@ -203,7 +204,7 @@ router.post('/templates', authorize('admin'), (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM workflow_templates WHERE id = ?').get(id));
 });
 
-router.put('/templates/:id', authorize('admin'), (req, res) => {
+router.put('/templates/:id', authorize('developer'), (req, res) => {
   const existing = db.prepare('SELECT * FROM workflow_templates WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Template not found' });
   const { name, description, is_default } = req.body || {};
@@ -215,7 +216,7 @@ router.put('/templates/:id', authorize('admin'), (req, res) => {
   res.json(db.prepare('SELECT * FROM workflow_templates WHERE id = ?').get(req.params.id));
 });
 
-router.delete('/templates/:id', authorize('admin'), (req, res) => {
+router.delete('/templates/:id', authorize('developer'), (req, res) => {
   const result = db.prepare('DELETE FROM workflow_templates WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Template not found' });
   res.json({ success: true });
@@ -234,7 +235,7 @@ router.get('/stages', (req, res) => {
   res.json(db.prepare(q).all(...params));
 });
 
-router.post('/stages', authorize('admin'), (req, res) => {
+router.post('/stages', authorize('developer'), (req, res) => {
   const { entity_type, name, description, is_optional, template_id } = req.body || {};
   const template = template_id ? db.prepare('SELECT * FROM workflow_templates WHERE id = ?').get(template_id) : null;
   const type = template ? template.entity_type : entity_type;
@@ -249,7 +250,7 @@ router.post('/stages', authorize('admin'), (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM workflow_stages WHERE id = ?').get(id));
 });
 
-router.put('/stages/:id', authorize('admin'), (req, res) => {
+router.put('/stages/:id', authorize('developer'), (req, res) => {
   const existing = db.prepare('SELECT * FROM workflow_stages WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Stage not found' });
   const { name, description, is_optional, sort_order } = req.body || {};
@@ -258,7 +259,7 @@ router.put('/stages/:id', authorize('admin'), (req, res) => {
   res.json(db.prepare('SELECT * FROM workflow_stages WHERE id = ?').get(req.params.id));
 });
 
-router.delete('/stages/:id', authorize('admin'), (req, res) => {
+router.delete('/stages/:id', authorize('developer'), (req, res) => {
   const result = db.prepare('DELETE FROM workflow_stages WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Stage not found' });
   res.json({ success: true });
@@ -280,7 +281,7 @@ router.get('/checklist/:entityType/:entityId', (req, res) => {
   res.json({ data, required_complete: data.filter(s => !s.is_optional).every(s => s.is_done) });
 });
 
-router.post('/checklist/:entityType/:entityId', (req, res) => {
+router.post('/checklist/:entityType/:entityId', roleAtLeast('staff'), (req, res) => {
   const { entityType, entityId } = req.params;
   if (!['tmp', 'permit'].includes(entityType)) return res.status(400).json({ error: 'Invalid entity type' });
   const { stageId, done } = req.body || {};

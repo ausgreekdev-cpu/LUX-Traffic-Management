@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
+import { roleAtLeast } from '../middleware/auth.js';
 
 const router = Router();
 router.use(authenticate);
+router.use(roleAtLeast('staff'));
 
 router.get('/approval-times', (req, res) => {
   const periodDays = parseInt(req.query.period_days || '90');

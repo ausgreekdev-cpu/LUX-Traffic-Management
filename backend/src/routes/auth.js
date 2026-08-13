@@ -14,12 +14,15 @@ router.post('/login', rateLimit('login', 10, 15), validate('login'), (req, res) 
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (!user || !bcrypt.compareSync(password, user.password)) {
     rateLimitFailed(req.rateLimitKey);
-    return res.status(401).json({ error: 'Invalid credentials' });
+    return res.status(401).json({ error: 'Invalid email or password' });
   }
   rateLimitSucceeded(req.rateLimitKey);
   const minutes = parseInt(db.prepare("SELECT value FROM settings WHERE key = 'session_timeout_minutes'").get()?.value || '1440', 10) || 1440;
-  const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: `${Math.max(5, minutes)}m` });
-  res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  const token = jwt.sign({ userId: user.id, role: user.role, clientId: user.client_id }, JWT_SECRET, { expiresIn: `${Math.max(5, minutes)}m` });
+  res.json({
+    token,
+    user: { id: user.id, email: user.email, name: user.name, role: user.role, client_id: user.client_id, clientId: user.client_id }
+  });
 });
 
 router.get('/me', (req, res) => {
@@ -27,7 +30,7 @@ router.get('/me', (req, res) => {
   if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'No token' });
   try {
     const payload = jwt.verify(header.slice(7), JWT_SECRET);
-    const user = db.prepare('SELECT id, email, name, role FROM users WHERE id = ?').get(payload.userId);
+    const user = db.prepare('SELECT id, email, name, role, client_id FROM users WHERE id = ?').get(payload.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
   } catch {

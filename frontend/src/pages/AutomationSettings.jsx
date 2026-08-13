@@ -34,13 +34,13 @@ const ACTION_PARAMS = {
     { key: 'notification_type', label: 'Type', hint: 'e.g. permit, tmp_expiring, sla_warning' }
   ],
   notify_role: [
-    { key: 'role', label: 'Role', hint: 'admin / planner / viewer' },
+    { key: 'role', label: 'Role', hint: 'developer / manager / staff / client' },
     { key: 'title', label: 'Title', hint: 'Supports {field} placeholders' },
     { key: 'message', label: 'Message', hint: 'Supports {field} placeholders' },
     { key: 'notification_type', label: 'Type', hint: 'optional' }
   ],
   create_task: [
-    { key: 'role', label: 'Assign to role', hint: 'admin / planner / viewer' },
+    { key: 'role', label: 'Assign to role', hint: 'developer / manager / staff / client' },
     { key: 'title', label: 'Task title', hint: 'Supports {field} placeholders' },
     { key: 'message', label: 'Details', hint: 'optional' },
     { key: 'due_in_days', label: 'Due in days', hint: 'optional' }
@@ -134,7 +134,7 @@ export default function AutomationSettings() {
     api.email.templates().then(setTemplates)
   ]);
 
-  useEffect(() => { setLoading(true); load().finally(() => setLoading(false)); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { setLoading(true); load().catch(() => {}).finally(() => setLoading(false)); /* eslint-disable-next-line */ }, []);
   useEffect(() => { api.automations.presets().then(r => setPresets(r.data)).catch(() => {}); }, []);
 
   const newForm = () => ({

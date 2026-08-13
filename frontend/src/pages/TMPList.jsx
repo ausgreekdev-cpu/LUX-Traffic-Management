@@ -3,11 +3,15 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import { TMP_BADGES, badgeFor } from '../utils/status';
 import { useAppText } from '../context/AppText';
+import { useAuth, hasRole } from '../context/Auth';
 
 const statuses = ['draft', 'submitted', 'approved', 'rejected', 'completed'];
 
 export default function TMPList() {
   const { pageTitle, column, status } = useAppText();
+  const { user } = useAuth();
+  const canEdit = hasRole(user, 'staff');
+  const canDelete = hasRole(user, 'manager');
   const [data, setData] = useState({ data: [], total: 0, page: 1, pages: 1 });
   const [filter, setFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -23,7 +27,7 @@ export default function TMPList() {
     const params = { page, limit: 20 };
     if (filter) params.status = filter;
     if (search) params.search = search;
-    api.tmps.list(params).then(setData).finally(() => setLoading(false));
+    api.tmps.list(params).then(setData).catch(() => {}).finally(() => setLoading(false));
   }, [filter, page, search]);
 
   const toggle = (id) => setSelected(prev => {
@@ -98,9 +102,9 @@ export default function TMPList() {
           <p className="page-sub">Track, filter and manage your TMPs</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => api.export.downloadCSV(csvPath, 'tmps.csv')} className="btn btn-secondary">CSV</button>
-          <button onClick={() => api.export.downloadCSV('/export/audit-report', 'audit-report.pdf')} className="btn btn-secondary">Audit PDF</button>
-          <Link to="/tmps/new" className="btn btn-primary">+ New TMP</Link>
+          {canEdit && <button onClick={() => api.export.downloadCSV(csvPath, 'tmps.csv')} className="btn btn-secondary">CSV</button>}
+          {canEdit && <button onClick={() => api.export.downloadCSV('/export/audit-report', 'audit-report.pdf')} className="btn btn-secondary">Audit PDF</button>}
+          {canEdit && <Link to="/tmps/new" className="btn btn-primary">+ New TMP</Link>}
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -111,7 +115,7 @@ export default function TMPList() {
         </div>
         <input placeholder="Search..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="input ml-auto w-48" />
       </div>
-      {selected.size > 0 && (
+      {canEdit && selected.size > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-2">
           <span className="text-sm font-medium">{selected.size} selected</span>
           <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="input !py-1">
@@ -119,7 +123,7 @@ export default function TMPList() {
             {statuses.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <button onClick={applyBulk} disabled={busy} className="btn btn-primary btn-sm">Apply</button>
-          <button onClick={bulkDelete} disabled={busy} className="btn btn-danger btn-sm">Delete</button>
+          {canDelete && <button onClick={bulkDelete} disabled={busy} className="btn btn-danger btn-sm">Delete</button>}
           <button onClick={() => setSelected(new Set())} className="text-sm text-gray-500 hover:underline">Clear</button>
         </div>
       )}
@@ -135,7 +139,7 @@ export default function TMPList() {
             <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="table-th w-8">
-                  <input type="checkbox" checked={data.data.length > 0 && data.data.every(t => selected.has(t.id))} onChange={toggleAll} />
+                  {canEdit && <input type="checkbox" checked={data.data.length > 0 && data.data.every(t => selected.has(t.id))} onChange={toggleAll} />}
                 </th>
                 <th className="table-th">{column('tmps', 'reference', 'Reference')}</th>
                 <th className="table-th">{column('tmps', 'title', 'Title')}</th>
@@ -149,7 +153,7 @@ export default function TMPList() {
             <tbody className="divide-y dark:divide-gray-700">
               {data.data.map(tmp => (
                 <tr key={tmp.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${selected.has(tmp.id) ? 'bg-amber-50 dark:bg-amber-900/20' : ''}`}>
-                  <td className="table-td"><input type="checkbox" checked={selected.has(tmp.id)} onChange={() => toggle(tmp.id)} /></td>
+                  <td className="table-td">{canEdit && <input type="checkbox" checked={selected.has(tmp.id)} onChange={() => toggle(tmp.id)} />}</td>
                   <td className="table-td font-medium">{tmp.reference}</td>
                   <td className="table-td"><Link to={`/tmps/${tmp.id}`} className="text-lux-600 dark:text-lux-400 hover:underline font-medium">{tmp.title}</Link></td>
                   <td className="table-td text-gray-500">{tmp.site_name || '-'}</td>

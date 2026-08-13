@@ -20,7 +20,8 @@ db.pragma('foreign_keys = ON');db.exec(`
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     name TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'planner' CHECK(role IN ('admin','planner','viewer')),
+    role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('developer','manager','staff','client')),
+    client_id TEXT REFERENCES clients(id),
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -447,6 +448,39 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_correspondence_status ON correspondence(review_status);
 `);
 
+  // Migration: multi-level roles (developer/manager/staff/client) + client linkage.
+  const userCols = db.prepare('PRAGMA table_info(users)').all().map(c => c.name);
+  if (!userCols.includes('client_id')) {
+    db.pragma('foreign_keys = OFF');
+    try {
+      db.exec(`
+        CREATE TABLE users_new (
+          id TEXT PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          name TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('developer','manager','staff','client')),
+          client_id TEXT REFERENCES clients(id),
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+        INSERT INTO users_new (id, email, password, name, role, created_at, updated_at)
+          SELECT id, email, password, name,
+            CASE role
+              WHEN 'admin' THEN 'developer'
+              WHEN 'planner' THEN 'staff'
+              WHEN 'viewer' THEN 'client'
+              ELSE 'staff'
+            END,
+            created_at, updated_at FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_new RENAME TO users;
+        CREATE INDEX IF NOT EXISTS idx_users_client ON users(client_id);
+      `);
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
+  }
 }
 
 export function reopenDatabase() {

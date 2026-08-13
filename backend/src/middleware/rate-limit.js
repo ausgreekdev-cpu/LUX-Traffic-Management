@@ -35,11 +35,13 @@ export function rateLimit(name, maxAttempts, windowMinutes) {
       buckets.set(key, entry);
     }
     if (entry.lockedUntil > now) {
-      return res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.' });
+      const retryAfter = Math.ceil((entry.lockedUntil - now) / 1000);
+      return res.status(429).json({ error: `Too many failed attempts. Try again in ${Math.ceil(retryAfter / 60)} minutes.`, retryAfter });
     }
     if (entry.fails >= maxAttempts) {
       entry.lockedUntil = now + windowMs;
-      return res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.' });
+      const retryAfter = Math.ceil(windowMs / 1000);
+      return res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.', retryAfter });
     }
     req.rateLimitKey = key;
     next();

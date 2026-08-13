@@ -10,7 +10,8 @@ export const schemas = {
     email: z.string().email(),
     password: z.string().min(6),
     name: z.string().min(1),
-    role: z.enum(['admin', 'planner', 'viewer']).optional()
+    role: z.enum(['developer', 'manager', 'staff', 'client']).optional(),
+    client_id: z.string().optional().nullable()
   }),
 
   client: z.object({

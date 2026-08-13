@@ -7,6 +7,7 @@ import { runScheduledChecks } from '../scheduler.js';
 
 const router = Router();
 router.use(authenticate);
+router.use(authorize('developer'));
 
 const ENTITY_TYPES = ['tmp', 'permit', 'fee', 'document'];
 
@@ -63,7 +64,7 @@ router.get('/rules/:id', (req, res) => {
   res.json({ ...rule, conditions, actions });
 });
 
-router.post('/rules', authorize('admin'), (req, res) => {
+router.post('/rules', authorize('developer'), (req, res) => {
   const parsed = parseRuleBody(req.body);
   if (parsed.error) return res.status(400).json({ error: parsed.error });
   const id = `rule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -75,7 +76,7 @@ router.post('/rules', authorize('admin'), (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM automation_rules WHERE id = ?').get(id));
 });
 
-router.put('/rules/:id', authorize('admin'), (req, res) => {
+router.put('/rules/:id', authorize('developer'), (req, res) => {
   const existing = db.prepare('SELECT * FROM automation_rules WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Rule not found' });
   const parsed = parseRuleBody(req.body);
@@ -87,13 +88,13 @@ router.put('/rules/:id', authorize('admin'), (req, res) => {
   res.json(db.prepare('SELECT * FROM automation_rules WHERE id = ?').get(req.params.id));
 });
 
-router.delete('/rules/:id', authorize('admin'), (req, res) => {
+router.delete('/rules/:id', authorize('developer'), (req, res) => {
   const result = db.prepare('DELETE FROM automation_rules WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Rule not found' });
   res.json({ success: true });
 });
 
-router.post('/rules/:id/test', authorize('admin'), (req, res) => {
+router.post('/rules/:id/test', authorize('developer'), (req, res) => {
   const rule = db.prepare('SELECT * FROM automation_rules WHERE id = ?').get(req.params.id);
   if (!rule) return res.status(404).json({ error: 'Rule not found' });
   const { entity_type, entity_id } = req.body || {};
@@ -141,13 +142,13 @@ router.get('/presets', (req, res) => {
   res.json({ data: PRESETS.map(p => ({ ...p, installed: installed.includes(p.id) })) });
 });
 
-router.post('/presets/:id/install', authorize('admin'), (req, res) => {
+router.post('/presets/:id/install', authorize('developer'), (req, res) => {
   const result = installPreset(req.params.id);
   if (!result) return res.status(404).json({ error: 'Preset not found' });
   res.json({ success: true, ...result });
 });
 
-router.post('/run-scheduled', authorize('admin'), (req, res) => {
+router.post('/run-scheduled', authorize('developer'), (req, res) => {
   const result = runScheduledChecks();
   res.json({ success: true, ...result });
 });

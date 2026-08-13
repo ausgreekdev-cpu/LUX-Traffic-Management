@@ -10,7 +10,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.dashboard().then(setData).finally(() => setLoading(false));
+    api.dashboard().then(setData).catch(() => setData(null)).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="text-center py-8 text-gray-500">Loading...</div>;

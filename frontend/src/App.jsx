@@ -24,10 +24,17 @@ import AutomationSettings from './pages/AutomationSettings';
 import Correspondence from './pages/Correspondence';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AppTextProvider } from './context/AppText';
+import { AuthProvider, RANK } from './context/Auth';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
   if (!token) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RoleRoute({ user, minRole, children }) {
+  if (!user) return <Navigate to="/login" replace />;
+  if ((RANK[user.role] || 0) < (RANK[minRole] || 0)) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -50,34 +57,36 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <AppTextProvider key={user ? 'authed' : 'anon'}>
-        <Routes>
-          <Route path="/login" element={<Login onLogin={handleLogin} />} />
-          <Route path="/" element={<ProtectedRoute><Layout user={user} onLogout={handleLogout} /></ProtectedRoute>}>
-            <Route index element={<Dashboard />} />
-            <Route path="tmps" element={<TMPList />} />
-            <Route path="tmps/new" element={<TMPForm />} />
-            <Route path="tmps/:id" element={<TMPDetail />} />
-            <Route path="tmps/:id/edit" element={<TMPForm />} />
-            <Route path="projects" element={<ProjectList />} />
-            <Route path="clients" element={<ClientList />} />
-            <Route path="sites" element={<SiteList />} />
-            <Route path="authorities" element={<AuthorityList />} />
-            <Route path="permits" element={<PermitList />} />
-            <Route path="permits/new" element={<PermitForm />} />
-            <Route path="permits/:id" element={<PermitDetail />} />
-            <Route path="permits/:id/edit" element={<PermitForm />} />
-            <Route path="time-tracking" element={<TimeTracking />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="help" element={<Help />} />
-            <Route path="workflows" element={<WorkflowSettings />} />
-            <Route path="automations" element={<AutomationSettings />} />
-            <Route path="correspondence" element={<Correspondence />} />
-            <Route path="users" element={<UsersList />} />
-          </Route>
-        </Routes>
-      </AppTextProvider>
+      <AuthProvider user={user}>
+        <AppTextProvider key={user ? 'authed' : 'anon'}>
+          <Routes>
+            <Route path="/login" element={<Login onLogin={handleLogin} />} />
+            <Route path="/" element={<ProtectedRoute><Layout user={user} onLogout={handleLogout} /></ProtectedRoute>}>
+              <Route index element={<Dashboard />} />
+              <Route path="tmps" element={<TMPList />} />
+              <Route path="tmps/new" element={<RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute>} />
+              <Route path="tmps/:id" element={<TMPDetail />} />
+              <Route path="tmps/:id/edit" element={<RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute>} />
+              <Route path="projects" element={<ProjectList />} />
+              <Route path="clients" element={<ClientList />} />
+              <Route path="sites" element={<RoleRoute user={user} minRole="staff"><SiteList /></RoleRoute>} />
+              <Route path="authorities" element={<AuthorityList />} />
+              <Route path="permits" element={<PermitList />} />
+              <Route path="permits/new" element={<RoleRoute user={user} minRole="staff"><PermitForm /></RoleRoute>} />
+              <Route path="permits/:id" element={<PermitDetail />} />
+              <Route path="permits/:id/edit" element={<RoleRoute user={user} minRole="staff"><PermitForm /></RoleRoute>} />
+              <Route path="time-tracking" element={<RoleRoute user={user} minRole="staff"><TimeTracking /></RoleRoute>} />
+              <Route path="analytics" element={<RoleRoute user={user} minRole="staff"><Analytics /></RoleRoute>} />
+              <Route path="settings" element={<RoleRoute user={user} minRole="developer"><Settings /></RoleRoute>} />
+              <Route path="help" element={<Help />} />
+              <Route path="workflows" element={<RoleRoute user={user} minRole="developer"><WorkflowSettings /></RoleRoute>} />
+              <Route path="automations" element={<RoleRoute user={user} minRole="developer"><AutomationSettings /></RoleRoute>} />
+              <Route path="correspondence" element={<RoleRoute user={user} minRole="manager"><Correspondence /></RoleRoute>} />
+              <Route path="users" element={<RoleRoute user={user} minRole="developer"><UsersList /></RoleRoute>} />
+            </Route>
+          </Routes>
+        </AppTextProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

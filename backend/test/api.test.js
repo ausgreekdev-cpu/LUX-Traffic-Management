@@ -24,7 +24,7 @@ after(() => {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
 });
 
-async function login(email = 'admin@tmpcms.com', password = 'admin123') {
+async function login(email = 'developer@lux.com.au', password = 'Demo123!') {
   const res = await fetch(`${base}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -45,7 +45,7 @@ test('login rejects bad credentials', async () => {
   const res = await fetch(`${base}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@tmpcms.com', password: 'wrong-password' })
+    body: JSON.stringify({ email: 'developer@lux.com.au', password: 'wrong-password' })
   });
   assert.equal(res.status, 401);
 });
@@ -110,8 +110,8 @@ test('db restore rejects a non-sqlite file', async () => {
   assert.equal(res.status, 400);
 });
 
-test('db restore is admin-only', async () => {
-  const { token } = await login('planner@tmpcms.com', 'planner123');
+test('db restore is developer-only', async () => {
+  const { token } = await login('staff@lux.com.au', 'Demo123!');
   const fd = new FormData();
   fd.append('file', new Blob(['still not a database']), 'fake.db');
   const res = await fetch(`${base}/export/db-restore`, {

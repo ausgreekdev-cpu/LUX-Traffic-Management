@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api.js';
 import { useAppText } from '../context/AppText.jsx';
+import { RANK } from '../context/Auth.jsx';
 
 const mainNav = [
   { to: '/', label: 'Dashboard', icon: '📊' },
@@ -23,6 +24,21 @@ const adminNav = [
   { to: '/automations', label: 'Automation & Triggers', icon: '🤖' },
   { to: '/users', label: 'Users', icon: '🔐' }
 ];
+
+const roleNavMin = {
+  '/time-tracking': 'staff',
+  '/correspondence': 'manager',
+  '/analytics': 'staff',
+  '/settings': 'developer',
+  '/sites': 'staff'
+};
+
+function navVisible(to, role) {
+  if (to === '/help' || to === '/') return true;
+  const min = roleNavMin[to];
+  if (min && (RANK[role] || 0) < RANK[min]) return false;
+  return true;
+}
 
 const typeIcons = {
   tmp_expiring: '⏳',
@@ -145,8 +161,8 @@ export default function Layout({ user, onLogout }) {
           )}
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-3">
-          {mainNav.map(renderNavItem)}
-          {user?.role === 'admin' && (
+          {mainNav.filter(item => navVisible(item.to, user?.role)).map(renderNavItem)}
+          {user?.role === 'developer' && (
             <>
               {sidebarOpen && <p className="px-2 pt-5 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-500">Admin</p>}
               {adminNav.map(renderNavItem)}
@@ -162,7 +178,7 @@ export default function Layout({ user, onLogout }) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{user.name}</p>
-                  <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                  <p className={`text-xs ${user.role === 'client' ? 'text-lux-400' : 'text-gray-500'} capitalize`}>{user.role}</p>
                 </div>
                 <button onClick={onLogout} title="Logout" className="text-xs text-red-400 hover:text-red-300 shrink-0">Logout</button>
               </div>

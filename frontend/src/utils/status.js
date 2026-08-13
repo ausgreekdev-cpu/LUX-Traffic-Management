@@ -30,7 +30,3 @@ const DEFAULT_BADGE = 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray
 export function badgeFor(map, status) {
   return map[status] || DEFAULT_BADGE;
 }
-
-export function statusLabel(status) {
-  return (status || '').replace(/_/g, ' ');
-}

@@ -49,8 +49,8 @@ export const PRESETS = [
     event_type: 'sla.overdue',
     conditions: [],
     actions: [
-      { type: 'notify_role', params: { role: 'admin', title: 'SLA overdue', message: 'Decision on permit for {tmp_reference} is {days_overdue} days overdue.', notification_type: 'sla_overdue' } },
-      { type: 'create_task', params: { role: 'admin', title: 'Escalate SLA overdue', message: 'Follow up with {authority_short || "the authority"} on permit {id}.' } }
+      { type: 'notify_role', params: { role: 'manager', title: 'SLA overdue', message: 'Decision on permit for {tmp_reference} is {days_overdue} days overdue.', notification_type: 'sla_overdue' } },
+      { type: 'create_task', params: { role: 'manager', title: 'Escalate SLA overdue', message: 'Follow up with {authority_short || "the authority"} on permit {id}.' } }
     ],
     dedupe_key_template: 'sla-overdue-{id}',
     default_active: true
@@ -63,8 +63,8 @@ export const PRESETS = [
     event_type: 'tmp.completed',
     conditions: [],
     actions: [
-      { type: 'notify_role', params: { role: 'admin', title: 'TMP completed - bonds due', message: '{reference} completed. Check outstanding bonds on its permits.' } },
-      { type: 'create_task', params: { role: 'admin', title: 'Return bonds for {reference}', message: 'Review permit fees and return bonds for {reference}.' } }
+      { type: 'notify_role', params: { role: 'manager', title: 'TMP completed - bonds due', message: '{reference} completed. Check outstanding bonds on its permits.' } },
+      { type: 'create_task', params: { role: 'manager', title: 'Return bonds for {reference}', message: 'Review permit fees and return bonds for {reference}.' } }
     ],
     dedupe_key_template: 'bond-{id}',
     default_active: true

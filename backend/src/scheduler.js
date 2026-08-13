@@ -119,7 +119,7 @@ async function sendReminderDigest({ expiring = [], expired = [], expiringPermits
     const configured = String(getSetting('reminder_email_to', '')).trim();
     const recipients = configured
       ? configured.split(',').map(s => s.trim()).filter(Boolean)
-      : db.prepare("SELECT email FROM users WHERE role = 'admin' AND email != ''").all().map(u => u.email);
+      : db.prepare("SELECT email FROM users WHERE role IN ('developer','manager') AND email != ''").all().map(u => u.email);
     if (!recipients.length) return;
 
     const lines = [];

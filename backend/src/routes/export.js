@@ -8,6 +8,8 @@ import Database from 'better-sqlite3';
 import db, { dbPath, reopenDatabase, isServerless } from '../db.js';
 import { backupNow, listBackups, backupsDir } from '../backups.js';
 import { authenticate } from '../middleware/auth.js';
+import { roleAtLeast } from '../middleware/auth.js';
+import { isClientUser, tmpOwnedByClient } from '../middleware/scope.js';
 
 const router = Router();
 router.use(authenticate);
@@ -35,6 +37,7 @@ function addFooter(doc) {
 }
 
 router.get('/db-backup', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const backupPath = path.join(os.tmpdir(), `lux-backup-${Date.now()}.db`);
   db.backup(backupPath)
     .then(() => {
@@ -46,8 +49,8 @@ router.get('/db-backup', (req, res) => {
 });
 
 function requireAdmin(req, res) {
-  if (req.user.role !== 'admin') {
-    res.status(403).json({ error: 'Admin role required.' });
+  if (req.user.role !== 'developer') {
+    res.status(403).json({ error: 'Developer role required.' });
     return false;
   }
   return true;
@@ -108,6 +111,7 @@ router.post('/db-restore', upload.single('file'), (req, res) => {
 });
 
 router.get('/backups', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   if (isServerless) return res.json({ backups: [], note: 'Auto-backups are not available on serverless deployments.' });
   res.json({ backups: listBackups() });
 });
@@ -166,6 +170,9 @@ router.get('/tmp/:id', (req, res) => {
     LEFT JOIN clients c ON p.client_id = c.id WHERE t.id = ?
   `).get(req.params.id);
   if (!tmp) return res.status(404).json({ error: 'TMP not found' });
+  if (isClientUser(req.user) && !tmpOwnedByClient(tmp, req.user.clientId)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
 
   const companyName = getSetting('company_name', '');
   const companyPhone = getSetting('company_phone', '');
@@ -211,7 +218,7 @@ router.get('/tmp/:id', (req, res) => {
   doc.end();
 });
 
-router.get('/permits-summary', (req, res) => {
+router.get('/permits-summary', roleAtLeast('staff'), (req, res) => {
   const permits = db.prepare(`
     SELECT pe.*, au.name as authority_name, au.short_name as authority_short, t.title as tmp_title, t.reference as tmp_reference
     FROM permits pe
@@ -236,7 +243,7 @@ router.get('/permits-summary', (req, res) => {
   doc.end();
 });
 
-router.get('/audit-report', (req, res) => {
+router.get('/audit-report', roleAtLeast('staff'), (req, res) => {
   const activities = db.prepare(`
     SELECT a.*, u.name as user_name, t.title as tmp_title, t.reference as tmp_reference
     FROM plan_activities a
@@ -273,7 +280,7 @@ router.get('/audit-report', (req, res) => {
 
 function csvEscape(v) { const s = String(v || ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; }
 
-router.get('/tmps-csv', (req, res) => {
+router.get('/tmps-csv', roleAtLeast('staff'), (req, res) => {
   let q = `
     SELECT t.reference, t.title, t.status, t.plan_type, s.name as site_name, p.name as project_name, t.created_at, t.start_date, t.end_date
     FROM traffic_management_plans t
@@ -295,7 +302,7 @@ router.get('/tmps-csv', (req, res) => {
   res.send([header, ...rows].join('\n'));
 });
 
-router.get('/permits-csv', (req, res) => {
+router.get('/permits-csv', roleAtLeast('staff'), (req, res) => {
   let q = `
     SELECT t.reference as tmp_ref, au.name as authority, p.status, p.complexity, p.submission_date, p.approval_date, p.expiry_date
     FROM permits p

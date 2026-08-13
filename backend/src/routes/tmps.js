@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
+import { roleAtLeast, roleRank } from '../middleware/auth.js';
+import { isClientUser, tmpClientFilter, tmpOwnedByClient } from '../middleware/scope.js';
 import { validate } from '../middleware/validate.js';
 import { incompleteRequiredStages, swapTemplateForEntity } from './workflows.js';
 import { emitEvent } from '../events.js';
@@ -26,6 +28,11 @@ router.get('/', (req, res) => {
     LEFT JOIN users u ON t.created_by = u.id`;
   const params = [];
   const conditions = [];
+  if (isClientUser(req.user)) {
+    const filter = tmpClientFilter(req.user.clientId);
+    conditions.push(filter.where);
+    params.push(filter.param);
+  }
   if (req.query.status) { conditions.push('t.status = ?'); params.push(req.query.status); }
   if (req.query.search) { conditions.push('(t.title LIKE ? OR t.reference LIKE ? OR s.name LIKE ?)'); const s = `%${req.query.search}%`; params.push(s, s, s); }
   if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
@@ -41,7 +48,7 @@ router.get('/', (req, res) => {
   res.json({ data, total, page, limit, pages: Math.ceil(total / limit) });
 });
 
-router.get('/risk-preview', (req, res) => {
+router.get('/risk-preview', roleAtLeast('staff'), (req, res) => {
   const { site_id, plan_type, start_date, end_date } = req.query;
   res.json(riskPreviewQuery({ site_id: site_id || null, plan_type: plan_type || 'temporary', start_date: start_date || null, end_date: end_date || null }));
 });
@@ -55,13 +62,16 @@ router.get('/:id', (req, res) => {
     LEFT JOIN users u ON t.created_by = u.id WHERE t.id = ?
   `).get(req.params.id);
   if (!tmp) return res.status(404).json({ error: 'TMP not found' });
+  if (isClientUser(req.user) && !tmpOwnedByClient(tmp, req.user.clientId)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
   const activities = db.prepare('SELECT a.*, u.name as user_name FROM plan_activities a LEFT JOIN users u ON a.user_id = u.id WHERE a.tmp_id = ? ORDER BY a.created_at DESC').all(req.params.id);
   const documents = db.prepare('SELECT * FROM documents WHERE tmp_id = ? ORDER BY created_at DESC').all(req.params.id);
   const permits = db.prepare('SELECT pe.*, au.name as authority_name, au.short_name as authority_short FROM permits pe LEFT JOIN authorities au ON pe.authority_id = au.id WHERE pe.tmp_id = ?').all(req.params.id);
   res.json({ ...tmp, activities, documents, permits });
 });
 
-router.post('/', validate('tmp'), (req, res) => {
+router.post('/', roleAtLeast('staff'), validate('tmp'), (req, res) => {
   const id = uuid();
   const reference = generateReference();
   const { project_id, site_id, title, status, plan_type, complexity, complexity_source, description, start_date, end_date } = req.validated;
@@ -79,7 +89,7 @@ router.post('/', validate('tmp'), (req, res) => {
   res.status(201).json({ id, reference, title, status: status || 'draft' });
 });
 
-router.put('/:id', validate('tmp'), (req, res) => {
+router.put('/:id', roleAtLeast('staff'), validate('tmp'), (req, res) => {
   const existing = db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'TMP not found' });
   const { project_id, site_id, title, status, plan_type, complexity, complexity_source, description, start_date, end_date } = req.validated;
@@ -116,7 +126,7 @@ router.put('/:id', validate('tmp'), (req, res) => {
   res.json(db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(req.params.id));
 });
 
-router.post('/bulk', (req, res) => {
+router.post('/bulk', roleAtLeast('staff'), (req, res) => {
   const { ids, action, status } = req.body || {};
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'No ids provided' });
   if (action === 'status') {
@@ -141,6 +151,9 @@ router.post('/bulk', (req, res) => {
     });
     tx(ids);
   } else if (action === 'delete') {
+    if (roleRank(req.user.role) < roleRank('manager')) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
     const deleteTmp = db.prepare('DELETE FROM traffic_management_plans WHERE id = ?');
     const deletePermits = db.prepare('DELETE FROM permits WHERE tmp_id = ?');
     const deleteTimeEntries = db.prepare('DELETE FROM time_entries WHERE tmp_id = ?');
@@ -158,7 +171,7 @@ router.post('/bulk', (req, res) => {
   res.json({ success: true, count: ids.length });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', roleAtLeast('manager'), (req, res) => {
   const existing = db.prepare('SELECT id FROM traffic_management_plans WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'TMP not found' });
   const tx = db.transaction(() => {

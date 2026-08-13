@@ -25,7 +25,7 @@ export default function Correspondence() {
   const [saved, setSaved] = useState('');
   const [selected, setSelected] = useState(null);
 
-  const load = () => api.correspondence.list(filter ? { review_status: filter } : {}).then(r => setRows(r.data)).finally(() => setLoading(false));
+  const load = () => api.correspondence.list(filter ? { review_status: filter } : {}).then(r => setRows(r.data)).catch(() => setRows([])).finally(() => setLoading(false));
 
   useEffect(() => { setLoading(true); load(); /* eslint-disable-next-line */ }, [filter]);
 

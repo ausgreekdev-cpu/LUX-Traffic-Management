@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = Router();
 router.use(authenticate);
@@ -20,7 +20,7 @@ router.get('/', (req, res) => {
   res.json(settings);
 });
 
-router.put('/', (req, res) => {
+router.put('/', authorize('developer'), (req, res) => {
   const entries = Object.entries(req.body || {});
   if (!entries.length) return res.status(400).json({ error: 'No settings provided' });
   const upsert = db.prepare(`

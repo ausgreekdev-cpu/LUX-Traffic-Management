@@ -5,18 +5,25 @@ async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
-  if (res.status === 401) {
+  if (res.status === 401 && !options.skipAuthRedirect) {
     localStorage.removeItem('token');
     if (window.location.pathname !== '/login') window.location.href = '/login';
     throw new Error('Unauthorized');
   }
-  if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Request failed' })); throw new Error(err.error || 'Request failed'); }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Request failed' }));
+    const message = err.error || 'Request failed';
+    if (res.status === 429 && err.retryAfter) {
+      throw new Error(`${message} Please try again in ${Math.ceil(err.retryAfter)} seconds.`);
+    }
+    throw new Error(message);
+  }
   return res.json();
 }
 
 const api = {
   auth: {
-    login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+    login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data), skipAuthRedirect: true }),
     me: () => request('/auth/me')
   },
   users: {
@@ -27,21 +34,18 @@ const api = {
   },
   clients: {
     list: () => request('/clients'),
-    get: (id) => request(`/clients/${id}`),
     create: (data) => request('/clients', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/clients/${id}`, { method: 'DELETE' })
   },
   sites: {
     list: () => request('/sites'),
-    get: (id) => request(`/sites/${id}`),
     create: (data) => request('/sites', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/sites/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/sites/${id}`, { method: 'DELETE' })
   },
   projects: {
     list: () => request('/projects'),
-    get: (id) => request(`/projects/${id}`),
     create: (data) => request('/projects', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/projects/${id}`, { method: 'DELETE' })
@@ -76,12 +80,8 @@ const api = {
     create: (data) => request('/authorities', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/authorities/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/authorities/${id}`, { method: 'DELETE' }),
-    slaRules: (id) => request(`/authorities/${id}/sla-rules`),
     createSLA: (id, data) => request(`/authorities/${id}/sla-rules`, { method: 'POST', body: JSON.stringify(data) }),
     deleteSLA: (authId, ruleId) => request(`/authorities/${authId}/sla-rules/${ruleId}`, { method: 'DELETE' }),
-    costCodes: () => request('/authorities/cost-codes'),
-    signalisedIntersections: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/authorities/signalised-intersections${q}`); },
-    createIntersection: (data) => request('/authorities/signalised-intersections', { method: 'POST', body: JSON.stringify(data) }),
     importDirectory: async (file) => {
       const token = localStorage.getItem('token');
       const form = new FormData();
@@ -98,26 +98,20 @@ const api = {
     update: (id, data) => request(`/permits/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/permits/${id}`, { method: 'DELETE' }),
     bulk: (ids, action, status) => request('/permits/bulk', { method: 'POST', body: JSON.stringify({ ids, action, status }) }),
-    fees: (id) => request(`/permits/${id}/fees`),
     createFee: (id, data) => request(`/permits/${id}/fees`, { method: 'POST', body: JSON.stringify(data) }),
-    triggers: (id) => request(`/permits/${id}/triggers`),
-    resolveTrigger: (permitId, triggerId) => request(`/permits/${permitId}/triggers/${triggerId}/resolve`, { method: 'PUT' }),
-    calculateSLA: (authId, params) => { const q = new URLSearchParams(params).toString(); return request(`/permits/calculate-sla/${authId}?${q}`); }
+    resolveTrigger: (permitId, triggerId) => request(`/permits/${permitId}/triggers/${triggerId}/resolve`, { method: 'PUT' })
   },
   timeEntries: {
     list: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/time-entries${q}`); },
     costCodes: () => request('/time-entries/cost-codes'),
     summary: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/time-entries/summary${q}`); },
     create: (data) => request('/time-entries', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id, data) => request(`/time-entries/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/time-entries/${id}`, { method: 'DELETE' })
   },
   analytics: {
     approvalTimes: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/analytics/approval-times${q}`); },
-    plannerThroughput: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/analytics/planner-throughput${q}`); },
     rejectionAnalysis: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/analytics/rejection-analysis${q}`); },
-    financialSummary: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/analytics/financial-summary${q}`); },
-    dashboard: () => request('/analytics/dashboard')
+    financialSummary: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/analytics/financial-summary${q}`); }
   },
   email: {
     getConfig: () => request('/email/config'),
@@ -128,18 +122,21 @@ const api = {
     templates: () => request('/email/templates'),
     createTemplate: (data) => request('/email/templates', { method: 'POST', body: JSON.stringify(data) }),
     updateTemplate: (id, data) => request(`/email/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    deleteTemplate: (id) => request(`/email/templates/${id}`, { method: 'DELETE' }),
-    previewTemplate: (id, ctx) => request(`/email/templates/${id}/preview`, { method: 'POST', body: JSON.stringify({ ctx }) })
+    deleteTemplate: (id) => request(`/email/templates/${id}`, { method: 'DELETE' })
   },
   export: {
     tmpPDF: (id) => fetch(`${BASE}/export/tmp/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-    permitsPDF: () => fetch(`${BASE}/export/permits-summary`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
     downloadCSV: async (url, filename) => {
       const token = localStorage.getItem('token');
       const res = await fetch(`${BASE}${url}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Download failed' }));
+        throw new Error(err.error || 'Download failed');
+      }
       const blob = await res.blob();
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
-      URL.revokeObjectURL(blob);
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = objectUrl; a.download = filename; a.click();
+      URL.revokeObjectURL(objectUrl);
     }
   },
   notifications: {

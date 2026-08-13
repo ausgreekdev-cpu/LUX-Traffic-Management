@@ -4,11 +4,15 @@ import api from '../api';
 import WorkflowChecklist from '../components/WorkflowChecklist';
 import { PERMIT_BADGES, FEE_BADGES, badgeFor } from '../utils/status';
 import { useAppText } from '../context/AppText';
+import { useAuth, hasRole } from '../context/Auth';
 
 export default function PermitDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { nav, section, status, complexity } = useAppText();
+  const { user } = useAuth();
+  const canEdit = hasRole(user, 'staff');
+  const canDelete = hasRole(user, 'manager');
   const [permit, setPermit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [feeForm, setFeeForm] = useState({ fee_type: 'application_fee', amount: '', status: 'pending' });
@@ -18,7 +22,7 @@ export default function PermitDetail() {
     api.permits.get(id),
     api.agents.runs({ entity_type: 'permit', entity_id: id }).then(r => r.data)
   ]).then(([p, runs]) => { setPermit(p); setAgentRuns(runs); });
-  useEffect(() => { loadPermit().finally(() => setLoading(false)); }, [id]);
+  useEffect(() => { loadPermit().catch(() => setPermit(null)).finally(() => setLoading(false)); }, [id]);
 
   const handleStatusChange = async (newStatus) => {
     try {
@@ -30,14 +34,22 @@ export default function PermitDetail() {
   };
 
   const handleResolveTrigger = async (triggerId) => {
-    await api.permits.resolveTrigger(id, triggerId);
-    await loadPermit();
+    try {
+      await api.permits.resolveTrigger(id, triggerId);
+      await loadPermit();
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleDelete = async () => {
     if (!confirm('Delete this permit?')) return;
-    await api.permits.delete(id);
-    navigate('/permits');
+    try {
+      await api.permits.delete(id);
+      navigate('/permits');
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleAddFee = async (e) => {
@@ -61,13 +73,13 @@ export default function PermitDetail() {
           <p className="text-gray-500 text-sm">{permit.tmp_reference} • {complexity(permit.complexity)}</p>
         </div>
         <div className="flex gap-2">
-          {permit.status !== 'approved' && permit.status !== 'cancelled' && permit.status !== 'completed' && (
+          {canEdit && permit.status !== 'approved' && permit.status !== 'cancelled' && permit.status !== 'completed' && (
             <select value={permit.status} onChange={e => handleStatusChange(e.target.value)} className="input">
               {['draft', 'submitted', 'under_review', 'approved', 'rejected', 'cancelled', 'completed'].map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
             </select>
           )}
-          <Link to={`/permits/${id}/edit`} className="btn btn-primary">Edit</Link>
-          <button onClick={handleDelete} className="btn btn-danger">Delete</button>
+          {canEdit && <Link to={`/permits/${id}/edit`} className="btn btn-primary">Edit</Link>}
+          {canDelete && <button onClick={handleDelete} className="btn btn-danger">Delete</button>}
         </div>
       </div>
 
@@ -118,6 +130,7 @@ export default function PermitDetail() {
               </table>
               </div>
             )}
+            {canEdit && (
             <form onSubmit={handleAddFee} className="flex items-end gap-2 border-t border-gray-200 dark:border-gray-700 pt-3 flex-wrap">
               <div>
                 <label className="text-xs text-gray-500 block">Type</label>
@@ -140,8 +153,9 @@ export default function PermitDetail() {
               </div>
               <button type="submit" className="btn btn-primary">Add Fee</button>
             </form>
+            )}
           </div>
-          <WorkflowChecklist entityType="permit" entityId={id} />
+          {canEdit && <WorkflowChecklist entityType="permit" entityId={id} />}
         </div>
 
         <div className="space-y-4">
@@ -153,7 +167,7 @@ export default function PermitDetail() {
                   <p className={t.is_resolved ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>{t.description}</p>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-xs text-gray-400">{t.created_at?.slice(0, 10)}</span>
-                    {!t.is_resolved && <button onClick={() => handleResolveTrigger(t.id)} className="text-xs bg-green-500 text-white px-2 py-0.5 rounded">Resolve</button>}
+                    {!t.is_resolved && canEdit && <button onClick={() => handleResolveTrigger(t.id)} className="text-xs bg-green-500 text-white px-2 py-0.5 rounded">Resolve</button>}
                   </div>
                 </div>
               ))}

@@ -1,29 +1,34 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import { useAppText } from '../context/AppText';
+import { useAuth, hasRole } from '../context/Auth';
 
 export default function SiteList() {
   const { pageTitle, column } = useAppText();
+  const { user } = useAuth();
+  const canEdit = hasRole(user, 'staff');
   const [sites, setSites] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: '', road_name: '', suburb: '', state: 'WA', postcode: '', description: '', road_class: '', speed_limit: '', aadt: '', pedestrian_activity: '', cyclist_activity: '', rail_corridor: false, school_zone: false });
 
-  useEffect(() => { api.sites.list().then(setSites); }, []);
+  useEffect(() => { api.sites.list().then(setSites).catch(() => {}); }, []);
 
   const resetForm = () => { setForm({ name: '', road_name: '', suburb: '', state: 'WA', postcode: '', description: '', road_class: '', speed_limit: '', aadt: '', pedestrian_activity: '', cyclist_activity: '', rail_corridor: false, school_zone: false }); setEditId(null); setShowForm(false); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const payload = { ...form, speed_limit: form.speed_limit === '' ? undefined : Number(form.speed_limit), aadt: form.aadt === '' ? undefined : Number(form.aadt), rail_corridor: !!form.rail_corridor, school_zone: !!form.school_zone };
-    if (editId) {
-      await api.sites.update(editId, payload);
-    } else {
-      const res = await api.sites.create(payload);
-      setSites([res, ...sites]);
-    }
-    resetForm();
-    api.sites.list().then(setSites);
+    try {
+      const payload = { ...form, speed_limit: form.speed_limit === '' ? undefined : Number(form.speed_limit), aadt: form.aadt === '' ? undefined : Number(form.aadt), rail_corridor: !!form.rail_corridor, school_zone: !!form.school_zone };
+      if (editId) {
+        await api.sites.update(editId, payload);
+      } else {
+        const res = await api.sites.create(payload);
+        setSites([res, ...sites]);
+      }
+      resetForm();
+      api.sites.list().then(setSites).catch(() => {});
+    } catch (err) { alert(err.message); }
   };
 
   const handleEdit = (s) => {
@@ -39,7 +44,7 @@ export default function SiteList() {
           <h1 className="page-header">{pageTitle('sites', 'Sites')}</h1>
           <p className="page-sub">Road locations and characteristics used in risk assessments</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Site</button>
+        {canEdit && <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Site</button>}
       </div>
       {showForm && (
         <form onSubmit={handleSubmit} className="card p-4 space-y-3">
@@ -94,7 +99,7 @@ export default function SiteList() {
               <td className="table-td text-gray-500">{s.speed_limit ? `${s.speed_limit} km/h` : '-'}</td>
               <td className="table-td text-gray-500">{s.aadt ?? '-'}</td>
               <td className="table-td text-gray-500">{s.suburb || '-'}</td>
-              <td className="table-td text-right space-x-2"><button onClick={() => handleEdit(s)} className="text-lux-600 dark:text-lux-400 hover:underline text-xs font-medium">Edit</button></td>
+              <td className="table-td text-right space-x-2">{canEdit && <button onClick={() => handleEdit(s)} className="text-lux-600 dark:text-lux-400 hover:underline text-xs font-medium">Edit</button>}</td>
             </tr>))}
           </tbody>
         </table>

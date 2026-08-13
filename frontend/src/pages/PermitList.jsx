@@ -3,11 +3,15 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import { PERMIT_BADGES, badgeFor } from '../utils/status';
 import { useAppText } from '../context/AppText';
+import { useAuth, hasRole } from '../context/Auth';
 
 const statuses = ['draft', 'submitted', 'under_review', 'approved', 'rejected', 'expired', 'completed', 'cancelled'];
 
 export default function PermitList() {
   const { pageTitle, column, status, complexity } = useAppText();
+  const { user } = useAuth();
+  const canEdit = hasRole(user, 'staff');
+  const canDelete = hasRole(user, 'manager');
   const [data, setData] = useState({ data: [], total: 0, page: 1, pages: 1 });
   const [filter, setFilter] = useState('');
   const [authFilter, setAuthFilter] = useState('');
@@ -19,7 +23,7 @@ export default function PermitList() {
   const [bulkStatus, setBulkStatus] = useState('');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { api.authorities.list().then(setAuthorities); }, []);
+  useEffect(() => { api.authorities.list().then(setAuthorities).catch(() => {}); }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -28,7 +32,7 @@ export default function PermitList() {
     if (filter) params.status = filter;
     if (authFilter) params.authority_id = authFilter;
     if (search) params.search = search;
-    api.permits.list(params).then(setData).finally(() => setLoading(false));
+    api.permits.list(params).then(setData).catch(() => {}).finally(() => setLoading(false));
   }, [filter, authFilter, page, search]);
 
   const toggle = (id) => setSelected(prev => {
@@ -96,8 +100,8 @@ export default function PermitList() {
           <p className="page-sub">Track authority permits, SLAs and expiry dates</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => api.export.downloadCSV(`/export/permits-csv${filter ? '?status=' + filter : ''}`, 'permits.csv')} className="btn btn-secondary">CSV</button>
-          <Link to="/permits/new" className="btn btn-primary">+ New Permit</Link>
+          {canEdit && <button onClick={() => api.export.downloadCSV(`/export/permits-csv${filter ? '?status=' + filter : ''}`, 'permits.csv')} className="btn btn-secondary">CSV</button>}
+          {canEdit && <Link to="/permits/new" className="btn btn-primary">+ New Permit</Link>}
         </div>
       </div>
       <div className="flex gap-2 flex-wrap">
@@ -111,7 +115,7 @@ export default function PermitList() {
         </select>
         <input placeholder="Search..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="input ml-auto w-48" />
       </div>
-      {selected.size > 0 && (
+      {canEdit && selected.size > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-2">
           <span className="text-sm font-medium">{selected.size} selected</span>
           <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="input !py-1">
@@ -119,7 +123,7 @@ export default function PermitList() {
             {statuses.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
           </select>
           <button onClick={applyBulk} disabled={busy} className="btn btn-primary btn-sm">Apply</button>
-          <button onClick={bulkDelete} disabled={busy} className="btn btn-danger btn-sm">Delete</button>
+          {canDelete && <button onClick={bulkDelete} disabled={busy} className="btn btn-danger btn-sm">Delete</button>}
           <button onClick={() => setSelected(new Set())} className="text-sm text-gray-500 hover:underline">Clear</button>
         </div>
       )}
@@ -136,7 +140,7 @@ export default function PermitList() {
             <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="table-th w-8">
-                  <input type="checkbox" checked={data.data.length > 0 && data.data.every(p => selected.has(p.id))} onChange={toggleAll} />
+                  {canEdit && <input type="checkbox" checked={data.data.length > 0 && data.data.every(p => selected.has(p.id))} onChange={toggleAll} />}
                 </th>
                 <th className="table-th">{column('permits', 'tmp', 'TMP')}</th>
                 <th className="table-th">{column('permits', 'authority', 'Authority')}</th>
@@ -151,7 +155,7 @@ export default function PermitList() {
             <tbody className="divide-y dark:divide-gray-700">
               {data.data.map(p => (
                 <tr key={p.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${selected.has(p.id) ? 'bg-amber-50 dark:bg-amber-900/20' : ''}`}>
-                  <td className="table-td"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td>
+                  <td className="table-td">{canEdit && <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} />}</td>
                   <td className="table-td"><Link to={`/permits/${p.id}`} className="text-lux-600 dark:text-lux-400 hover:underline font-medium">{p.tmp_reference || '-'}</Link></td>
                   <td className="table-td"><span className="font-medium">{p.authority_short}</span> <span className="text-xs text-gray-400">({p.authority_type?.toUpperCase()})</span></td>
                   <td className="table-td"><span className={`badge ${badgeFor(PERMIT_BADGES, p.status)}`}>{status(p.status)}</span></td>

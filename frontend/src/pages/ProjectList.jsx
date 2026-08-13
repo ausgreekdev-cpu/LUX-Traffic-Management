@@ -1,28 +1,33 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import { useAppText } from '../context/AppText';
+import { useAuth, hasRole } from '../context/Auth';
 
 export default function ProjectList() {
   const { pageTitle } = useAppText();
+  const { user } = useAuth();
+  const canEdit = hasRole(user, 'staff');
   const [projects, setProjects] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [clients, setClients] = useState([]);
   const [form, setForm] = useState({ name: '', description: '', client_id: '', status: 'active', start_date: '', end_date: '' });
 
-  useEffect(() => { api.projects.list().then(setProjects); api.clients.list().then(setClients); }, []);
+  useEffect(() => { api.projects.list().then(setProjects).catch(() => {}); api.clients.list().then(setClients).catch(() => {}); }, []);
 
   const resetForm = () => { setForm({ name: '', description: '', client_id: '', status: 'active', start_date: '', end_date: '' }); setEditId(null); setShowForm(false); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editId) {
-      await api.projects.update(editId, form);
-    } else {
-      await api.projects.create(form);
-    }
-    resetForm();
-    api.projects.list().then(setProjects);
+    try {
+      if (editId) {
+        await api.projects.update(editId, form);
+      } else {
+        await api.projects.create(form);
+      }
+      resetForm();
+      api.projects.list().then(setProjects).catch(() => {});
+    } catch (err) { alert(err.message); }
   };
 
   const handleEdit = (p) => {
@@ -38,7 +43,7 @@ export default function ProjectList() {
           <h1 className="page-header">{pageTitle('projects', 'Projects')}</h1>
           <p className="page-sub">Group TMPs under client engagements</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Project</button>
+        {canEdit && <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Project</button>}
       </div>
       {showForm && (
         <form onSubmit={handleSubmit} className="card p-4 space-y-3">
@@ -74,7 +79,7 @@ export default function ProjectList() {
               <span>Plans: {p.plan_count || 0}</span>
               <span className={`badge ${p.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>{p.status}</span>
             </div>
-            <button onClick={() => handleEdit(p)} className="absolute top-2 right-2 text-lux-600 dark:text-lux-400 hover:underline text-xs font-medium">Edit</button>
+            {canEdit && <button onClick={() => handleEdit(p)} className="absolute top-2 right-2 text-lux-600 dark:text-lux-400 hover:underline text-xs font-medium">Edit</button>}
           </div>
         ))}
       </div>

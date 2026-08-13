@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import WorkflowChecklist from '../components/WorkflowChecklist';
 import { useAppText } from '../context/AppText';
+import { useAuth, hasRole } from '../context/Auth';
 
 const previewable = (name) => /\.(pdf|png|jpe?g|gif|webp)$/i.test(name);
 
@@ -10,6 +11,9 @@ export default function TMPDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { nav, section, status, complexity } = useAppText();
+  const { user } = useAuth();
+  const canEdit = hasRole(user, 'staff');
+  const canDelete = hasRole(user, 'manager');
   const [tmp, setTmp] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -21,19 +25,30 @@ export default function TMPDetail() {
     api.tmps.get(id),
     api.agents.runs({ entity_type: 'tmp', entity_id: id }).then(r => r.data)
   ]).then(([t, runs]) => { setTmp(t); setAgentRuns(runs); });
-  useEffect(() => { loadTmp().finally(() => setLoading(false)); }, [id]);
+  useEffect(() => { loadTmp().catch(() => setTmp(null)).finally(() => setLoading(false)); }, [id]);
 
   const handleDelete = async () => {
-    if (confirm('Delete this TMP?')) { await api.tmps.delete(id); navigate('/tmps'); }
+    if (!confirm('Delete this TMP?')) return;
+    try {
+      await api.tmps.delete(id);
+      navigate('/tmps');
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleExportPDF = async () => {
-    const res = await api.export.tmpPDF(id);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `${tmp.reference || 'TMP'}.pdf`; a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const res = await api.export.tmpPDF(id);
+      if (!res.ok) throw new Error('PDF export failed');
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl; a.download = `${tmp.reference || 'TMP'}.pdf`; a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleUpload = async (e) => {
@@ -68,9 +83,9 @@ export default function TMPDetail() {
           <p className="text-gray-500 text-sm">{tmp.reference}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleExportPDF} className="btn btn-secondary">Export PDF</button>
-          <Link to={`/tmps/${id}/edit`} className="btn btn-primary">Edit</Link>
-          <button onClick={handleDelete} className="btn btn-danger">Delete</button>
+          {canEdit && <button onClick={handleExportPDF} className="btn btn-secondary">Export PDF</button>}
+          {canEdit && <Link to={`/tmps/${id}/edit`} className="btn btn-primary">Edit</Link>}
+          {canDelete && <button onClick={handleDelete} className="btn btn-danger">Delete</button>}
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -130,17 +145,17 @@ export default function TMPDetail() {
                     {previewable(d.original_name) && (
                       <button onClick={() => setPreview(d)} className="text-blue-600 hover:text-blue-800 text-xs">Preview</button>
                     )}
-                    <button onClick={() => handleDeleteDoc(d.id)} className="text-red-500 hover:text-red-700 text-xs">Delete</button>
+                    {canDelete && <button onClick={() => handleDeleteDoc(d.id)} className="text-red-500 hover:text-red-700 text-xs">Delete</button>}
                   </div>
                 </div>
               ))}
             </div>
             <div className="flex items-center gap-2">
-              <input ref={fileRef} type="file" onChange={handleUpload} className="text-sm" disabled={uploading} />
-              {uploading && <span className="text-xs text-gray-500">Uploading...</span>}
+              {canEdit && <input ref={fileRef} type="file" onChange={handleUpload} className="text-sm" disabled={uploading} />}
+              {canEdit && uploading && <span className="text-xs text-gray-500">Uploading...</span>}
             </div>
           </div>
-          <WorkflowChecklist entityType="tmp" entityId={id} />
+          {canEdit && <WorkflowChecklist entityType="tmp" entityId={id} />}
         </div>
         <div className="space-y-4">
           <div className="card p-4">

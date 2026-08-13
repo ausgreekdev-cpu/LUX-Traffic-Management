@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
+import { roleAtLeast, roleRank } from '../middleware/auth.js';
+import { isClientUser, permitOwnedByClient } from '../middleware/scope.js';
 import { validate } from '../middleware/validate.js';
 import { incompleteRequiredStages, swapTemplateForEntity } from './workflows.js';
 import { emitEvent } from '../events.js';
@@ -78,6 +80,10 @@ router.get('/', (req, res) => {
     LEFT JOIN traffic_management_plans t ON p.tmp_id = t.id`;
   const params = [];
   const conditions = [];
+  const clientScope = isClientUser(req.user)
+    ? { cond: 'p.tmp_id IN (SELECT t2.id FROM traffic_management_plans t2 INNER JOIN tmp_projects pp ON pp.id = t2.project_id WHERE pp.client_id = ?)', param: req.user.clientId }
+    : null;
+  if (clientScope) { conditions.push(clientScope.cond); params.push(clientScope.param); }
   if (req.query.status) { conditions.push('p.status = ?'); params.push(req.query.status); }
   if (req.query.authority_id) { conditions.push('p.authority_id = ?'); params.push(req.query.authority_id); }
   if (req.query.tmp_id) { conditions.push('p.tmp_id = ?'); params.push(req.query.tmp_id); }
@@ -104,6 +110,9 @@ router.get('/:id', (req, res) => {
     LEFT JOIN traffic_management_plans t ON p.tmp_id = t.id WHERE p.id = ?
   `).get(req.params.id);
   if (!permit) return res.status(404).json({ error: 'Permit not found' });
+  if (isClientUser(req.user) && !permitOwnedByClient(permit, req.user.clientId)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
   const fees = db.prepare('SELECT * FROM permit_fees WHERE permit_id = ?').all(req.params.id);
   const triggers = db.prepare('SELECT * FROM workflow_triggers WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id);
   const subTasks = db.prepare('SELECT pt.*, au.name as authority_name FROM permit_sub_tasks pt LEFT JOIN authorities au ON pt.authority_id = au.id WHERE pt.permit_id = ?').all(req.params.id);
@@ -114,7 +123,7 @@ router.get('/:id', (req, res) => {
   res.json({ ...permit, fees, triggers, sub_tasks: subTasks, sla: slaInfo });
 });
 
-router.post('/', validate('permit'), (req, res) => {
+router.post('/', roleAtLeast('staff'), validate('permit'), (req, res) => {
   const id = uuid();
   const { tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa } = req.validated;
   const tmp = db.prepare('SELECT id, complexity FROM traffic_management_plans WHERE id = ?').get(tmp_id);
@@ -137,7 +146,7 @@ router.post('/', validate('permit'), (req, res) => {
   res.status(201).json({ id, status: status || 'draft', triggers });
 });
 
-router.put('/:id', validate('permit'), (req, res) => {
+router.put('/:id', roleAtLeast('staff'), validate('permit'), (req, res) => {
   const existing = db.prepare('SELECT * FROM permits WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Permit not found' });
   const { tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa } = req.validated;
@@ -179,7 +188,7 @@ router.put('/:id', validate('permit'), (req, res) => {
   res.json({ ...updated, triggers });
 });
 
-router.post('/bulk', (req, res) => {
+router.post('/bulk', roleAtLeast('staff'), (req, res) => {
   const { ids, action, status } = req.body || {};
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'No ids provided' });
   if (action === 'status') {
@@ -208,6 +217,9 @@ router.post('/bulk', (req, res) => {
     });
     tx(ids);
   } else if (action === 'delete') {
+    if (roleRank(req.user.role) < roleRank('manager')) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
     const stmt = db.prepare('DELETE FROM permits WHERE id = ?');
     const tx = db.transaction((list) => { for (const id of list) stmt.run(id); });
     tx(ids);
@@ -215,7 +227,7 @@ router.post('/bulk', (req, res) => {
   res.json({ success: true, count: ids.length });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', roleAtLeast('manager'), (req, res) => {
   const result = db.prepare('DELETE FROM permits WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Permit not found' });
   res.json({ success: true });
@@ -227,7 +239,7 @@ router.get('/:id/fees', (req, res) => {
   res.json(fees);
 });
 
-router.post('/:id/fees', validate('permitFee'), (req, res) => {
+router.post('/:id/fees', roleAtLeast('staff'), validate('permitFee'), (req, res) => {
   const id = uuid();
   const { fee_type, amount, status, bond_returned, due_date, paid_date } = req.validated;
   db.prepare('INSERT INTO permit_fees (id, permit_id, fee_type, amount, status, bond_returned, due_date, paid_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, req.params.id, fee_type, amount, status || 'pending', bond_returned ? 1 : 0, due_date || null, paid_date || null);
@@ -241,14 +253,14 @@ router.get('/:id/triggers', (req, res) => {
   res.json(triggers);
 });
 
-router.put('/:permitId/triggers/:triggerId/resolve', (req, res) => {
+router.put('/:permitId/triggers/:triggerId/resolve', roleAtLeast('staff'), (req, res) => {
   const result = db.prepare('UPDATE workflow_triggers SET is_resolved = 1, resolved_at = datetime(\'now\'), resolved_by = ? WHERE id = ? AND permit_id = ?').run(req.user.id, req.params.triggerId, req.params.permitId);
   if (result.changes === 0) return res.status(404).json({ error: 'Trigger not found' });
   res.json({ success: true });
 });
 
 // SLA calculation endpoint
-router.get('/calculate-sla/:authorityId', (req, res) => {
+router.get('/calculate-sla/:authorityId', roleAtLeast('staff'), (req, res) => {
   const complexity = req.query.complexity || 'standard';
   const submissionDate = req.query.submission_date || new Date().toISOString().slice(0, 10);
   const sla = calculateSLA(req.params.authorityId, complexity, submissionDate);

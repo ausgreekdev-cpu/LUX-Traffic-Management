@@ -6,6 +6,8 @@ import { v4 as uuid } from 'uuid';
 import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
+import { roleAtLeast } from '../middleware/auth.js';
+import { isClientUser, tmpOwnedByClient } from '../middleware/scope.js';
 import { emitEvent } from '../events.js';
 
 const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
@@ -36,21 +38,36 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/tmp/:tmpId', (req, res) => {
+  if (isClientUser(req.user)) {
+    const tmp = db.prepare('SELECT id, project_id FROM traffic_management_plans WHERE id = ?').get(req.params.tmpId);
+    if (!tmpOwnedByClient(tmp, req.user.clientId)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+  }
   const docs = db.prepare('SELECT * FROM documents WHERE tmp_id = ? ORDER BY created_at DESC').all(req.params.tmpId);
   res.json(docs);
 });
 
-router.post('/upload/:tmpId', upload.single('file'), (req, res) => {
+router.post('/upload/:tmpId', roleAtLeast('staff'), upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const tmp = db.prepare('SELECT id FROM traffic_management_plans WHERE id = ?').get(req.params.tmpId);
+  if (!tmp) return res.status(404).json({ error: 'TMP not found' });
   const id = uuid();
   db.prepare('INSERT INTO documents (id, tmp_id, filename, original_name, mime_type, size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, req.params.tmpId, req.file.filename, req.file.originalname, req.file.mimetype, req.file.size, req.user.id);
   emitEvent('document.uploaded', { id, tmp_id: req.params.tmpId, filename: req.file.filename, original_name: req.file.originalname, mime_type: req.file.mimetype, size: req.file.size, uploaded_by: req.user.id });
   res.status(201).json({ id, filename: req.file.filename, original_name: req.file.originalname });
 });
 
+function requireTmpAccess(doc, user) {
+  if (!isClientUser(user)) return true;
+  const tmp = db.prepare('SELECT id, project_id FROM traffic_management_plans WHERE id = ?').get(doc.tmp_id);
+  return tmpOwnedByClient(tmp, user.clientId);
+}
+
 router.get('/download/:id', (req, res) => {
   const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
+  if (!requireTmpAccess(doc, req.user)) return res.status(403).json({ error: 'Insufficient permissions' });
   const filePath = path.join(uploadDir, doc.filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
   res.download(filePath, doc.original_name);
@@ -59,6 +76,7 @@ router.get('/download/:id', (req, res) => {
 router.get('/preview/:id', (req, res) => {
   const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
+  if (!requireTmpAccess(doc, req.user)) return res.status(403).json({ error: 'Insufficient permissions' });
   const ext = path.extname(doc.original_name).toLowerCase();
   if (!['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)) {
     return res.status(400).json({ error: 'Preview not available for this file type' });
@@ -69,7 +87,7 @@ router.get('/preview/:id', (req, res) => {
   res.sendFile(filePath);
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', roleAtLeast('manager'), (req, res) => {
   const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
   const filePath = path.join(uploadDir, doc.filename);

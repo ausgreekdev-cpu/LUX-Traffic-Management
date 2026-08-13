@@ -9,10 +9,10 @@ router.use(authenticate);
 router.get('/', (req, res) => {
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
   const unreadOnly = req.query.unreadOnly === 'true' || req.query.unreadOnly === '1';
-  const where = req.user.role === 'admin' && req.query.all === 'true'
+  const where = req.user.role === 'developer' && req.query.all === 'true'
     ? (unreadOnly ? 'WHERE n.is_read = 0' : '')
     : (unreadOnly ? 'WHERE n.user_id = ? AND n.is_read = 0' : 'WHERE n.user_id = ?');
-  const params = req.user.role === 'admin' && req.query.all === 'true' ? [] : [req.user.id];
+  const params = req.user.role === 'developer' && req.query.all === 'true' ? [] : [req.user.id];
   const data = db.prepare(`
     SELECT n.*, u.name as user_name
     FROM notifications n
@@ -32,7 +32,7 @@ router.get('/unread-count', (req, res) => {
 router.post('/:id/read', (req, res) => {
   const n = db.prepare('SELECT * FROM notifications WHERE id = ?').get(req.params.id);
   if (!n) return res.status(404).json({ error: 'Notification not found' });
-  if (n.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  if (n.user_id !== req.user.id && req.user.role !== 'developer') return res.status(403).json({ error: 'Forbidden' });
   db.prepare('UPDATE notifications SET is_read = 1, read_at = datetime(\'now\') WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });

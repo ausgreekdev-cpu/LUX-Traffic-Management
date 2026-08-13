@@ -24,26 +24,34 @@ export default function TimeTracking() {
   }, [defaultRate]);
 
   useEffect(() => {
-    api.timeEntries.costCodes().then(setCostCodes);
-    api.tmps.list().then(r => setTmps(r.data));
-    api.timeEntries.list().then(setEntries);
-    api.timeEntries.summary({ period_days: 30 }).then(setSummary);
+    api.timeEntries.costCodes().then(setCostCodes).catch(() => {});
+    api.tmps.list().then(r => setTmps(r.data)).catch(() => {});
+    api.timeEntries.list().then(setEntries).catch(() => {});
+    api.timeEntries.summary({ period_days: 30 }).then(setSummary).catch(() => {});
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await api.timeEntries.create({ ...form, duration_hours: parseFloat(form.duration_hours), rate_per_hour: parseFloat(form.rate_per_hour) });
-    setEntries([{ ...form, id: res.id, total_cost: form.duration_hours * form.rate_per_hour }, ...entries]);
-    setShowForm(false);
-    setForm({ tmp_id: '', cost_code: '', description: '', duration_hours: '', rate_per_hour: defaultRate, is_billable: true, date: new Date().toISOString().slice(0, 10) });
-    api.timeEntries.summary({ period_days: 30 }).then(setSummary);
+    try {
+      const res = await api.timeEntries.create({ ...form, duration_hours: parseFloat(form.duration_hours), rate_per_hour: parseFloat(form.rate_per_hour) });
+      setEntries([{ ...form, id: res.id, total_cost: form.duration_hours * form.rate_per_hour }, ...entries]);
+      setShowForm(false);
+      setForm({ tmp_id: '', cost_code: '', description: '', duration_hours: '', rate_per_hour: defaultRate, is_billable: true, date: new Date().toISOString().slice(0, 10) });
+      api.timeEntries.summary({ period_days: 30 }).then(setSummary).catch(() => {});
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Delete entry?')) return;
-    await api.timeEntries.delete(id);
-    setEntries(entries.filter(e => e.id !== id));
-    api.timeEntries.summary({ period_days: 30 }).then(setSummary);
+    try {
+      await api.timeEntries.delete(id);
+      setEntries(entries.filter(e => e.id !== id));
+      api.timeEntries.summary({ period_days: 30 }).then(setSummary).catch(() => {});
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const filtered = filterCode ? entries.filter(e => e.cost_code === filterCode) : entries;

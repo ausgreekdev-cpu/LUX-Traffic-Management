@@ -3,7 +3,7 @@ import { v4 as uuid } from 'uuid';
 import multer from 'multer';
 import { createRequire } from 'module';
 import db from '../db.js';
-import { authenticate, authorize } from '../middleware/auth.js';
+import { authenticate, authorize, roleAtLeast } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { deserializeAuthority, upsertDirectoryEntries } from '../seed-directory.js';
 import { buildDirectory } from '../lga-directory.js';
@@ -90,7 +90,7 @@ router.get('/signalised-intersections', (req, res) => {
   }
 });
 
-router.post('/signalised-intersections', authenticate, (req, res) => {
+router.post('/signalised-intersections', roleAtLeast('staff'), (req, res) => {
   const id = uuid();
   const { authority_id, intersection_name, road_name, suburb, distance_meters, is_mandatory, notes } = req.body;
   stmt.insertIntersection.run(id, authority_id, intersection_name, road_name || null, suburb || null, distance_meters || 30, is_mandatory !== undefined ? (is_mandatory ? 1 : 0) : 1, notes || null);
@@ -105,7 +105,7 @@ router.get('/:id', (req, res) => {
   res.json({ ...deserializeAuthority(authority), sla_rules: slaRules, signalised_intersections: intersections });
 });
 
-router.post('/', validate('authority'), (req, res) => {
+router.post('/', roleAtLeast('staff'), validate('authority'), (req, res) => {
   const id = uuid();
   const { name, short_name, type, email, phone, website, address, contact_person } = req.validated;
   const d = req.validated;
@@ -123,7 +123,7 @@ router.post('/', validate('authority'), (req, res) => {
   res.status(201).json({ id, name, short_name });
 });
 
-router.put('/:id', validate('authority'), (req, res) => {
+router.put('/:id', roleAtLeast('staff'), validate('authority'), (req, res) => {
   const existing = stmt.get.get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Authority not found' });
   const v = req.validated;
@@ -158,7 +158,7 @@ router.put('/:id', validate('authority'), (req, res) => {
   res.json(deserializeAuthority(stmt.get.get(req.params.id)));
 });
 
-router.post('/import-directory', authorize('admin'), upload.single('pdf'), async (req, res) => {
+router.post('/import-directory', authorize('developer'), upload.single('pdf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No PDF uploaded (field name: pdf)' });
   try {
     const parsed = await new PDFParse({ data: req.file.buffer }).getText();
@@ -171,7 +171,7 @@ router.post('/import-directory', authorize('admin'), upload.single('pdf'), async
   }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', roleAtLeast('manager'), (req, res) => {
   const existing = stmt.get.get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Authority not found' });
   const permitCount = stmt.countPermits.get(req.params.id).c;
@@ -186,14 +186,14 @@ router.get('/:id/sla-rules', (req, res) => {
   res.json(stmt.getSlaRules.all(req.params.id));
 });
 
-router.post('/:id/sla-rules', validate('slaRule'), (req, res) => {
+router.post('/:id/sla-rules', roleAtLeast('staff'), validate('slaRule'), (req, res) => {
   const id = uuid();
   const { complexity, assessment_days, public_notice_days, buffer_days, requires_public_notice } = req.validated;
   stmt.insertSlaRule.run(id, req.params.id, complexity, assessment_days, public_notice_days || 0, buffer_days || 0, requires_public_notice ? 1 : 0);
   res.status(201).json({ id, complexity, assessment_days });
 });
 
-router.delete('/:authorityId/sla-rules/:ruleId', (req, res) => {
+router.delete('/:authorityId/sla-rules/:ruleId', roleAtLeast('manager'), (req, res) => {
   const result = stmt.deleteSlaRule.run(req.params.ruleId, req.params.authorityId);
   if (result.changes === 0) return res.status(404).json({ error: 'SLA rule not found' });
   res.json({ success: true });

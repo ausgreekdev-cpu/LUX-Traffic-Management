@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import db from '../db.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 import { AGENTS, runAgent, applyAgentRun } from '../agents.js';
 
 const router = Router();
 router.use(authenticate);
+router.use(authorize('developer'));
 
 function resolveEntity(agent, entityType, entityId) {
   const table = entityType === 'document' ? 'documents' : entityType === 'permit' ? 'permits' : entityType === 'tmp' ? 'traffic_management_plans' : null;

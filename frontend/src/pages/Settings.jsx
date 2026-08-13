@@ -322,7 +322,7 @@ export default function Settings() {
 
   if (loading) return <p className="text-gray-500">Loading settings…</p>;
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'developer';
 
   return (
     <div className="max-w-2xl">
