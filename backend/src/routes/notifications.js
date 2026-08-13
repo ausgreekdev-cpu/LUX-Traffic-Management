@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, roleAtLeast } from '../middleware/auth.js';
 import { runScheduledChecks } from '../scheduler.js';
 import db from '../db.js';
 
@@ -42,7 +42,7 @@ router.post('/read-all', (req, res) => {
   res.json({ success: true });
 });
 
-router.post('/scan', (req, res) => {
+router.post('/scan', roleAtLeast('staff'), (req, res) => {
   runScheduledChecks();
   res.json({ success: true });
 });

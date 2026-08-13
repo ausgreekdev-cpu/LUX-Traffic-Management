@@ -12,15 +12,61 @@ export default defineConfig({
         name: 'LUX Traffic Management',
         short_name: 'LUX',
         description: 'WA Traffic Management System — TMP & Permit Management',
+        id: 'LUX-Traffic-Management',
+        lang: 'en',
+        dir: 'ltr',
         theme_color: '#f57f17',
         background_color: '#111827',
         display: 'standalone',
+        display_override: ['standalone', 'minimal-ui', 'browser'],
+        orientation: 'any',
+        categories: ['business', 'productivity', 'utilities'],
         start_url: '/',
         scope: '/',
+        screenshots: [
+          {
+            src: '/screenshot-wide.png',
+            sizes: '1280x720',
+            type: 'image/png',
+            form_factor: 'wide',
+            label: 'LUX Traffic Management dashboard'
+          },
+          {
+            src: '/screenshot-narrow.png',
+            sizes: '720x1280',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'LUX Traffic Management mobile view'
+          }
+        ],
         icons: [
-          { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: '/pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+        ],
+        shortcuts: [
+          {
+            name: 'New TMP',
+            short_name: 'New TMP',
+            description: 'Create a new Traffic Management Plan',
+            url: '/tmps/new',
+            icons: [{ src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' }]
+          },
+          {
+            name: 'New Permit',
+            short_name: 'New Permit',
+            description: 'Create a new permit application',
+            url: '/permits/new',
+            icons: [{ src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' }]
+          },
+          {
+            name: 'Time Tracking',
+            short_name: 'Time',
+            description: 'Log hours against TMPs and cost codes',
+            url: '/time-tracking',
+            icons: [{ src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' }]
+          }
         ]
       },
       workbox: {

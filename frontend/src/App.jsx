@@ -40,12 +40,18 @@ function RoleRoute({ user, minRole, children }) {
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) {
-      api.auth.me().then(setUser).catch(() => { localStorage.removeItem('token'); });
+    if (!token) {
+      setAuthLoading(false);
+      return;
     }
+    api.auth.me()
+      .then(setUser)
+      .catch(() => { localStorage.removeItem('token'); })
+      .finally(() => setAuthLoading(false));
   }, []);
 
   const handleLogin = (userData) => setUser(userData);
@@ -54,6 +60,14 @@ export default function App() {
     localStorage.removeItem('token');
     setUser(null);
   };
+
+  if (authLoading) {
+    return (
+      <ErrorBoundary>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-500">Loading...</div>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary>

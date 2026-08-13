@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { roleAtLeast } from '../middleware/auth.js';
+import { isClientUser, tmpOwnedByClient, permitOwnedByClient } from '../middleware/scope.js';
 import { emitEvent } from '../events.js';
 
 const router = Router();
@@ -268,6 +269,15 @@ router.delete('/stages/:id', authorize('developer'), (req, res) => {
 router.get('/checklist/:entityType/:entityId', (req, res) => {
   const { entityType, entityId } = req.params;
   if (!['tmp', 'permit'].includes(entityType)) return res.status(400).json({ error: 'Invalid entity type' });
+  if (isClientUser(req.user)) {
+    const owned = entityType === 'tmp'
+      ? db.prepare('SELECT project_id FROM traffic_management_plans WHERE id = ?').get(entityId)
+      : db.prepare('SELECT tmp_id FROM permits WHERE id = ?').get(entityId);
+    const isOwner = !!owned && (entityType === 'tmp'
+      ? tmpOwnedByClient(owned, req.user.clientId)
+      : permitOwnedByClient(owned, req.user.clientId));
+    if (!isOwner) return res.status(403).json({ error: 'Insufficient permissions' });
+  }
   const ctx = entityContext(entityType, entityId);
   const stages = ctx ? applicableStages(entityType, ctx.complexity, ctx.authority_id) : [];
   const checklist = db.prepare('SELECT stage_id, is_done, done_by, done_at FROM workflow_checklist WHERE entity_type = ? AND entity_id = ?').all(entityType, entityId);

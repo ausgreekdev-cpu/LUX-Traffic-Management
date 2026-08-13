@@ -235,6 +235,11 @@ router.delete('/:id', roleAtLeast('manager'), (req, res) => {
 
 // Fees
 router.get('/:id/fees', (req, res) => {
+  const permit = db.prepare('SELECT id, tmp_id FROM permits WHERE id = ?').get(req.params.id);
+  if (!permit) return res.status(404).json({ error: 'Permit not found' });
+  if (isClientUser(req.user) && !permitOwnedByClient(permit, req.user.clientId)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
   const fees = db.prepare('SELECT * FROM permit_fees WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id);
   res.json(fees);
 });
@@ -249,6 +254,11 @@ router.post('/:id/fees', roleAtLeast('staff'), validate('permitFee'), (req, res)
 
 // Triggers
 router.get('/:id/triggers', (req, res) => {
+  const permit = db.prepare('SELECT id, tmp_id FROM permits WHERE id = ?').get(req.params.id);
+  if (!permit) return res.status(404).json({ error: 'Permit not found' });
+  if (isClientUser(req.user) && !permitOwnedByClient(permit, req.user.clientId)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
   const triggers = db.prepare('SELECT * FROM workflow_triggers WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id);
   res.json(triggers);
 });
