@@ -14,6 +14,9 @@ let db = null;
 export function initDatabase() {
 db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
+db.pragma('synchronous = FULL');
+db.pragma('busy_timeout = 5000');
+db.pragma('wal_autocheckpoint = 1000');
 db.pragma('foreign_keys = ON');db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -484,9 +487,10 @@ db.exec(`
 }
 
 export function reopenDatabase() {
-  if (db) db.close();
-  try { fs.rmSync(dbPath + '-wal', { force: true }); } catch {}
-  try { fs.rmSync(dbPath + '-shm', { force: true }); } catch {}
+  if (db) {
+    try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch {}
+    db.close();
+  }
   initDatabase();
 }
 initDatabase();

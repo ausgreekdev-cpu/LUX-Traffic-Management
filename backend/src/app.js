@@ -26,7 +26,7 @@ import { ensureAutomationPresets } from './automation-presets.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
 import { seedDatabase, seedAdminFromEnv } from './seed.js';
 import { globalRateLimit } from './middleware/rate-limit.js';
-import { snapshotDbNow } from './persistence.js';
+import { snapshotDbNow, snapshotStatus } from './persistence.js';
 import './automation-engine.js';
 
 const app = express();
@@ -75,7 +75,13 @@ app.use('/api/automations', automationRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/integrations', integrationRoutes);
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', async (req, res) => {
+  const health = { status: 'ok', serverless: isServerless };
+  if (isServerless) {
+    health.snapshot = await snapshotStatus();
+  }
+  res.json(health);
+});
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 

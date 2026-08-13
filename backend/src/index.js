@@ -4,6 +4,7 @@ import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import app from './app.js';
+import { verifyDatabaseHealth } from './backups.js';
 import { cleanupRateLimitBuckets } from './middleware/rate-limit.js';
 import { startScheduler } from './scheduler.js';
 
@@ -36,6 +37,13 @@ function isPortServingOurBackend(port) {
 if (await isPortServingOurBackend(PORT)) {
   console.log(`Another LUX backend instance is already running on port ${PORT} — exiting.`);
   process.exit(0);
+}
+
+const dbHealth = verifyDatabaseHealth();
+if (!dbHealth.ok && dbHealth.error) {
+  console.error(`[startup] database health check failed: ${dbHealth.error}`);
+} else if (!dbHealth.ok) {
+  console.error(`[startup] database integrity_check FAILED (${dbHealth.error}) and no valid backup was found — continuing with existing DB, data may be corrupt.`);
 }
 
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
