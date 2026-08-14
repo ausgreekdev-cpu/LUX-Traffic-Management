@@ -99,11 +99,10 @@ if (userCount === 0) {
   } else {
     seedDatabase();
   }
-} else if (!isServerless) {
-  // Local DBs that pre-date the LUX rebrand may lack the demo login accounts
-  // even though the users table isn't empty. Ensure they always exist so the
-  // demo credentials on the login page work.
-  ensureDemoUsers();
 }
+// Idempotently ensure the demo login accounts exist (INSERT OR IGNORE) so the
+// demo credentials shown on the login page work on any deployment, including
+// serverless and local DBs that pre-date the LUX rebrand.
+ensureDemoUsers();
 
 export default app;

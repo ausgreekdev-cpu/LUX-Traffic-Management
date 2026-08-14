@@ -177,14 +177,16 @@ public demo/CI smoke target, never as the real system.
 Consequences you must plan around:
 
 - **All data resets on cold starts** (per-function, and functions recycle frequently):
-  records, settings, SMTP config, webhook secrets and correspondence are lost.
-- **Default credentials are never created on serverless.** If the DB is empty the function
-  bootstraps a single admin from environment variables:
+  records, settings, email config, webhook secrets and correspondence are lost.
+- **Credentials on serverless:** every boot idempotently ensures the four demo accounts
+  (`developer/manager/staff/client@lux.com.au`, password `Demo123!`) exist so the logins on
+  the login page work. If the (ephemeral) DB is otherwise empty the function also bootstraps
+  an admin from environment variables:
   - `NETLIFY_ADMIN_EMAIL` (required)
   - `NETLIFY_ADMIN_PASSWORD` (required)
   - `NETLIFY_ADMIN_NAME` (optional, default `Admin User`)
-  If either variable is missing, **no users exist and login is impossible** — this is
-  intentional, so the public endpoint never ships `admin@tmpcms.com / admin123`.
+  If `NETLIFY_ADMIN_EMAIL` / `NETLIFY_ADMIN_PASSWORD` are missing but the demo accounts exist,
+  login still works via the demo credentials.
 - The hourly scheduled function (`netlify/functions/scheduled.js`) runs the reminder scan,
   but its results are ephemeral too.
 
