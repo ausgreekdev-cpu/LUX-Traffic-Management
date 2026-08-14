@@ -74,7 +74,7 @@ export default function App() {
       <AuthProvider user={user}>
         <AppTextProvider key={user ? 'authed' : 'anon'}>
           <Routes>
-            <Route path="/login" element={<Login onLogin={handleLogin} />} />
+            <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />} />
             <Route path="/" element={<ProtectedRoute><Layout user={user} onLogout={handleLogout} /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="tmps" element={<TMPList />} />

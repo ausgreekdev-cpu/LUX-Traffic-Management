@@ -2,12 +2,12 @@ import { z } from 'zod';
 
 export const schemas = {
   login: z.object({
-    email: z.string().email(),
+    email: z.string().trim().toLowerCase().email(),
     password: z.string().min(1)
   }),
 
   user: z.object({
-    email: z.string().email(),
+    email: z.string().trim().toLowerCase().email(),
     password: z.string().min(6),
     name: z.string().min(1),
     role: z.enum(['developer', 'manager', 'staff', 'client']).optional(),

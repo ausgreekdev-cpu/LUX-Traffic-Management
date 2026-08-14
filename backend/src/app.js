@@ -38,7 +38,10 @@ app.use('/api', globalRateLimit(300, 1));
 
 app.use('/api', (req, res, next) => {
   const mutating = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
-  if (mutating && !req.path.startsWith('/auth')) {
+  // Snapshot the DB after mutating requests — INCLUDING /auth/* — so the
+  // persisted jwt_secret (and any login-time writes) are uploaded to Blobs
+  // and survive instance recycles on serverless.
+  if (mutating) {
     const origSend = res.send.bind(res);
     res.send = (body) => snapshotDbNow().finally(() => origSend(body));
   }
