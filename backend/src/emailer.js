@@ -9,8 +9,22 @@ const getSetting = (key) => {
   return row ? row.value : '';
 };
 
+const env = (name) => process.env[name] !== undefined ? process.env[name] : null;
+
+export function getProvider() {
+  return getPostmarkConfig().token ? 'postmark' : 'smtp';
+}
+
+export function getPostmarkConfig() {
+  const token = getSetting('postmark_api_token') || env('POSTMARK_API_TOKEN') ||
+    (env('NETLIFY_EMAILS_PROVIDER') === 'postmark' ? env('NETLIFY_EMAILS_PROVIDER_API_KEY') : null);
+  const fromName = getSetting('postmark_from_name') || env('POSTMARK_FROM_NAME') || '';
+  const fromEmail = getSetting('postmark_from_email') || env('POSTMARK_FROM_EMAIL') || '';
+  const stream = getSetting('postmark_message_stream') || env('POSTMARK_MESSAGE_STREAM') || 'outbound';
+  return { token, fromName, fromEmail, stream };
+}
+
 export function getSmtpConfig() {
-  const env = (name) => process.env[name] !== undefined ? process.env[name] : null;
   const host = getSetting('smtp_host') || env('SMTP_HOST') || 'smtp.example.com';
   const port = parseInt(getSetting('smtp_port') || env('SMTP_PORT') || '587', 10);
   const secure = (getSetting('smtp_secure') || env('SMTP_SECURE') || 'false') === 'true';
@@ -38,15 +52,48 @@ export function getTransporter() {
   return transporter;
 }
 
-export async function sendEmail(to, subject, body, tmpId = null) {
-  const cfg = getSmtpConfig();
-  const from = cfg.fromEmail ? (cfg.fromName ? `"${cfg.fromName.replace(/"/g, '\\"')}" <${cfg.fromEmail}>` : cfg.fromEmail) : undefined;
-  const info = await getTransporter().sendMail({
-    from,
-    to,
-    subject,
-    text: body
+function formatFrom(name, email) {
+  return email ? (name ? `"${name.replace(/"/g, '\\"')}" <${email}>` : email) : undefined;
+}
+
+async function sendPostmark(to, subject, body) {
+  const cfg = getPostmarkConfig();
+  const from = formatFrom(cfg.fromName, cfg.fromEmail);
+  const payload = { From: from, To: to, Subject: subject, TextBody: body };
+  if (cfg.stream && cfg.stream !== 'outbound') payload.MessageStream = cfg.stream;
+  const res = await fetch('https://api.postmarkapp.com/email', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'X-Postmark-Server-Token': cfg.token
+    },
+    body: JSON.stringify(payload)
   });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ErrorCode) {
+    const err = new Error(`Postmark ${res.status}: ${data.Message || 'Request failed'}`);
+    err.code = data.ErrorCode;
+    throw err;
+  }
+  return { messageId: data.MessageID, provider: 'postmark' };
+}
+
+export async function sendEmail(to, subject, body, tmpId = null) {
+  let info;
+  if (getProvider() === 'postmark') {
+    info = await sendPostmark(to, subject, body);
+  } else {
+    const cfg = getSmtpConfig();
+    const from = formatFrom(cfg.fromName, cfg.fromEmail);
+    info = await getTransporter().sendMail({
+      from,
+      to,
+      subject,
+      text: body
+    });
+    info.provider = 'smtp';
+  }
   db.prepare('INSERT INTO email_logs (id, to_address, subject, body, tmp_id, status) VALUES (?, ?, ?, ?, ?, ?)')
     .run(uuid(), to, subject, body, tmpId || null, 'sent');
   return info;

@@ -5,7 +5,7 @@
   "main": "electron/main.js",
   "author": "LUX Traffic Management",
   "license": "MIT",
-  "homepage": "https://luxtraffic.com.au",
+  "homepage": "https://lux-official.netlify.app",
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
@@ -107,10 +107,20 @@
     "electron-builder": "^26.15.3"
   },
   "dependencies": {
+    "@netlify/blobs": "^10.7.12",
+    "bcryptjs": "^2.4.3",
     "better-sqlite3": "^13.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "electron-updater": "^6.8.9",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.15",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.15.0",
-    "serverless-http": "^3.2.0"
+    "serverless-http": "^3.2.0",
+    "uuid": "^10.0.0",
+    "zod": "^3.23.8"
   }
 }

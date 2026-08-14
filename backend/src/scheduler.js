@@ -1,6 +1,6 @@
 import db from './db.js';
 import { emitEvent } from './events.js';
-import { sendEmail, getSmtpConfig } from './emailer.js';
+import { sendEmail, getSmtpConfig, getPostmarkConfig, getProvider } from './emailer.js';
 import { maybeAutoBackup } from './backups.js';
 
 function getSetting(key, fallback) {
@@ -113,8 +113,14 @@ export async function runScheduledChecks() {
 async function sendReminderDigest({ expiring = [], expired = [], expiringPermits = [], expiredPermits = [] }, reminderDays) {
   try {
     if (getSetting('reminder_email_enabled', 'false') !== 'true') return;
-    const cfg = getSmtpConfig();
-    if (!cfg.host || cfg.host === 'smtp.example.com' || !cfg.fromEmail) return;
+    const provider = getProvider();
+    if (provider === 'postmark') {
+      const pm = getPostmarkConfig();
+      if (!pm.token || !pm.fromEmail) return;
+    } else {
+      const cfg = getSmtpConfig();
+      if (!cfg.host || cfg.host === 'smtp.example.com' || !cfg.fromEmail) return;
+    }
 
     const configured = String(getSetting('reminder_email_to', '')).trim();
     const recipients = configured

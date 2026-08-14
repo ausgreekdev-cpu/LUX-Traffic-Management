@@ -109,7 +109,7 @@ export default function Settings() {
     session_timeout_minutes: '1440', default_sla_days: '14', risk_high_threshold: '10',
     risk_extreme_threshold: '16', notif_retention_days: '180', email_retention_days: '365', maintenance_mode: false
   });
-  const [smtp, setSmtp] = useState({ host: '', port: '587', secure: false, user: '', pass: '', has_pass: false, from_name: '', from_email: '' });
+  const [smtp, setSmtp] = useState({ provider: 'smtp', host: '', port: '587', secure: false, user: '', pass: '', has_pass: false, from_name: '', from_email: '', postmark_token: '', has_postmark_token: false, postmark_from_name: '', postmark_from_email: '' });
   const [emailLogs, setEmailLogs] = useState([]);
   const [emailBusy, setEmailBusy] = useState(false);
   const [testTo, setTestTo] = useState('');
@@ -207,9 +207,10 @@ export default function Settings() {
     try {
       await api.email.config({
         host: smtp.host, port: smtp.port, secure: smtp.secure,
-        user: smtp.user, pass: smtp.pass, from_name: smtp.from_name, from_email: smtp.from_email
+        user: smtp.user, pass: smtp.pass, from_name: smtp.from_name, from_email: smtp.from_email,
+        postmark_token: smtp.postmark_token, postmark_from_name: smtp.postmark_from_name, postmark_from_email: smtp.postmark_from_email
       });
-      notify('SMTP settings saved');
+      notify('Email settings saved');
     } catch (err) { alert(err.message); }
     finally { setEmailBusy(false); }
   };
@@ -382,41 +383,65 @@ export default function Settings() {
         </div>
       </Card>
 
-      <Card title="Email (SMTP)" description="Outgoing mail server used for notifications, rule emails and tests. Settings persist in the database and override the SMTP_* environment variables at runtime.">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="SMTP host">
-            <input className={inputClass} value={smtp.host} onChange={e => setSmtp(s => ({ ...s, host: e.target.value }))} placeholder="e.g. smtp.gmail.com" />
-          </Field>
-          <Field label="Port">
-            <input type="number" className={inputClass} value={smtp.port} onChange={e => setSmtp(s => ({ ...s, port: e.target.value }))} placeholder="587" />
-          </Field>
+      <Card title="Email (Postmark or SMTP)" description="Outgoing mail used for notifications, rule emails and tests. Settings persist in the database and override the POSTMARK_* / SMTP_* environment variables at runtime. Postmark is used automatically when an API token is saved.">
+        <div className="mb-4">
+          <span className="label">Active provider</span>
+          <p className="text-sm font-semibold">{smtp.provider === 'postmark' ? 'Postmark (API)' : 'SMTP'}</p>
         </div>
-        <div className="flex items-center gap-3 mb-3">
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={smtp.secure} onChange={e => setSmtp(s => ({ ...s, secure: e.target.checked }))} />
-            Use TLS/SSL (check for port 465, uncheck for 587 STARTTLS)
-          </label>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Username">
-            <input className={inputClass} value={smtp.user} onChange={e => setSmtp(s => ({ ...s, user: e.target.value }))} placeholder="e.g. admin@lux.com.au" />
-          </Field>
-          <Field label="Password" hint={smtp.has_pass ? 'Stored — leave blank to keep the existing password.' : undefined}>
-            <div className="flex gap-2">
-              <input type={showSecret ? 'text' : 'password'} className={inputClass + ' font-mono'} value={smtp.pass}
-                onChange={e => setSmtp(s => ({ ...s, pass: e.target.value }))} placeholder={smtp.has_pass ? '••••••••' : 'App password or mailbox password'} />
-              <button type="button" onClick={() => setShowSecret(!showSecret)} className="btn btn-ghost shrink-0">{showSecret ? 'Hide' : 'Show'}</button>
+
+        <div className="border rounded p-3 mb-4 bg-gray-50 dark:bg-gray-800">
+          <p className="label">Postmark</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="API token" hint={smtp.has_postmark_token ? 'Stored — leave blank to keep the existing token.' : undefined}>
+              <input type={showSecret ? 'text' : 'password'} className={inputClass + ' font-mono'} value={smtp.postmark_token}
+                onChange={e => setSmtp(s => ({ ...s, postmark_token: e.target.value }))} placeholder={smtp.has_postmark_token ? '••••••••' : 'Server API token (starts with a UUID)'} />
+            </Field>
+            <div className="flex items-end pb-3">
+              <button type="button" onClick={() => setShowSecret(!showSecret)} className="btn btn-ghost">{showSecret ? 'Hide' : 'Show'}</button>
             </div>
-          </Field>
-          <Field label="From name">
-            <input className={inputClass} value={smtp.from_name} onChange={e => setSmtp(s => ({ ...s, from_name: e.target.value }))} placeholder="e.g. LUX Traffic Management" />
-          </Field>
-          <Field label="From email">
-            <input className={inputClass} value={smtp.from_email} onChange={e => setSmtp(s => ({ ...s, from_email: e.target.value }))} placeholder="e.g. admin@lux.com.au" />
-          </Field>
+            <Field label="From name">
+              <input className={inputClass} value={smtp.postmark_from_name} onChange={e => setSmtp(s => ({ ...s, postmark_from_name: e.target.value }))} placeholder="e.g. LUX Traffic Management" />
+            </Field>
+            <Field label="From email" hint="Must be a sender signature verified in Postmark.">
+              <input className={inputClass} value={smtp.postmark_from_email} onChange={e => setSmtp(s => ({ ...s, postmark_from_email: e.target.value }))} placeholder="e.g. admin@lux.com.au" />
+            </Field>
+          </div>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <button onClick={saveSmtp} disabled={emailBusy} className="btn btn-primary">Save SMTP</button>
+
+        <div className="border rounded p-3 bg-gray-50 dark:bg-gray-800">
+          <p className="label">SMTP (fallback)</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="SMTP host">
+              <input className={inputClass} value={smtp.host} onChange={e => setSmtp(s => ({ ...s, host: e.target.value }))} placeholder="e.g. smtp.gmail.com" />
+            </Field>
+            <Field label="Port">
+              <input type="number" className={inputClass} value={smtp.port} onChange={e => setSmtp(s => ({ ...s, port: e.target.value }))} placeholder="587" />
+            </Field>
+          </div>
+          <div className="flex items-center gap-3 mb-3">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={smtp.secure} onChange={e => setSmtp(s => ({ ...s, secure: e.target.checked }))} />
+              Use TLS/SSL (check for port 465, uncheck for 587 STARTTLS)
+            </label>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Username">
+              <input className={inputClass} value={smtp.user} onChange={e => setSmtp(s => ({ ...s, user: e.target.value }))} placeholder="e.g. admin@lux.com.au" />
+            </Field>
+            <Field label="Password" hint={smtp.has_pass ? 'Stored — leave blank to keep the existing password.' : undefined}>
+              <input type="password" className={inputClass + ' font-mono'} value={smtp.pass}
+                onChange={e => setSmtp(s => ({ ...s, pass: e.target.value }))} placeholder={smtp.has_pass ? '••••••••' : 'App password or mailbox password'} />
+            </Field>
+            <Field label="From name">
+              <input className={inputClass} value={smtp.from_name} onChange={e => setSmtp(s => ({ ...s, from_name: e.target.value }))} placeholder="e.g. LUX Traffic Management" />
+            </Field>
+            <Field label="From email">
+              <input className={inputClass} value={smtp.from_email} onChange={e => setSmtp(s => ({ ...s, from_email: e.target.value }))} placeholder="e.g. admin@lux.com.au" />
+            </Field>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-3">
+          <button onClick={saveSmtp} disabled={emailBusy} className="btn btn-primary">Save email settings</button>
           <button onClick={sendTestEmail} disabled={emailBusy} className="btn btn-ghost">
             {emailBusy ? 'Working…' : 'Send test email'}
           </button>

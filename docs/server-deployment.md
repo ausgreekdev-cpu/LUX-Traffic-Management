@@ -166,6 +166,9 @@ serverless deployments.
 
 ## Option 4 — Netlify (serverless) ⚠️ demo-only
 
+> **Live URL:** `https://lux-official.netlify.app` (custom domain `luxtraffic.com.au` is **not
+> registered** — do not point the app at it until it exists and resolves).
+
 A `netlify.toml` + `netlify/functions/*` adapter deploys the Express API as serverless
 functions. **This is not a persistent deployment** — the SQLite database lives in the
 functions' ephemeral `/tmp` filesystem and is recreated on every cold start. Treat it as a

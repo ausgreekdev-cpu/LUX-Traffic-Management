@@ -2,6 +2,17 @@ import db from './db.js';
 import bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 
+// Idempotently ensure the demo login accounts exist (keyed by unique email),
+// so local DBs that pre-date the LUX rebrand still accept the demo logins
+// shown on the login page. Safe to run on any DB; will not touch other users.
+export function ensureDemoUsers() {
+  const demoPass = 'Demo123!';
+  db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(uuid(),'developer@lux.com.au',bcrypt.hashSync(demoPass,12),'Dev User','developer');
+  db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(uuid(),'manager@lux.com.au',bcrypt.hashSync(demoPass,12),'Manager User','manager');
+  db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(uuid(),'staff@lux.com.au',bcrypt.hashSync(demoPass,12),'Staff User','staff');
+  db.prepare('INSERT OR IGNORE INTO users (id,email,password,name,role) VALUES (?,?,?,?,?)').run(uuid(),'client@lux.com.au',bcrypt.hashSync(demoPass,12),'Client User','client');
+}
+
 export function seedDatabase() {
 const demoPass = 'Demo123!';
 const adminId = uuid();

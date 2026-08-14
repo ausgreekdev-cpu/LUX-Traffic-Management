@@ -24,14 +24,14 @@ import agentRoutes from './routes/agents.js';
 import integrationRoutes from './routes/integrations.js';
 import { ensureAutomationPresets } from './automation-presets.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
-import { seedDatabase, seedAdminFromEnv } from './seed.js';
+import { seedDatabase, seedAdminFromEnv, ensureDemoUsers } from './seed.js';
 import { globalRateLimit } from './middleware/rate-limit.js';
 import { snapshotDbNow, snapshotStatus } from './persistence.js';
 import './automation-engine.js';
 
 const app = express();
 
-app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-tmp.netlify.app'] }));
+app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-official.netlify.app', 'https://lux-tmp.netlify.app'] }));
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 
 app.use('/api', globalRateLimit(300, 1));
@@ -99,6 +99,11 @@ if (userCount === 0) {
   } else {
     seedDatabase();
   }
+} else if (!isServerless) {
+  // Local DBs that pre-date the LUX rebrand may lack the demo login accounts
+  // even though the users table isn't empty. Ensure they always exist so the
+  // demo credentials on the login page work.
+  ensureDemoUsers();
 }
 
 export default app;
