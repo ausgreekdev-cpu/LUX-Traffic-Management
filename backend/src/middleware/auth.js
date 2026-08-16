@@ -13,25 +13,25 @@ export function roleRank(role) {
 export function authenticate(req, res, next) {
   const header = req.headers.authorization || (req.query.token ? `Bearer ${req.query.token}` : null);
   if (!header || !header.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'No token provided' });
+    return res.status(401).json({ error: 'No token provided', requestId: req.requestId });
   }
   try {
     const token = header.slice(7);
     const payload = jwt.verify(token, JWT_SECRET);
     const user = db.prepare('SELECT id, email, name, role, client_id FROM users WHERE id = ?').get(payload.userId);
-    if (!user) return res.status(401).json({ error: 'User not found' });
+    if (!user) return res.status(401).json({ error: 'User not found', requestId: req.requestId });
     req.user = { ...user, clientId: user.client_id };
     next();
   } catch {
-    return res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ error: 'Invalid token', requestId: req.requestId });
   }
 }
 
 export function authorize(...roles) {
   return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+    if (!req.user) return res.status(401).json({ error: 'Not authenticated', requestId: req.requestId });
     if (roles.length && !roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+      return res.status(403).json({ error: 'Insufficient permissions', requestId: req.requestId });
     }
     next();
   };
@@ -41,9 +41,9 @@ export function authorize(...roles) {
 export function roleAtLeast(minRole) {
   const min = roleRank(minRole);
   return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+    if (!req.user) return res.status(401).json({ error: 'Not authenticated', requestId: req.requestId });
     if (roleRank(req.user.role) < min) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+      return res.status(403).json({ error: 'Insufficient permissions', requestId: req.requestId });
     }
     next();
   };

@@ -1,18 +1,20 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import { encryptSecret, SECRET_SETTING_KEYS, shouldPersistSecret } from '../secrets-crypto.js';
 
 const router = Router();
 router.use(authenticate);
 
-const MASKED_KEYS = new Set(['smtp_pass', 'jwt_secret', 'webhook_secret']);
+const MASKED_KEYS = new Set(['smtp_pass', 'jwt_secret', 'webhook_secret', 'postmark_api_token']);
+const MASK_PLACEHOLDER = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
 router.get('/', (req, res) => {
   const rows = db.prepare('SELECT key, value FROM settings').all();
   const settings = {};
   for (const row of rows) {
     if (MASKED_KEYS.has(row.key)) {
-      settings[row.key] = row.value ? '••••••••' : '';
+      settings[row.key] = row.value ? MASK_PLACEHOLDER : '';
     } else {
       settings[row.key] = row.value;
     }
@@ -29,7 +31,13 @@ router.put('/', authorize('developer'), (req, res) => {
   `);
   const tx = db.transaction((list) => {
     for (const [key, value] of list) {
-      upsert.run(key, value === null || value === undefined ? '' : String(value));
+      if (SECRET_SETTING_KEYS.includes(key)) {
+        // Never overwrite a secret with the masked placeholder or an empty string.
+        if (!shouldPersistSecret(value)) continue;
+        upsert.run(key, encryptSecret(value));
+      } else {
+        upsert.run(key, value === null || value === undefined ? '' : String(value));
+      }
     }
   });
   tx(entries);

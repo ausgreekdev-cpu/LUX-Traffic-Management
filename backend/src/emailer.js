@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { v4 as uuid } from 'uuid';
 import db from './db.js';
+import { decryptSecret } from './secrets-crypto.js';
 
 let transporter = null;
 
@@ -16,7 +17,7 @@ export function getProvider() {
 }
 
 export function getPostmarkConfig() {
-  const token = getSetting('postmark_api_token') || env('POSTMARK_API_TOKEN') ||
+  const token = decryptSecret(getSetting('postmark_api_token')) || env('POSTMARK_API_TOKEN') ||
     (env('NETLIFY_EMAILS_PROVIDER') === 'postmark' ? env('NETLIFY_EMAILS_PROVIDER_API_KEY') : null);
   const fromName = getSetting('postmark_from_name') || env('POSTMARK_FROM_NAME') || '';
   const fromEmail = getSetting('postmark_from_email') || env('POSTMARK_FROM_EMAIL') || '';
@@ -29,7 +30,7 @@ export function getSmtpConfig() {
   const port = parseInt(getSetting('smtp_port') || env('SMTP_PORT') || '587', 10);
   const secure = (getSetting('smtp_secure') || env('SMTP_SECURE') || 'false') === 'true';
   const user = getSetting('smtp_user') || env('SMTP_USER') || '';
-  const pass = getSetting('smtp_pass') || env('SMTP_PASS') || '';
+  const pass = decryptSecret(getSetting('smtp_pass')) || env('SMTP_PASS') || '';
   const fromName = getSetting('smtp_from_name') || env('SMTP_FROM_NAME') || '';
   const fromEmail = getSetting('smtp_from_email') || env('SMTP_FROM_EMAIL') || user;
   return { host, port, secure, user, pass, fromName, fromEmail };

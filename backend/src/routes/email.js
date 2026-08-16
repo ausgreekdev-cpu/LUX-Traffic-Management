@@ -5,6 +5,8 @@ import { authenticate, authorize, roleAtLeast } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { emitEvent } from '../events.js';
 import { resetTransporter, sendEmail, renderTemplate, getSmtpConfig, getPostmarkConfig, getProvider } from '../emailer.js';
+import { encryptSecret } from '../secrets-crypto.js';
+import { paginateResponse } from '../middleware/pagination.js';
 
 const router = Router();
 router.use(authenticate);
@@ -41,10 +43,10 @@ router.post('/config', authorize('developer'), (req, res) => {
   if (port !== undefined) values.smtp_port = String(parseInt(port, 10) || 587);
   if (secure !== undefined) values.smtp_secure = secure ? 'true' : 'false';
   if (user !== undefined) values.smtp_user = String(user).trim();
-  if (pass !== undefined && String(pass).length > 0) values.smtp_pass = String(pass);
+  if (pass !== undefined && String(pass).length > 0) values.smtp_pass = encryptSecret(String(pass));
   if (from_name !== undefined) values.smtp_from_name = String(from_name).trim();
   if (from_email !== undefined) values.smtp_from_email = String(from_email).trim();
-  if (postmark_token !== undefined && String(postmark_token).length > 0) values.postmark_api_token = String(postmark_token).trim();
+  if (postmark_token !== undefined && String(postmark_token).length > 0) values.postmark_api_token = encryptSecret(String(postmark_token).trim());
   if (postmark_from_name !== undefined) values.postmark_from_name = String(postmark_from_name).trim();
   if (postmark_from_email !== undefined) values.postmark_from_email = String(postmark_from_email).trim();
   const tx = db.transaction((entries) => {
@@ -80,8 +82,8 @@ router.get('/logs', roleAtLeast('manager'), (req, res) => {
   let q = 'SELECT * FROM email_logs';
   const params = [];
   if (req.query.tmp_id) { q += ' WHERE tmp_id = ?'; params.push(req.query.tmp_id); }
-  q += ' ORDER BY created_at DESC LIMIT 50';
-  res.json(db.prepare(q).all(...params));
+  q += ' ORDER BY created_at DESC';
+  res.json(paginateResponse(req, db.prepare(q).all(...params)));
 });
 
 router.get('/templates', roleAtLeast('staff'), (req, res) => {

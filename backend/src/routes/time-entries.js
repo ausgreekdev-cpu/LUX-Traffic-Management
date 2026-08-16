@@ -4,6 +4,7 @@ import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { roleAtLeast } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { paginateResponse } from '../middleware/pagination.js';
 
 const router = Router();
 router.use(authenticate);
@@ -21,7 +22,7 @@ router.get('/', (req, res) => {
   if (req.query.cost_code) { conditions.push('te.cost_code = ?'); params.push(req.query.cost_code); }
   if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
   q += ' ORDER BY te.date DESC, te.created_at DESC';
-  res.json(db.prepare(q).all(...params));
+  res.json(paginateResponse(req, db.prepare(q).all(...params)));
 });
 
 router.get('/cost-codes', (req, res) => {

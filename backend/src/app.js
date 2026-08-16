@@ -1,7 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import db, { isServerless } from './db.js';
+import helmet from 'helmet';
+import fs from 'fs';
+import db, { isServerless, schemaVersion, dbPath } from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import clientRoutes from './routes/clients.js';
@@ -26,13 +28,18 @@ import { ensureAutomationPresets } from './automation-presets.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
 import { seedDatabase, seedAdminFromEnv, ensureDemoUsers } from './seed.js';
 import { globalRateLimit } from './middleware/rate-limit.js';
+import { requestLogger } from './middleware/request-log.js';
+import { notFound, errorHandler } from './middleware/error-handler.js';
+import { ensureEncryptionKey, encryptLegacySecrets } from './secrets-crypto.js';
 import { snapshotDbNow, snapshotStatus } from './persistence.js';
 import './automation-engine.js';
 
 const app = express();
 
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-official.netlify.app', 'https://lux-tmp.netlify.app'] }));
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
+app.use(requestLogger);
 
 app.use('/api', globalRateLimit(300, 1));
 
@@ -79,18 +86,42 @@ app.use('/api/agents', agentRoutes);
 app.use('/api/integrations', integrationRoutes);
 
 app.get('/api/health', async (req, res) => {
-  const health = { status: 'ok', serverless: isServerless };
+  let integrity;
+  try {
+    integrity = db.pragma('integrity_check', { simple: true });
+  } catch (err) {
+    integrity = 'error: ' + err.message;
+  }
+  let lastBackup = null;
+  try {
+    lastBackup = db.prepare("SELECT value FROM settings WHERE key = 'auto_backup_last'").get()?.value || null;
+  } catch {}
+  const health = {
+    status: integrity === 'ok' ? 'ok' : 'degraded',
+    serverless: isServerless,
+    schema_version: schemaVersion(),
+    uptime_seconds: Math.round(process.uptime()),
+    db: {
+      integrity,
+      size_bytes: (() => { try { return fs.statSync(dbPath).size; } catch { return 0; } })(),
+      path: dbPath
+    },
+    backups: { last: lastBackup }
+  };
   if (isServerless) {
     health.snapshot = await snapshotStatus();
   }
   res.json(health);
 });
 
-app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+app.use('/api', notFound);
+app.use(errorHandler);
 
 ensureWorkflowSeeds();
 seedDirectoryIfEmpty();
 ensureAutomationPresets();
+ensureEncryptionKey();
+encryptLegacySecrets(db);
 
 const { c: userCount } = db.prepare('SELECT COUNT(*) as c FROM users').get();
 if (userCount === 0) {

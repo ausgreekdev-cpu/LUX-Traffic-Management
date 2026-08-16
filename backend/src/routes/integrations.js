@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import db from '../db.js';
 import { ingestCorrespondence, reviewCorrespondence } from '../correspondence.js';
 import { authenticate, roleAtLeast } from '../middleware/auth.js';
+import { decryptSecret } from '../secrets-crypto.js';
 
 const router = Router();
 
@@ -36,7 +37,7 @@ function extractEmail(b, provider) {
 
 router.post('/webhook/:provider', (req, res) => {
   const provider = String(req.params.provider || 'generic').toLowerCase();
-  const secret = getSetting('webhook_secret');
+  const secret = decryptSecret(getSetting('webhook_secret'));
   if (secret && !verifySignature(req, secret)) {
     return res.status(401).json({ error: 'Invalid webhook signature' });
   }

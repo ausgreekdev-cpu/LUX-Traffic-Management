@@ -4,6 +4,7 @@ import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { roleAtLeast } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { paginateResponse } from '../middleware/pagination.js';
 
 const router = Router();
 router.use(authenticate);
@@ -11,7 +12,7 @@ router.use(roleAtLeast('staff'));
 
 router.get('/', (req, res) => {
   const sites = db.prepare('SELECT * FROM sites ORDER BY created_at DESC').all();
-  res.json(sites);
+  res.json(paginateResponse(req, sites));
 });
 
 router.get('/:id', (req, res) => {

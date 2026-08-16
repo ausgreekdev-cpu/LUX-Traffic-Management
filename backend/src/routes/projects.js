@@ -5,6 +5,7 @@ import { authenticate } from '../middleware/auth.js';
 import { roleAtLeast } from '../middleware/auth.js';
 import { isClientUser, projectOwnedByClient } from '../middleware/scope.js';
 import { validate } from '../middleware/validate.js';
+import { paginateResponse } from '../middleware/pagination.js';
 
 const router = Router();
 router.use(authenticate);
@@ -21,7 +22,7 @@ router.get('/', (req, res) => {
   }
   q += ' ORDER BY p.created_at DESC';
   const projects = db.prepare(q).all(...params);
-  res.json(projects);
+  res.json(paginateResponse(req, projects));
 });
 
 router.get('/:id', (req, res) => {

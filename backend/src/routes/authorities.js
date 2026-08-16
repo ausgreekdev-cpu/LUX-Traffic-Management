@@ -5,6 +5,7 @@ import { createRequire } from 'module';
 import db from '../db.js';
 import { authenticate, authorize, roleAtLeast } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { paginateResponse } from '../middleware/pagination.js';
 import { deserializeAuthority, upsertDirectoryEntries } from '../seed-directory.js';
 import { buildDirectory } from '../lga-directory.js';
 
@@ -62,7 +63,7 @@ function listAuthorities() {
 }
 
 router.get('/', (req, res) => {
-  res.json(listAuthorities());
+  res.json(paginateResponse(req, listAuthorities()));
 });
 
 router.get('/cost-codes', (req, res) => {

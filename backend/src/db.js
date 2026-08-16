@@ -341,6 +341,12 @@ db.pragma('foreign_keys = ON');db.exec(`
   CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
   CREATE INDEX IF NOT EXISTS idx_workflow_stages_type ON workflow_stages(entity_type);
   CREATE INDEX IF NOT EXISTS idx_workflow_checklist_entity ON workflow_checklist(entity_type, entity_id);
+
+  CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // Migrations for existing databases: add directory fields to authorities if missing.
@@ -484,6 +490,49 @@ db.exec(`
       db.pragma('foreign_keys = ON');
     }
   }
+  runMigrations();
+}
+
+// Versioned migrations. The inline blocks above form the idempotent baseline
+// (they already ran against any existing DB). Newer schema changes are applied
+// incrementally here and recorded in schema_migrations so each runs exactly once.
+const MIGRATIONS = [
+  {
+    version: 2,
+    name: 'auth_attempts',
+    up() {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS auth_attempts (
+          key TEXT PRIMARY KEY,
+          fails INTEGER DEFAULT 0,
+          locked_until INTEGER DEFAULT 0,
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+    }
+  }
+];
+
+function currentSchemaVersion() {
+  const row = db.prepare('SELECT MAX(version) as v FROM schema_migrations').get();
+  return row && row.v ? row.v : 0;
+}
+
+export function runMigrations() {
+  const current = currentSchemaVersion();
+  for (const m of MIGRATIONS) {
+    if (m.version <= current) continue;
+    const tx = db.transaction(() => {
+      m.up();
+      db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, datetime(\'now\'))').run(m.version, m.name);
+    });
+    tx();
+    console.log(`[migrations] applied v${m.version}: ${m.name}`);
+  }
+}
+
+export function schemaVersion() {
+  return currentSchemaVersion();
 }
 
 export function reopenDatabase() {

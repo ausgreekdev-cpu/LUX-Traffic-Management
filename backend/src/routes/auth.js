@@ -5,14 +5,15 @@ import db from '../db.js';
 import { validate } from '../middleware/validate.js';
 import { rateLimit, rateLimitFailed, rateLimitSucceeded } from '../middleware/rate-limit.js';
 import { getJwtSecret } from '../secrets.js';
+import { asyncHandler } from '../middleware/async-handler.js';
 
 const router = Router();
 const JWT_SECRET = getJwtSecret();
 
-router.post('/login', rateLimit('login', 10, 15), validate('login'), (req, res) => {
+router.post('/login', rateLimit('login', 10, 15), validate('login'), asyncHandler(async (req, res) => {
   const { email, password } = req.validated;
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-  if (!user || !bcrypt.compareSync(password, user.password)) {
+  if (!user || !(await bcrypt.compare(password, user.password))) {
     rateLimitFailed(req.rateLimitKey);
     return res.status(401).json({ error: 'Invalid email or password' });
   }
@@ -23,7 +24,7 @@ router.post('/login', rateLimit('login', 10, 15), validate('login'), (req, res) 
     token,
     user: { id: user.id, email: user.email, name: user.name, role: user.role, client_id: user.client_id, clientId: user.client_id }
   });
-});
+}));
 
 router.get('/me', (req, res) => {
   const header = req.headers.authorization;

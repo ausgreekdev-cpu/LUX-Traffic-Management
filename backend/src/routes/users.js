@@ -4,6 +4,8 @@ import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { asyncHandler } from '../middleware/async-handler.js';
+import { paginateResponse } from '../middleware/pagination.js';
 
 const router = Router();
 router.use(authenticate);
@@ -11,13 +13,13 @@ router.use(authorize('developer'));
 
 router.get('/', (req, res) => {
   const users = db.prepare('SELECT id, email, name, role, client_id, created_at FROM users ORDER BY created_at DESC').all();
-  res.json(users);
+  res.json(paginateResponse(req, users));
 });
 
-router.post('/', validate('user'), (req, res) => {
+router.post('/', validate('user'), asyncHandler(async (req, res) => {
   const id = uuid();
   const { email, password, name, role, client_id } = req.validated;
-  const hash = bcrypt.hashSync(password, 12);
+  const hash = await bcrypt.hash(password, 12);
   const finalRole = role || 'staff';
   if (finalRole === 'client' && !client_id) {
     return res.status(400).json({ error: 'A client account must be linked to a company (client_id)' });
@@ -33,7 +35,7 @@ router.post('/', validate('user'), (req, res) => {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'Email already exists' });
     throw e;
   }
-});
+}));
 
 router.put('/:id', (req, res) => {
   const { id } = req.params;
