@@ -135,6 +135,39 @@ test('email logs list returns default array shape', async () => {
   assert.ok(Array.isArray(body), 'logs default shape is an array');
 });
 
+test('email config: explicit provider choice overrides postmark token', async () => {
+  const developer = await loginAs('developer');
+
+  const switchToSmtp = await fetch(`${base}/email/config`, {
+    method: 'POST',
+    headers: { ...authed(developer), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'smtp', host: 'smtp.office365.com', port: 587, user: 'me@test.dev' })
+  });
+  assert.equal(switchToSmtp.status, 200);
+
+  const cfg = await (await fetch(`${base}/email/config`, { headers: authed(developer) })).json();
+  assert.equal(cfg.provider, 'smtp', 'explicit smtp wins over stored postmark token');
+
+  const switchToPostmark = await fetch(`${base}/email/config`, {
+    method: 'POST',
+    headers: { ...authed(developer), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'postmark' })
+  });
+  assert.equal(switchToPostmark.status, 200);
+
+  const cfg2 = await (await fetch(`${base}/email/config`, { headers: authed(developer) })).json();
+  assert.equal(cfg2.provider, 'postmark', 'explicit postmark restored');
+
+  const backToAuto = await fetch(`${base}/email/config`, {
+    method: 'POST',
+    headers: { ...authed(developer), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: '', host: 'smtp.office365.com' })
+  });
+  assert.equal(backToAuto.status, 200);
+  const cfg3 = await (await fetch(`${base}/email/config`, { headers: authed(developer) })).json();
+  assert.equal(cfg3.provider, 'postmark', 'auto still prefers postmark when a token is stored');
+});
+
 test('email config write is developer-only (staff gets 403)', async () => {
   const staff = await loginAs('staff');
   const res = await fetch(`${base}/email/config`, {

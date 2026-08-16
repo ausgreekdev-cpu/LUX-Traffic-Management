@@ -10,9 +10,14 @@ const getSetting = (key) => {
   return row ? row.value : '';
 };
 
+export { getSetting };
+
 const env = (name) => process.env[name] !== undefined ? process.env[name] : null;
 
 export function getProvider() {
+  const explicit = getSetting('mail_provider');
+  if (explicit === 'smtp') return 'smtp';
+  if (explicit === 'postmark') return 'postmark';
   return getPostmarkConfig().token ? 'postmark' : 'smtp';
 }
 

@@ -109,7 +109,7 @@ export default function Settings() {
     session_timeout_minutes: '1440', default_sla_days: '14', risk_high_threshold: '10',
     risk_extreme_threshold: '16', notif_retention_days: '180', email_retention_days: '365', maintenance_mode: false
   });
-  const [smtp, setSmtp] = useState({ provider: 'smtp', host: '', port: '587', secure: false, user: '', pass: '', has_pass: false, from_name: '', from_email: '', postmark_token: '', has_postmark_token: false, postmark_from_name: '', postmark_from_email: '' });
+  const [smtp, setSmtp] = useState({ provider: 'smtp', mail_provider: '', host: '', port: '587', secure: false, user: '', pass: '', has_pass: false, from_name: '', from_email: '', postmark_token: '', has_postmark_token: false, postmark_from_name: '', postmark_from_email: '' });
   const [emailLogs, setEmailLogs] = useState([]);
   const [emailBusy, setEmailBusy] = useState(false);
   const [testTo, setTestTo] = useState('');
@@ -206,10 +206,12 @@ export default function Settings() {
     setEmailBusy(true);
     try {
       await api.email.config({
+        provider: smtp.mail_provider || '',
         host: smtp.host, port: smtp.port, secure: smtp.secure,
         user: smtp.user, pass: smtp.pass, from_name: smtp.from_name, from_email: smtp.from_email,
         postmark_token: smtp.postmark_token, postmark_from_name: smtp.postmark_from_name, postmark_from_email: smtp.postmark_from_email
       });
+      api.email.getConfig().then(setSmtp).catch(() => {});
       notify('Email settings saved');
     } catch (err) { alert(err.message); }
     finally { setEmailBusy(false); }
@@ -387,6 +389,21 @@ export default function Settings() {
         <div className="mb-4">
           <span className="label">Active provider</span>
           <p className="text-sm font-semibold">{smtp.provider === 'postmark' ? 'Postmark (API)' : 'SMTP'}</p>
+          <div className="flex items-center gap-4 mt-2 text-sm">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="mail_provider" checked={smtp.mail_provider === 'smtp'} onChange={() => setSmtp(s => ({ ...s, mail_provider: 'smtp' }))} />
+              Use SMTP
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="mail_provider" checked={smtp.mail_provider === 'postmark'} onChange={() => setSmtp(s => ({ ...s, mail_provider: 'postmark' }))} />
+              Use Postmark
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="mail_provider" checked={smtp.mail_provider !== 'smtp' && smtp.mail_provider !== 'postmark'} onChange={() => setSmtp(s => ({ ...s, mail_provider: '' }))} />
+              Auto (Postmark when a token is saved)
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Pick a provider explicitly, or leave Auto. Without a stored Postmark token, Auto falls back to SMTP.</p>
         </div>
 
         <div className="border rounded p-3 mb-4 bg-gray-50 dark:bg-gray-800">

@@ -4,7 +4,7 @@ import db from '../db.js';
 import { authenticate, authorize, roleAtLeast } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { emitEvent } from '../events.js';
-import { resetTransporter, sendEmail, renderTemplate, getSmtpConfig, getPostmarkConfig, getProvider } from '../emailer.js';
+import { resetTransporter, sendEmail, renderTemplate, getSmtpConfig, getPostmarkConfig, getProvider, getSetting } from '../emailer.js';
 import { encryptSecret } from '../secrets-crypto.js';
 import { paginateResponse } from '../middleware/pagination.js';
 
@@ -16,6 +16,7 @@ router.get('/config', roleAtLeast('staff'), (req, res) => {
   const pm = getPostmarkConfig();
   res.json({
     provider: getProvider(),
+    mail_provider: getSetting('mail_provider'),
     host: cfg.host === 'smtp.example.com' ? '' : cfg.host,
     port: String(cfg.port),
     secure: cfg.secure,
@@ -33,7 +34,7 @@ router.get('/config', roleAtLeast('staff'), (req, res) => {
 });
 
 router.post('/config', authorize('developer'), (req, res) => {
-  const { host, port, secure, user, pass, from_name, from_email, postmark_token, postmark_from_name, postmark_from_email } = req.body || {};
+  const { host, port, secure, user, pass, from_name, from_email, postmark_token, postmark_from_name, postmark_from_email, provider } = req.body || {};
   const upsert = db.prepare(`
     INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
@@ -49,6 +50,7 @@ router.post('/config', authorize('developer'), (req, res) => {
   if (postmark_token !== undefined && String(postmark_token).length > 0) values.postmark_api_token = encryptSecret(String(postmark_token).trim());
   if (postmark_from_name !== undefined) values.postmark_from_name = String(postmark_from_name).trim();
   if (postmark_from_email !== undefined) values.postmark_from_email = String(postmark_from_email).trim();
+  if (provider !== undefined && (provider === 'smtp' || provider === 'postmark')) values.mail_provider = String(provider);
   const tx = db.transaction((entries) => {
     for (const [key, value] of Object.entries(entries)) upsert.run(key, value);
   });
