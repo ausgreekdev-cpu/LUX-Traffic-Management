@@ -97,8 +97,9 @@ export async function restoreDbFromBlob() {
 }
 
 let lastSnapshot = 0;
+let lastSnapshotMtime = 0;
 let snapshotInFlight = null;
-const SNAPSHOT_MIN_INTERVAL_MS = 20000;
+const SNAPSHOT_MIN_INTERVAL_MS = 2000;
 const SNAPSHOT_TIMEOUT_MS = 8000;
 
 // Netlify freezes the process shortly after the response is flushed, so
@@ -109,6 +110,13 @@ export function snapshotDbNow() {
   const now = Date.now();
   if (now - lastSnapshot < SNAPSHOT_MIN_INTERVAL_MS) return Promise.resolve();
   if (snapshotInFlight) return snapshotInFlight;
+  // Skip only when the database file is unchanged since the last successful
+  // snapshot (idempotent reads / same-instance repeats) — never based on
+  // elapsed time, so every real write is captured even in rapid succession.
+  try {
+    const stat = fs.statSync(dbPath);
+    if (stat.mtimeMs === lastSnapshotMtime) return Promise.resolve();
+  } catch {}
   snapshotInFlight = runSnapshot().finally(() => { snapshotInFlight = null; });
   return snapshotInFlight;
 }
@@ -137,11 +145,14 @@ async function runSnapshot() {
     const { default: db, dbPath: pathToDb } = await import('./db.js');
     db.pragma('wal_checkpoint(TRUNCATE)');
     const bytes = fs.readFileSync(pathToDb);
+    let mtime = 0;
+    try { mtime = fs.statSync(pathToDb).mtimeMs; } catch {}
 
     // Never promote corrupt bytes to the live snapshot.
     if (!validateSqlite(bytes, 'snapshot')) {
       lastSnapshotStatus = { ok: false, reason: 'integrity_check_failed', at: new Date().toISOString() };
       lastSnapshot = Date.now();
+      lastSnapshotMtime = mtime;
       console.warn('snapshotDb: local DB failed integrity_check — snapshot skipped, keeping last good blob');
       return;
     }
@@ -170,12 +181,14 @@ async function runSnapshot() {
     if (result && result.modified === false) {
       lastSnapshotStatus = { ok: false, reason: 'concurrent_write_skipped', at: new Date().toISOString() };
       lastSnapshot = Date.now();
+      lastSnapshotMtime = mtime;
       console.warn('snapshotDb: ETag mismatch — another instance wrote a newer snapshot; skipped');
       return;
     }
 
     lastSnapshotStatus = { ok: true, seq: seq + 1, bytes: bytes.length, at: new Date().toISOString() };
     lastSnapshot = Date.now();
+    lastSnapshotMtime = mtime;
     console.log(`snapshotDb: uploaded ${bytes.length} bytes (seq ${seq + 1}) to Netlify Blobs`);
   } catch (err) {
     lastSnapshotStatus = { ok: false, reason: err.message, at: new Date().toISOString() };

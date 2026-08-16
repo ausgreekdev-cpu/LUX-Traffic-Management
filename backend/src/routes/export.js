@@ -118,6 +118,7 @@ router.get('/backups', (req, res) => {
 
 router.post('/backups/run', async (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (isServerless) return res.status(400).json({ error: 'Manual backups are not available on serverless deployments — data is persisted to Netlify Blobs instead.' });
   try {
     const result = await backupNow({ reason: 'manual' });
     res.json({ ok: true, ...result, message: 'Backup created.' });
