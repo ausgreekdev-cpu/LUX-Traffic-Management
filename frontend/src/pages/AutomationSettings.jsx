@@ -132,6 +132,9 @@ export default function AutomationSettings() {
   const [agentRuns, setAgentRuns] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [tplForm, setTplForm] = useState(null);
+  const [bodyMode, setBodyMode] = useState('text');
+  const [preview, setPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const load = () => Promise.all([
     api.automations.rules().then(r => setRules(r.data)),
@@ -249,13 +252,27 @@ export default function AutomationSettings() {
     e.preventDefault();
     if (!tplForm.name.trim() || !tplForm.subject.trim() || !tplForm.body.trim()) return alert('Name, subject and body are required');
     try {
-      if (tplForm.id) await api.email.updateTemplate(tplForm.id, { name: tplForm.name, subject: tplForm.subject, body: tplForm.body, event_type: tplForm.event_type || undefined });
-      else await api.email.createTemplate({ name: tplForm.name, subject: tplForm.subject, body: tplForm.body, event_type: tplForm.event_type || undefined });
+      const payload = { name: tplForm.name, subject: tplForm.subject, body: tplForm.body, event_type: tplForm.event_type || undefined, html_body: tplForm.html_body || undefined };
+      if (tplForm.id) await api.email.updateTemplate(tplForm.id, payload);
+      else await api.email.createTemplate(payload);
       setSaved('Email template saved');
       setTimeout(() => setSaved(''), 2500);
       setTplForm(null);
+      setPreview(null);
       await load();
     } catch (err) { alert(err.message); }
+  };
+
+  const handleTemplatePreview = async () => {
+    if (!tplForm) return;
+    const draft = { name: tplForm.name, subject: tplForm.subject, body: tplForm.body, event_type: tplForm.event_type || '', html_body: tplForm.html_body || '' };
+    const ctx = { reference: 'TMP-2026-0142', tmp_reference: 'TMP-2026-0142', customer_name: 'Sample Client', expiry_date: '30 Sep 2026', permit_number: 'P-2026-0142' };
+    setPreviewLoading(true);
+    try {
+      const data = tplForm.id ? await api.email.previewTemplate(tplForm.id, { ctx, draft }) : await api.email.previewDraft({ ctx, draft });
+      setPreview(data);
+    } catch (err) { alert(err.message); }
+    setPreviewLoading(false);
   };
 
   if (loading && !rules.length) return <p className="text-gray-500">Loading…</p>;
@@ -546,7 +563,7 @@ export default function AutomationSettings() {
         <div className="space-y-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Reusable email templates rendered with <b>{'{field}'}</b> placeholders (e.g. {'{reference}'}, {'{tmp_reference}'}, {'{expiry_date}'}). Reference a template by name in the <b>Send email</b> rule action.</p>
           <div className="flex justify-end">
-            <button onClick={() => setTplForm({ name: '', subject: '', body: '', event_type: '', id: null })} className="btn btn-primary btn-sm">+ New template</button>
+            <button onClick={() => { setTplForm({ name: '', subject: '', body: '', html_body: '', event_type: '', id: null }); setBodyMode('text'); setPreview(null); }} className="btn btn-primary btn-sm">+ New template</button>
           </div>
           {tplForm && (
             <form onSubmit={handleTemplateSave} className="card p-4 space-y-3">
@@ -566,11 +583,39 @@ export default function AutomationSettings() {
               </div>
               <div>
                 <label className="label">Body *</label>
-                <textarea value={tplForm.body} onChange={e => setTplForm(f => ({ ...f, body: e.target.value }))} rows={5} placeholder="Dear customer,{newline}Your permit for {tmp_reference} has been approved..." className="input w-full font-mono text-xs" />
+                <div className="flex gap-1 mb-2">
+                  <button type="button" onClick={() => setBodyMode('text')} className={`chip ${bodyMode === 'text' ? 'chip-active' : 'chip-inactive'}`}>Plain text</button>
+                  <button type="button" onClick={() => setBodyMode('html')} className={`chip ${bodyMode === 'html' ? 'chip-active' : 'chip-inactive'}`}>HTML</button>
+                </div>
+                {bodyMode === 'text' ? (
+                  <textarea value={tplForm.body} onChange={e => setTplForm(f => ({ ...f, body: e.target.value }))} rows={5} placeholder="Dear customer,{newline}Your permit for {tmp_reference} has been approved..." className="input w-full font-mono text-xs" />
+                ) : (
+                  <div>
+                    <textarea value={tplForm.html_body || ''} onChange={e => setTplForm(f => ({ ...f, html_body: e.target.value }))} rows={10} placeholder={'<!DOCTYPE html>\n<html><body style="font-family:Arial"><p>Dear customer,</p>\n<p>Your permit for <b>{tmp_reference}</b> has been approved.</p></body></html>'} className="input w-full font-mono text-xs" spellCheck="false" />
+                    <p className="text-xs text-gray-500 mt-1">Full HTML email. <b>{'{field}'}</b> placeholders are supported. Leave empty to send the plain-text body instead (wrapped in the branded HTML shell when email branding is enabled).</p>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mt-2">
+                  <button type="button" onClick={handleTemplatePreview} className="btn btn-secondary btn-sm">Preview</button>
+                  {previewLoading && <span className="text-xs text-gray-500">Rendering…</span>}
+                </div>
               </div>
+              {preview && (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold flex items-center justify-between gap-2">
+                    <span className="truncate">Preview — {preview.subject || '(no subject)'}</span>
+                    <button type="button" onClick={() => setPreview(null)} className="text-gray-400 hover:text-gray-600 shrink-0">✕</button>
+                  </div>
+                  {preview.html_body ? (
+                    <iframe title="Email preview" sandbox="" className="w-full bg-white" style={{ minHeight: '280px' }} srcDoc={preview.html_body} />
+                  ) : (
+                    <pre className="p-3 text-xs whitespace-pre-wrap bg-white text-gray-800 dark:bg-gray-900 dark:text-gray-200">{preview.body}</pre>
+                  )}
+                </div>
+              )}
               <div className="flex gap-2">
                 <button type="submit" className="btn btn-primary btn-sm">{tplForm.id ? 'Update' : 'Create'}</button>
-                <button type="button" onClick={() => setTplForm(null)} className="btn btn-ghost btn-sm">Cancel</button>
+                <button type="button" onClick={() => { setTplForm(null); setPreview(null); }} className="btn btn-ghost btn-sm">Cancel</button>
               </div>
             </form>
           )}
@@ -584,9 +629,10 @@ export default function AutomationSettings() {
                     <p className="font-medium text-sm">{t.name}</p>
                     <p className="text-xs text-gray-500 truncate">{t.subject}</p>
                     {t.event_type && <p className="text-xs text-gray-400 mt-0.5">{t.event_type}</p>}
+                    {t.html_body && <span className="inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded bg-lux-100 text-lux-800 dark:bg-lux-900/40 dark:text-lux-300 font-semibold">HTML</span>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => setTplForm({ name: t.name, subject: t.subject, body: t.body, event_type: t.event_type || '', id: t.id })} className="text-amber-600 hover:underline text-xs">Edit</button>
+                    <button onClick={() => { setTplForm({ name: t.name, subject: t.subject, body: t.body, html_body: t.html_body || '', event_type: t.event_type || '', id: t.id }); setBodyMode(t.html_body ? 'html' : 'text'); setPreview(null); }} className="text-amber-600 hover:underline text-xs">Edit</button>
                     <button onClick={async () => { if (confirm(`Delete template "${t.name}"?`)) { try { await api.email.deleteTemplate(t.id); await load(); } catch (err) { alert(err.message); } } }} className="text-red-500 hover:underline text-xs">Delete</button>
                   </div>
                 </div>

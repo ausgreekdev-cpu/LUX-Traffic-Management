@@ -494,6 +494,7 @@ export default function Settings() {
           </div>
         )}
         <p className="text-xs text-gray-400 mt-3">Need help? See <b>docs/email-setup.md</b> for a full provider-by-provider guide.</p>
+        <p className="text-xs text-gray-400 mt-1">Email <b>templates</b> (subject, plain-text body, and optional custom <code>html_body</code>) are authored under <b>Automation &amp; Triggers → Email templates</b> — the branded HTML shell for plain-text sends is configured under <b>Branding &amp; Themes → Email &amp; Domain</b>.</p>
       </Card>
 
       <Card title="Inbound webhooks" description="Point your email/webhook provider here to ingest correspondence and match it to TMPs. Payloads appear on the Correspondence page for review.">

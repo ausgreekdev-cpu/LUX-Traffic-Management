@@ -127,6 +127,63 @@ test('email template create + preview renders placeholders', async () => {
   assert.equal(del.status, 200);
 });
 
+test('email template html_body: create, update, preview (id + draft), role gate', async () => {
+  const developer = await loginAs('developer');
+  const staff = await loginAs('staff');
+
+  const created = await fetch(`${base}/email/templates`, {
+    method: 'POST',
+    headers: { ...authed(developer), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Tpl With Html',
+      subject: 'Permit {reference}',
+      body: 'Plain fallback for {reference}',
+      html_body: '<html><body><b>Permit {reference}</b> approved for {customer_name}.</body></html>'
+    })
+  });
+  assert.equal(created.status, 201);
+  const tpl = await created.json();
+  assert.ok(tpl.html_body.includes('{reference}'), 'html_body persisted on create');
+
+  const preview = await (await fetch(`${base}/email/templates/${tpl.id}/preview`, {
+    method: 'POST',
+    headers: { ...authed(developer), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ctx: { reference: 'TMP-1', customer_name: 'ACME' } })
+  })).json();
+  assert.equal(preview.subject, 'Permit TMP-1');
+  assert.equal(preview.html_body, '<html><body><b>Permit TMP-1</b> approved for ACME.</body></html>');
+
+  const updated = await fetch(`${base}/email/templates/${tpl.id}`, {
+    method: 'PUT',
+    headers: { ...authed(developer), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Tpl With Html', subject: 'Permit {reference}', body: 'Plain fallback for {reference}', html_body: '' })
+  });
+  assert.equal(updated.status, 200);
+  const cleared = await updated.json();
+  assert.equal(cleared.html_body, null, 'empty html_body stored as NULL');
+
+  const draft = await (await fetch(`${base}/email/templates/preview`, {
+    method: 'POST',
+    headers: { ...authed(developer), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      draft: { subject: 'Hi {name}', body: 'text {name}', html_body: '<p>Hello {name}</p>' },
+      ctx: { name: 'World' }
+    })
+  })).json();
+  assert.equal(draft.subject, 'Hi World');
+  assert.equal(draft.html_body, '<p>Hello World</p>');
+
+  const gated = await fetch(`${base}/email/templates`, {
+    method: 'POST',
+    headers: { ...authed(staff), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'staff tpl', subject: 's', body: 'b' })
+  });
+  assert.equal(gated.status, 403, 'template create is developer-only');
+
+  const del = await fetch(`${base}/email/templates/${tpl.id}`, { method: 'DELETE', headers: authed(developer) });
+  assert.equal(del.status, 200);
+});
+
 test('email logs list returns default array shape', async () => {
   const manager = await loginAs('manager');
   const res = await fetch(`${base}/email/logs`, { headers: authed(manager) });

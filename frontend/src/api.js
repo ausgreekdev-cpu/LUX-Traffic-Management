@@ -128,7 +128,9 @@ const api = {
     templates: () => request('/email/templates'),
     createTemplate: (data) => request('/email/templates', { method: 'POST', body: JSON.stringify(data) }),
     updateTemplate: (id, data) => request(`/email/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    deleteTemplate: (id) => request(`/email/templates/${id}`, { method: 'DELETE' })
+    deleteTemplate: (id) => request(`/email/templates/${id}`, { method: 'DELETE' }),
+    previewDraft: (data) => request('/email/templates/preview', { method: 'POST', body: JSON.stringify(data) }),
+    previewTemplate: (id, data) => request(`/email/templates/${id}/preview`, { method: 'POST', body: JSON.stringify(data) })
   },
   export: {
     tmpPDF: (id) => fetch(`${BASE}/export/tmp/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),

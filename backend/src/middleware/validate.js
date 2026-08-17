@@ -156,7 +156,8 @@ export const schemas = {
     name: z.string().min(1),
     subject: z.string().min(1),
     body: z.string().min(1),
-    event_type: z.string().optional()
+    event_type: z.string().optional(),
+    html_body: z.string().optional()
   })
 };
 

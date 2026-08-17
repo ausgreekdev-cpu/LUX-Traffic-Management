@@ -4,7 +4,7 @@ import db from '../db.js';
 import { authenticate, authorize, roleAtLeast } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { emitEvent } from '../events.js';
-import { resetTransporter, sendEmail, renderTemplate, getSmtpConfig, getPostmarkConfig, getProvider, getSetting } from '../emailer.js';
+import { resetTransporter, sendEmail, getSmtpConfig, getPostmarkConfig, getProvider, getSetting } from '../emailer.js';
 import { encryptSecret } from '../secrets-crypto.js';
 import { paginateResponse } from '../middleware/pagination.js';
 
@@ -93,21 +93,21 @@ router.get('/templates', roleAtLeast('staff'), (req, res) => {
 });
 
 router.post('/templates', authorize('developer'), validate('emailTemplate'), (req, res) => {
-  const { name, subject, body, event_type } = req.validated;
+  const { name, subject, body, event_type, html_body } = req.validated;
   const existing = db.prepare('SELECT id FROM email_templates WHERE name = ?').get(name);
   if (existing) return res.status(409).json({ error: 'A template with this name already exists' });
   const id = uuid();
-  db.prepare('INSERT INTO email_templates (id, name, subject, body, event_type) VALUES (?, ?, ?, ?, ?)')
-    .run(id, name, subject, body, event_type || null);
+  db.prepare('INSERT INTO email_templates (id, name, subject, body, event_type, html_body) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(id, name, subject, body, event_type || null, html_body || null);
   res.status(201).json(db.prepare('SELECT * FROM email_templates WHERE id = ?').get(id));
 });
 
 router.put('/templates/:id', authorize('developer'), validate('emailTemplate'), (req, res) => {
   const existing = db.prepare('SELECT * FROM email_templates WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Template not found' });
-  const { name, subject, body, event_type } = req.validated;
-  db.prepare("UPDATE email_templates SET name = ?, subject = ?, body = ?, event_type = ?, updated_at = datetime('now') WHERE id = ?")
-    .run(name, subject, body, event_type || null, req.params.id);
+  const { name, subject, body, event_type, html_body } = req.validated;
+  db.prepare("UPDATE email_templates SET name = ?, subject = ?, body = ?, event_type = ?, html_body = ?, updated_at = datetime('now') WHERE id = ?")
+    .run(name, subject, body, event_type || null, html_body || null, req.params.id);
   res.json(db.prepare('SELECT * FROM email_templates WHERE id = ?').get(req.params.id));
 });
 
@@ -117,11 +117,30 @@ router.delete('/templates/:id', authorize('developer'), (req, res) => {
   res.json({ success: true });
 });
 
+const fillPlaceholders = (str, ctx) => String(str || '').replace(/\{([\w.]+)\}/g, (m, key) => (ctx[key] !== undefined && ctx[key] !== null ? ctx[key] : m));
+
+// Render an unsaved draft (editor preview) — inline template data + ctx.
+router.post('/templates/preview', roleAtLeast('staff'), (req, res) => {
+  const draft = req.body?.draft || {};
+  const ctx = req.body?.ctx || {};
+  res.json({
+    subject: fillPlaceholders(draft.subject, ctx),
+    body: fillPlaceholders(draft.body, ctx),
+    html_body: draft.html_body ? fillPlaceholders(draft.html_body, ctx) : (draft.html_body || null)
+  });
+});
+
 router.post('/templates/:id/preview', roleAtLeast('staff'), (req, res) => {
   const tpl = db.prepare('SELECT * FROM email_templates WHERE id = ?').get(req.params.id);
   if (!tpl) return res.status(404).json({ error: 'Template not found' });
-  const rendered = renderTemplate(tpl.name, req.body?.ctx || {});
-  res.json(rendered);
+  const draft = req.body?.draft || {};
+  const merged = { ...tpl, ...draft };
+  const ctx = req.body?.ctx || {};
+  res.json({
+    subject: fillPlaceholders(merged.subject, ctx),
+    body: fillPlaceholders(merged.body, ctx),
+    html_body: merged.html_body ? fillPlaceholders(merged.html_body, ctx) : (merged.html_body || null)
+  });
 });
 
 export default router;
