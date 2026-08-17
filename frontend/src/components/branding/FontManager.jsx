@@ -8,7 +8,7 @@ const FONT_HINTS = {
   map: 'Optional map-overlay label font (referenced as --font-map).'
 };
 
-export default function FontManager({ typography, onChange, onSave, saving, onError }) {
+export default function FontManager({ typography, onChange, onSave, saving, onError, domain }) {
   const [family, setFamily] = useState({ ui: '', map: '' });
   const inputs = useRef({});
 
@@ -16,7 +16,7 @@ export default function FontManager({ typography, onChange, onSave, saving, onEr
     if (!file) return;
     const format = String(file.name || '').toLowerCase().endsWith('.ttf') ? 'ttf' : 'woff2';
     try {
-      await api.branding.uploadAsset(`font_${slot}`, file);
+      await api.branding.uploadAsset(`font_${slot}`, file, domain);
       const next = {
         ...typography,
         [slot]: { family: family[slot].trim() || `Brand ${slot === 'ui' ? 'UI' : 'Map'}`, src: `font_${slot}`, format }

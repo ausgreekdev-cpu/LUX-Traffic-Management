@@ -623,6 +623,54 @@ const MIGRATIONS = [
         db.exec('ALTER TABLE email_templates ADD COLUMN html_body TEXT');
       }
     }
+  },
+  {
+    version: 5,
+    name: 'per_domain_branding',
+    up() {
+      // Move from a single global brand (id CHECK = 1) to per-domain brands.
+      // `domain` is the custom portal domain; '' (empty) is the global/default
+      // brand. Rows are addressed by domain, never by id.
+      db.exec(`
+        CREATE TABLE branding_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          domain TEXT NOT NULL DEFAULT '',
+          theme_json TEXT NOT NULL DEFAULT '{}',
+          typography_json TEXT NOT NULL DEFAULT '{}',
+          pdf_layout_json TEXT NOT NULL DEFAULT '{}',
+          watermark_json TEXT NOT NULL DEFAULT '{}',
+          email_json TEXT NOT NULL DEFAULT '{}',
+          css_override TEXT NOT NULL DEFAULT '',
+          css_version INTEGER NOT NULL DEFAULT 0,
+          updated_by TEXT,
+          updated_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(domain)
+        );
+        INSERT INTO branding_new (id, domain, theme_json, typography_json, pdf_layout_json, watermark_json, email_json, css_override, css_version, updated_by, updated_at)
+          SELECT id, '', theme_json, typography_json, pdf_layout_json, watermark_json, email_json, css_override, css_version, updated_by, updated_at FROM branding;
+        DROP TABLE branding;
+        ALTER TABLE branding_new RENAME TO branding;
+
+        CREATE TABLE branding_assets_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          domain TEXT NOT NULL DEFAULT '',
+          slot TEXT NOT NULL,
+          blob_key TEXT NOT NULL,
+          mime_type TEXT,
+          size INTEGER,
+          width INTEGER,
+          height INTEGER,
+          updated_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(domain, slot)
+        );
+        INSERT INTO branding_assets_new (id, domain, slot, blob_key, mime_type, size, width, height, updated_at)
+          SELECT id, '', slot, blob_key, mime_type, size, width, height, updated_at FROM branding_assets;
+        DROP TABLE branding_assets;
+        ALTER TABLE branding_assets_new RENAME TO branding_assets;
+
+        ALTER TABLE branding_versions ADD COLUMN domain TEXT NOT NULL DEFAULT '';
+      `);
+    }
   }
 ];
 

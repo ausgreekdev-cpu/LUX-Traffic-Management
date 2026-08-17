@@ -26,6 +26,7 @@ export default function Branding() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+  const [scope, setScope] = useState('');
 
   const [theme, setTheme] = useState({});
   const [typography, setTypography] = useState({});
@@ -37,9 +38,9 @@ export default function Branding() {
   const [versions, setVersions] = useState([]);
   const [domains, setDomains] = useState([]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (which) => {
     try {
-      const full = await api.branding.full();
+      const full = await api.branding.full(which);
       setTheme(full.theme || {});
       setTypography(full.typography || {});
       setPdfLayout(full.pdf_layout || { header: [], footer: [] });
@@ -56,7 +57,14 @@ export default function Branding() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(scope); }, [load, scope]);
+
+  const switchScope = (next) => {
+    if (next === scope) return;
+    setLoading(true);
+    setTab('theme');
+    setScope(next);
+  };
 
   const flashNotice = (msg) => {
     setNotice(msg);
@@ -66,9 +74,10 @@ export default function Branding() {
   const saveSection = async (section) => {
     setSaving(true);
     try {
-      const res = await api.branding.save(section);
+      const res = await api.branding.save(section, scope);
       flashNotice(`Saved — version v${res.css_version}`);
-      await Promise.all([load(), refresh()]);
+      await load(scope);
+      if (!scope) await refresh();
     } catch (err) {
       setError(err.message);
     }
@@ -77,9 +86,10 @@ export default function Branding() {
 
   const handleReset = async () => {
     try {
-      await api.branding.reset();
+      await api.branding.reset(scope);
       flashNotice('Branding reset to defaults');
-      await Promise.all([load(), refresh()]);
+      await load(scope);
+      if (!scope) await refresh();
     } catch (err) {
       setError(err.message);
     }
@@ -89,7 +99,8 @@ export default function Branding() {
     try {
       await api.branding.restoreVersion(id);
       flashNotice('Version restored');
-      await Promise.all([load(), refresh()]);
+      await load(scope);
+      if (!scope) await refresh();
     } catch (err) {
       setError(err.message);
     }
@@ -105,6 +116,12 @@ export default function Branding() {
           <p className="text-sm text-gray-500">White-label the portal, exported PDFs and email — changes apply instantly.</p>
         </div>
         <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500">Brand scope</label>
+          <select value={scope} onChange={e => switchScope(e.target.value)} className="input py-1.5 text-sm">
+            <option value="">Global (default)</option>
+            {domains.map(d => <option key={d.id} value={d.domain}>{d.domain}</option>)}
+          </select>
+          {scope && <span className="text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 px-2 py-1 rounded">Editing: {scope}</span>}
           {notice && <span className="text-sm text-green-600">{notice}</span>}
           {error && <span className="text-sm text-red-600">{error}</span>}
         </div>
@@ -126,8 +143,8 @@ export default function Branding() {
           {tab === 'theme' && <ThemeEditor value={theme} onChange={setTheme} onSave={t => saveSection({ theme: t })} saving={saving} />}
           {tab === 'assets' && (
             <div className="space-y-4">
-              <FontManager typography={typography} onChange={setTypography} onSave={t => saveSection({ typography: t })} saving={saving} onError={setError} />
-              <AssetsManager assets={assets} onChanged={load} onError={setError} />
+              <FontManager typography={typography} onChange={setTypography} onSave={t => saveSection({ typography: t })} saving={saving} onError={setError} domain={scope} />
+              <AssetsManager assets={assets} onChanged={() => load(scope)} onError={setError} domain={scope} />
             </div>
           )}
           {tab === 'pdf' && (
@@ -139,7 +156,7 @@ export default function Branding() {
           {tab === 'email' && (
             <div className="space-y-4">
               <EmailBranding email={email} onChange={setEmail} onSave={e => saveSection({ email: e })} saving={saving} />
-              <DomainManager domains={domains} onChanged={load} onError={setError} />
+              <DomainManager domains={domains} onChanged={() => load(scope)} onError={setError} />
             </div>
           )}
           {tab === 'advanced' && (

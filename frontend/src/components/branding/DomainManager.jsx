@@ -33,7 +33,7 @@ export default function DomainManager({ domains, onChanged, onError }) {
       <div className="card p-4">
         <h3 className="font-semibold">Custom domains / CNAME</h3>
         <p className="text-xs text-gray-500 mt-1 mb-3">
-          Record custom portal domains (e.g. <code>traffic.citycouncil.gov.au</code>). Netlify handles DNS/CNAME and HTTPS — add the mapping here so it is visible in the platform.
+          Record custom portal domains (e.g. <code>traffic.citycouncil.gov.au</code>). Netlify handles DNS/CNAME and HTTPS — add the mapping here, then pick the domain in the <b>Brand scope</b> dropdown above to give it its own theme, logos, PDF stamps and email branding (leave Global as-is for the default portal).
         </p>
         <div className="flex gap-2">
           <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="traffic.citycouncil.gov.au" className="input flex-1" />

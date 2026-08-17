@@ -215,20 +215,21 @@ const api = {
   },
   branding: {
     public: () => request('/branding', { skipAuthRedirect: true }),
-    full: () => request('/branding/full'),
-    save: (data) => request('/branding', { method: 'PUT', body: JSON.stringify(data) }),
+    _scope: (domain) => domain ? `?domain=${encodeURIComponent(domain)}` : '',
+    full: (domain) => request(`/branding/full${api.branding._scope(domain)}`),
+    save: (data, domain) => request(`/branding${api.branding._scope(domain)}`, { method: 'PUT', body: JSON.stringify(data) }),
     preview: (data) => request('/branding/preview', { method: 'POST', body: JSON.stringify(data) }),
-    uploadAsset: async (slot, file) => {
+    uploadAsset: async (slot, file, domain) => {
       const token = localStorage.getItem('token');
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch(`${BASE}/branding/assets/${slot}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      const res = await fetch(`${BASE}/branding/assets/${slot}${api.branding._scope(domain)}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
       if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Upload failed' })); throw new Error(err.error || 'Upload failed'); }
       return res.json();
     },
-    deleteAsset: (slot) => request(`/branding/assets/${slot}`, { method: 'DELETE' }),
-    reset: () => request('/branding/reset', { method: 'POST' }),
-    versions: () => request('/branding/versions'),
+    deleteAsset: (slot, domain) => request(`/branding/assets/${slot}${api.branding._scope(domain)}`, { method: 'DELETE' }),
+    reset: (domain) => request(`/branding/reset${api.branding._scope(domain)}`, { method: 'POST' }),
+    versions: (domain) => request(`/branding/versions${api.branding._scope(domain)}`),
     restoreVersion: (id) => request(`/branding/versions/${id}/restore`, { method: 'POST' }),
     domains: () => request('/branding/domain'),
     addDomain: (data) => request('/branding/domain', { method: 'POST', body: JSON.stringify(data) }),

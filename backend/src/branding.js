@@ -180,10 +180,22 @@ export function computeAudit(themeJson) {
 
 // ------------------------------------------------------------------- storage
 
-export function getBrandingRow() {
-  const row = db.prepare('SELECT * FROM branding WHERE id = 1').get();
+export const normalizeDomain = (domain) => (domain ? String(domain).trim().toLowerCase() : '');
+
+// Resolve the brand scope for a request's Host header. Returns '' (the global
+// brand) unless a dedicated branding row exists for that exact host.
+export function resolveBrandDomain(host) {
+  if (!host) return '';
+  const h = String(host).split(':')[0].trim().toLowerCase();
+  return db.prepare('SELECT domain FROM branding WHERE domain = ?').get(h) ? h : '';
+}
+
+export function getBrandingRow(domain = '') {
+  const d = normalizeDomain(domain);
+  const row = db.prepare('SELECT * FROM branding WHERE domain = ?').get(d);
   if (!row) return null;
   return {
+    domain: row.domain || '',
     theme: parseJson(row.theme_json, {}),
     typography: parseJson(row.typography_json, DEFAULT_TYPOGRAPHY),
     pdf_layout: parseJson(row.pdf_layout_json, DEFAULT_PDF_LAYOUT),
@@ -196,92 +208,108 @@ export function getBrandingRow() {
   };
 }
 
-export function saveBrandingRow(updates, userId) {
-  const current = getBrandingRow() || {};
+export function saveBrandingRow(updates, userId, domain = '') {
+  const d = normalizeDomain(domain);
+  const current = getBrandingRow(d) || {};
   const next = {
+    domain: d,
     theme_json: JSON.stringify(updates.theme !== undefined ? updates.theme : current.theme || {}),
     typography_json: JSON.stringify(updates.typography !== undefined ? updates.typography : current.typography || {}),
     pdf_layout_json: JSON.stringify(updates.pdf_layout !== undefined ? updates.pdf_layout : current.pdf_layout || {}),
     watermark_json: JSON.stringify(updates.watermark !== undefined ? updates.watermark : current.watermark || {}),
     email_json: JSON.stringify(updates.email !== undefined ? updates.email : current.email || {}),
     css_override: updates.css_override !== undefined ? String(updates.css_override) : current.css_override || '',
-    css_version: current.css_version + 1,
+    css_version: (current.css_version || 0) + 1,
     updated_by: userId || null,
     updated_at: new Date().toISOString()
   };
   db.prepare(`
-    UPDATE branding SET
-      theme_json = @theme_json, typography_json = @typography_json,
-      pdf_layout_json = @pdf_layout_json, watermark_json = @watermark_json,
-      email_json = @email_json, css_override = @css_override,
-      css_version = @css_version, updated_by = @updated_by, updated_at = @updated_at
-    WHERE id = 1
+    INSERT INTO branding (domain, theme_json, typography_json, pdf_layout_json, watermark_json, email_json, css_override, css_version, updated_by, updated_at)
+    VALUES (@domain, @theme_json, @typography_json, @pdf_layout_json, @watermark_json, @email_json, @css_override, @css_version, @updated_by, @updated_at)
+    ON CONFLICT(domain) DO UPDATE SET
+      theme_json = excluded.theme_json, typography_json = excluded.typography_json,
+      pdf_layout_json = excluded.pdf_layout_json, watermark_json = excluded.watermark_json,
+      email_json = excluded.email_json, css_override = excluded.css_override,
+      css_version = excluded.css_version, updated_by = excluded.updated_by, updated_at = excluded.updated_at
   `).run(next);
   return next.css_version;
 }
 
-export function snapshotBranding(label, userId) {
-  const row = db.prepare('SELECT theme_json, typography_json, pdf_layout_json, watermark_json, email_json, css_override, css_version FROM branding WHERE id = 1').get();
+export function snapshotBranding(label, userId, domain = '') {
+  const d = normalizeDomain(domain);
+  const row = db.prepare('SELECT theme_json, typography_json, pdf_layout_json, watermark_json, email_json, css_override, css_version FROM branding WHERE domain = ?').get(d);
   if (!row) return null;
-  const result = db.prepare('INSERT INTO branding_versions (label, snapshot_json, created_by) VALUES (?, ?, ?)').run(label || `Snapshot ${row.css_version}`, JSON.stringify(row), userId || null);
-  return result.lastInsertRowid;
+  return db.prepare('INSERT INTO branding_versions (label, snapshot_json, created_by, domain) VALUES (?, ?, ?, ?)')
+    .run(label || `Snapshot ${row.css_version}`, JSON.stringify(row), userId || null, d).lastInsertRowid;
 }
 
-export function listVersions(limit = 25) {
-  return db.prepare('SELECT id, label, created_by, created_at FROM branding_versions ORDER BY id DESC LIMIT ?').all(limit);
+export function listVersions(limit = 25, domain = '') {
+  const d = normalizeDomain(domain);
+  return db.prepare('SELECT id, label, created_by, created_at FROM branding_versions WHERE domain = ? ORDER BY id DESC LIMIT ?').all(d, limit);
 }
 
 export function restoreVersion(id, userId) {
-  const v = db.prepare('SELECT snapshot_json FROM branding_versions WHERE id = ?').get(id);
+  const v = db.prepare('SELECT snapshot_json, domain FROM branding_versions WHERE id = ?').get(id);
   if (!v) return false;
   const snap = parseJson(v.snapshot_json, null);
   if (!snap) return false;
-  snapshotBranding('Before restore', userId);
-  const css_version = snap.css_version || 0;
+  const d = v.domain || '';
+  snapshotBranding('Before restore', userId, d);
+  const css_version = (snap.css_version || 0) + 1;
   db.prepare(`
-    UPDATE branding SET
-      theme_json = @theme_json, typography_json = @typography_json,
-      pdf_layout_json = @pdf_layout_json, watermark_json = @watermark_json,
-      email_json = @email_json, css_override = @css_override,
-      css_version = @css_version, updated_by = @updated_by, updated_at = @updated_at
-    WHERE id = 1
+    INSERT INTO branding (domain, theme_json, typography_json, pdf_layout_json, watermark_json, email_json, css_override, css_version, updated_by, updated_at)
+    VALUES (@domain, @theme_json, @typography_json, @pdf_layout_json, @watermark_json, @email_json, @css_override, @css_version, @updated_by, @updated_at)
+    ON CONFLICT(domain) DO UPDATE SET
+      theme_json = excluded.theme_json, typography_json = excluded.typography_json,
+      pdf_layout_json = excluded.pdf_layout_json, watermark_json = excluded.watermark_json,
+      email_json = excluded.email_json, css_override = excluded.css_override,
+      css_version = excluded.css_version, updated_by = excluded.updated_by, updated_at = excluded.updated_at
   `).run({
+    domain: d,
     theme_json: snap.theme_json, typography_json: snap.typography_json,
     pdf_layout_json: snap.pdf_layout_json, watermark_json: snap.watermark_json,
     email_json: snap.email_json, css_override: snap.css_override,
-    css_version: css_version + 1, updated_by: userId || null, updated_at: new Date().toISOString()
+    css_version, updated_by: userId || null, updated_at: new Date().toISOString()
   });
-  return true;
+  return { ok: true, domain: d };
 }
 
-export function resetBranding(userId) {
-  snapshotBranding('Before reset', userId);
+export function resetBranding(userId, domain = '') {
+  const d = normalizeDomain(domain);
+  snapshotBranding('Before reset', userId, d);
   db.prepare(`
-    UPDATE branding SET theme_json = '{}', typography_json = '{}', pdf_layout_json = '{}',
-      watermark_json = '{}', email_json = '{}', css_override = '', css_version = css_version + 1,
-      updated_by = ?, updated_at = ? WHERE id = 1
-  `).run(userId || null, new Date().toISOString());
+    INSERT INTO branding (domain, theme_json, typography_json, pdf_layout_json, watermark_json, email_json, css_override, css_version, updated_by, updated_at)
+    VALUES (@domain, '{}', '{}', '{}', '{}', '{}', '', @css_version, @updated_by, @updated_at)
+    ON CONFLICT(domain) DO UPDATE SET
+      theme_json = excluded.theme_json, typography_json = excluded.typography_json,
+      pdf_layout_json = excluded.pdf_layout_json, watermark_json = excluded.watermark_json,
+      email_json = excluded.email_json, css_override = excluded.css_override,
+      css_version = excluded.css_version, updated_by = excluded.updated_by, updated_at = excluded.updated_at
+  `).run({ domain: d, css_version: (getBrandingRow(d)?.css_version || 0) + 1, updated_by: userId || null, updated_at: new Date().toISOString() });
 }
 
 // ----------------------------------------------------------------- public API
 
-function assetUrl(slot, assets) {
-  return assets.some(a => a.slot === slot) ? `/api/branding/assets/${slot}` : null;
-}
-
-function fontFace(typography, slot, assets) {
-  const font = typography && typography[slot];
-  if (!font || !font.src) return null;
-  return { family: font.family || 'Brand Font', url: assetUrl(font.src, assets), format: font.format || 'woff2' };
-}
-
-// Public, cache-friendly summary consumed at boot (pre-login) by the frontend
-// BrandingProvider so the login page, sidebar and app shell are white-labelled.
-export function getPublicSummary() {
-  const br = getBrandingRow() || {};
+// Pick an asset slot for a domain brand: prefer a domain-scoped asset, fall
+// back to the global asset, then null. URLs carry ?domain= only for
+// domain-scoped assets so the asset endpoint resolves deterministically.
+export function getPublicSummary(domain = '') {
+  const d = normalizeDomain(domain);
+  const br = getBrandingRow(d) || {};
   const theme = computeTheme(br.theme);
-  const assets = db.prepare('SELECT slot, mime_type, size FROM branding_assets').all();
-  const typography = br.typography || DEFAULT_TYPOGRAPHY;
+  const domainAssets = d ? db.prepare('SELECT slot, mime_type, size FROM branding_assets WHERE domain = ?').all(d) : [];
+  const globalAssets = db.prepare("SELECT slot, mime_type, size FROM branding_assets WHERE domain = ''").all();
+  const has = (slot, list) => list.some(a => a.slot === slot);
+  const pick = (slot) => {
+    if (has(slot, domainAssets)) return `/api/branding/assets/${slot}?domain=${encodeURIComponent(d)}`;
+    if (has(slot, globalAssets)) return `/api/branding/assets/${slot}`;
+    return null;
+  };
+  const fontFace = (slot) => {
+    const font = br.typography && br.typography[slot];
+    if (!font || !font.src) return null;
+    return { family: font.family || 'Brand Font', url: pick(font.src), format: font.format || 'woff2' };
+  };
   return {
     cssVars: theme.vars,
     themeColor: theme.themeColor,
@@ -291,21 +319,19 @@ export function getPublicSummary() {
     css_override: br.css_override || '',
     css_version: br.css_version || 0,
     assets: {
-      logoLight: assetUrl('logo_light', assets),
-      logoDark: assetUrl('logo_dark', assets),
-      favicon: assetUrl('favicon', assets),
-      seal: assetUrl('seal', assets)
+      logoLight: pick('logo_light'),
+      logoDark: pick('logo_dark'),
+      favicon: pick('favicon'),
+      seal: pick('seal')
     },
-    fonts: {
-      ui: fontFace(typography, 'ui', assets),
-      map: fontFace(typography, 'map', assets)
-    }
+    fonts: { ui: fontFace('ui'), map: fontFace('map') }
   };
 }
 
-export function getFullBranding() {
-  const br = getBrandingRow() || {};
-  const assets = db.prepare('SELECT slot, mime_type, size, width, height, updated_at FROM branding_assets ORDER BY slot').all();
+export function getFullBranding(domain = '') {
+  const d = normalizeDomain(domain);
+  const br = getBrandingRow(d) || {};
+  const assets = db.prepare('SELECT slot, mime_type, size, width, height, updated_at FROM branding_assets WHERE domain = ? ORDER BY slot').all(d);
   return {
     ...br,
     theme: normalizeTheme(br.theme),
@@ -314,7 +340,7 @@ export function getFullBranding() {
     watermark: br.watermark || DEFAULT_WATERMARK,
     email: br.email || DEFAULT_EMAIL,
     assets,
-    versions: listVersions(),
+    versions: listVersions(25, d),
     domains: db.prepare('SELECT * FROM domain_map ORDER BY id').all()
   };
 }

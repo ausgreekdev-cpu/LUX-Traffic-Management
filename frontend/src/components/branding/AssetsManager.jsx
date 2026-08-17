@@ -12,13 +12,14 @@ const SLOTS = [
   { slot: 'seal', label: 'Seal / stamp overlay', hint: 'Transparent PNG or SVG for engineer sign-off blocks and PDF stamps.', accept: 'image/png,image/svg+xml' }
 ];
 
-export default function AssetsManager({ assets, onChanged, onError }) {
+export default function AssetsManager({ assets, onChanged, onError, domain }) {
   const inputs = useRef({});
+  const qs = domain ? `?domain=${encodeURIComponent(domain)}` : '';
 
   const handleUpload = async (slot, file) => {
     if (!file) return;
     try {
-      await api.branding.uploadAsset(slot, file);
+      await api.branding.uploadAsset(slot, file, domain);
       onChanged();
     } catch (err) {
       onError(err.message);
@@ -30,7 +31,7 @@ export default function AssetsManager({ assets, onChanged, onError }) {
   const handleDelete = async (slot) => {
     if (!confirm(`Remove the ${slot} asset?`)) return;
     try {
-      await api.branding.deleteAsset(slot);
+      await api.branding.deleteAsset(slot, domain);
       onChanged();
     } catch (err) {
       onError(err.message);
@@ -46,7 +47,7 @@ export default function AssetsManager({ assets, onChanged, onError }) {
             <div className="flex items-start gap-4">
               <div className={`h-20 w-20 shrink-0 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center bg-white ${s.slot === 'logo_dark' ? 'dark:bg-gray-900' : ''}`}>
                 {has ? (
-                  <img src={`/api/branding/assets/${s.slot}`} alt={s.label} className="max-h-16 max-w-16 object-contain" />
+                  <img src={`/api/branding/assets/${s.slot}${qs}`} alt={s.label} className="max-h-16 max-w-16 object-contain" />
                 ) : (
                   <span className="text-[10px] text-gray-400 text-center px-1">No asset</span>
                 )}

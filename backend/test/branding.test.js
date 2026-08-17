@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lux-branding-test-'));
 process.env.DB_PATH = path.join(tmpDir, 'test.db');
@@ -54,6 +55,25 @@ async function send(token, method, path, body) {
 }
 
 const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+// Undici's fetch forbids overriding the Host header, so use node:http directly.
+function getWithHost(host, apiPath) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      host: '127.0.0.1', port: server.address().port, path: `/api${apiPath}`,
+      headers: { Host: host }
+    }, (res) => {
+      let data = '';
+      res.on('data', c => { data += c; });
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(data || '{}') }); }
+        catch { resolve({ status: res.statusCode, body: {} }); }
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
 
 test('branding: public summary is reachable without auth and carries default vars', async () => {
   const res = await fetch(`${base}/branding`);
@@ -203,4 +223,67 @@ test('branding: bad theme input rejected', async () => {
   assert.equal(res.status, 400);
   const badColour = await send(dev, 'PUT', '/branding', { theme: { primary: 'zzz' } });
   assert.equal(badColour.status, 200, 'invalid colour falls back to default rather than erroring');
+});
+
+test('branding: per-domain brand — save, host resolution, scoped versions', async () => {
+  const dev = await loginAs('developer');
+  const domain = 'traffic.citycouncil.gov.au';
+
+  const save = await send(dev, 'PUT', `/branding?domain=${encodeURIComponent(domain)}`, { theme: { primary: '#123123' } });
+  assert.equal(save.status, 200);
+  await send(dev, 'PUT', `/branding?domain=${encodeURIComponent(domain)}`, { theme: { primary: '#123456' } });
+
+  const viaHost = await getWithHost(domain, '/branding');
+  assert.equal(viaHost.status, 200);
+  assert.equal(viaHost.body.themeColor, '#123456', 'host header resolves the domain brand');
+
+  const viaParam = await fetch(`${base}/branding?domain=${encodeURIComponent(domain)}`).then(r => r.json());
+  assert.equal(viaParam.themeColor, '#123456', '?domain= resolves the domain brand');
+
+  const global = await fetch(`${base}/branding`).then(r => r.json());
+  assert.notEqual(global.themeColor, '#123456', 'default host still gets the global brand');
+
+  const full = await (await send(dev, 'GET', `/branding/full?domain=${encodeURIComponent(domain)}`)).json();
+  assert.equal(full.theme.primary, '#123456');
+  assert.ok(full.versions.length >= 1, 'domain brand snapshots its own previous state');
+
+  const restored = await send(dev, 'POST', `/branding/versions/${full.versions[0].id}/restore`);
+  assert.equal(restored.status, 200);
+  const after = await fetch(`${base}/branding?domain=${encodeURIComponent(domain)}`).then(r => r.json());
+  assert.equal(after.themeColor, '#123123', 'restoring a domain version rolls back that domain only');
+});
+
+test('branding: per-domain assets resolve first, then fall back to global', async () => {
+  const dev = await loginAs('developer');
+  const domain = 'traffic.citycouncil.gov.au';
+
+  const gForm = new FormData();
+  gForm.append('file', new Blob([PNG_1PX], { type: 'image/png' }), 'g.png');
+  const up = await fetch(`${base}/branding/assets/logo_light`, { method: 'POST', headers: authed(dev), body: gForm });
+  assert.equal(up.status, 200);
+
+  const pub = await fetch(`${base}/branding?domain=${encodeURIComponent(domain)}`).then(r => r.json());
+  assert.equal(pub.assets.logoLight, '/api/branding/assets/logo_light', 'domain without an asset falls back to the global URL');
+
+  const dForm = new FormData();
+  dForm.append('file', new Blob([PNG_1PX], { type: 'image/png' }), 'd.png');
+  const dup = await fetch(`${base}/branding/assets/logo_light?domain=${encodeURIComponent(domain)}`, { method: 'POST', headers: authed(dev), body: dForm });
+  assert.equal(dup.status, 200);
+
+  const pub2 = await fetch(`${base}/branding?domain=${encodeURIComponent(domain)}`).then(r => r.json());
+  assert.equal(pub2.assets.logoLight, `/api/branding/assets/logo_light?domain=${encodeURIComponent(domain)}`, 'domain asset URL carries ?domain=');
+
+  const dGet = await fetch(`${base}/branding/assets/logo_light?domain=${encodeURIComponent(domain)}`);
+  const gGet = await fetch(`${base}/branding/assets/logo_light`);
+  assert.equal(dGet.status, 200);
+  assert.equal(gGet.status, 200);
+  assert.equal(Buffer.from(await dGet.arrayBuffer()).length, PNG_1PX.length);
+  assert.equal(Buffer.from(await gGet.arrayBuffer()).length, PNG_1PX.length);
+
+  await send(dev, 'DELETE', `/branding/assets/logo_light?domain=${encodeURIComponent(domain)}`);
+  const pub3 = await fetch(`${base}/branding?domain=${encodeURIComponent(domain)}`).then(r => r.json());
+  assert.equal(pub3.assets.logoLight, '/api/branding/assets/logo_light', 'deleting the domain asset restores global fallback');
+
+  const gDel = await send(dev, 'DELETE', '/branding/assets/logo_light');
+  assert.equal(gDel.status, 200);
 });

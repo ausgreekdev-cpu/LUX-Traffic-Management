@@ -11,7 +11,9 @@ const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fi
 const LOCAL_DIR = process.env.BRANDING_ASSETS_DIR || path.resolve(moduleDir, '../data/branding-assets');
 const BLOB_STORE = 'lux-assets';
 
-const assetBlobKey = (slot) => `assets/${slot}`;
+const assetBlobKey = (domain, slot) => (domain ? `assets/${domain}/${slot}` : `assets/${slot}`);
+
+const normalizeDomain = (domain) => (domain ? String(domain).trim().toLowerCase() : '');
 
 async function getBlobStore() {
   const { getStore } = await import('@netlify/blobs');
@@ -23,38 +25,43 @@ async function getBlobStore() {
   return getStore(opts);
 }
 
-export async function saveAsset(slot, buffer, mimeType) {
+export async function saveAsset(slot, buffer, mimeType, domain = '') {
+  const d = normalizeDomain(domain);
   if (isServerless) {
     const store = await getBlobStore();
-    await store.set(assetBlobKey(slot), buffer, { metadata: { mimeType, at: new Date().toISOString() } });
+    await store.set(assetBlobKey(d, slot), buffer, { metadata: { mimeType, at: new Date().toISOString() } });
   } else {
-    fs.mkdirSync(LOCAL_DIR, { recursive: true });
-    fs.writeFileSync(path.join(LOCAL_DIR, slot), buffer);
+    const dir = d ? path.join(LOCAL_DIR, d) : LOCAL_DIR;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, slot), buffer);
   }
 }
 
-export async function loadAsset(slot) {
-  const meta = db.prepare('SELECT blob_key, mime_type FROM branding_assets WHERE slot = ?').get(slot);
+export async function loadAsset(slot, domain = '') {
+  const d = normalizeDomain(domain);
+  const meta = db.prepare('SELECT blob_key, mime_type FROM branding_assets WHERE domain = ? AND slot = ?').get(d, slot);
   if (!meta) return null;
   if (isServerless) {
     const store = await getBlobStore();
-    const buf = await store.get(assetBlobKey(slot), { type: 'arrayBuffer' }).catch(() => null);
+    const buf = await store.get(assetBlobKey(d, slot), { type: 'arrayBuffer' }).catch(() => null);
     return buf && buf.byteLength ? Buffer.from(buf) : null;
   }
-  const p = path.join(LOCAL_DIR, slot);
+  const p = path.join(LOCAL_DIR, d, slot);
   return fs.existsSync(p) ? fs.readFileSync(p) : null;
 }
 
-export async function deleteAsset(slot) {
+export async function deleteAsset(slot, domain = '') {
+  const d = normalizeDomain(domain);
   if (isServerless) {
     const store = await getBlobStore();
-    await store.delete(assetBlobKey(slot)).catch(() => {});
+    await store.delete(assetBlobKey(d, slot)).catch(() => {});
   } else {
-    try { fs.rmSync(path.join(LOCAL_DIR, slot), { force: true }); } catch {}
+    try { fs.rmSync(path.join(LOCAL_DIR, d, slot), { force: true }); } catch {}
   }
 }
 
-export function assetMimeType(slot) {
-  const meta = db.prepare('SELECT mime_type FROM branding_assets WHERE slot = ?').get(slot);
+export function assetMimeType(slot, domain = '') {
+  const d = normalizeDomain(domain);
+  const meta = db.prepare('SELECT mime_type FROM branding_assets WHERE domain = ? AND slot = ?').get(d, slot);
   return meta ? meta.mime_type : null;
 }

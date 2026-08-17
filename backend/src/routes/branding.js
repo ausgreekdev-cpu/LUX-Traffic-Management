@@ -7,13 +7,17 @@ import { saveAsset, loadAsset, deleteAsset, assetMimeType } from '../assets.js';
 import {
   getPublicSummary, getFullBranding, saveBrandingRow, snapshotBranding,
   listVersions, restoreVersion, resetBranding, validateBrandingInput,
-  computeAudit, buildCss
+  computeAudit, buildCss, normalizeDomain, resolveBrandDomain, getBrandingRow
 } from '../branding.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
 
 const ASSET_SLOTS = new Set(['logo_light', 'logo_dark', 'favicon', 'apple_touch', 'pwa_192', 'pwa_512', 'splash', 'seal', 'font_ui', 'font_map']);
+
+// Brand scope: explicit ?domain= query ('' = global). Only the public summary
+// and asset stream ever fall back to the Host header.
+const scope = (req) => normalizeDomain(req.query?.domain);
 
 const SLOT_ALLOWED_MIME = {
   logo_light: ['image/png', 'image/svg+xml', 'image/webp'],
@@ -29,35 +33,39 @@ const SLOT_ALLOWED_MIME = {
 };
 
 // Public: consumed pre-login at boot to white-label the login page + app shell.
+// Serves the brand for the requesting host, or the global brand as fallback.
 router.get('/', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  res.json(getPublicSummary());
+  res.json(getPublicSummary(req.query?.domain ? scope(req) : resolveBrandDomain(req.get('host'))));
 });
 
 // Public asset stream (logos on the login page, fonts for the web app).
+// Resolves by explicit ?domain= only (global when absent) so URLs emitted in
+// summaries are deterministic regardless of which host serves them.
 router.get('/assets/:slot', async (req, res) => {
   const slot = String(req.params.slot || '');
   if (!ASSET_SLOTS.has(slot)) return res.status(404).json({ error: 'Unknown asset slot' });
-  const mime = assetMimeType(slot);
-  const buf = await loadAsset(slot).catch(() => null);
+  const mime = assetMimeType(slot, scope(req));
+  const buf = await loadAsset(slot, scope(req)).catch(() => null);
   if (!buf || !buf.length) return res.status(404).json({ error: 'Asset not found' });
   res.setHeader('Content-Type', mime || 'application/octet-stream');
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.send(buf);
 });
 
-// Full editable state + asset/version/domain listing.
+// Full editable state + asset/version/domain listing for one brand scope.
 router.get('/full', authenticate, authorize('developer'), (req, res) => {
-  res.json(getFullBranding());
+  res.json(getFullBranding(scope(req)));
 });
 
 // Save any branding section. Previous state is snapshotted for rollback.
 router.put('/', authenticate, authorize('developer'), (req, res) => {
   const { errors, clean } = validateBrandingInput(req.body || {});
   if (errors.length) return res.status(400).json({ error: errors.join('; ') });
-  snapshotBranding(`Edit v${getFullBranding().css_version + 1}`, req.user.id);
-  const css_version = saveBrandingRow(clean, req.user.id);
-  res.json({ success: true, css_version, summary: getPublicSummary() });
+  const domain = scope(req);
+  snapshotBranding(`Edit v${(getBrandingRow(domain)?.css_version || 0) + 1}`, req.user.id, domain);
+  const css_version = saveBrandingRow(clean, req.user.id, domain);
+  res.json({ success: true, css_version, summary: getPublicSummary(domain) });
 });
 
 // Live compute for the WYSIWYG preview without persisting.
@@ -85,35 +93,38 @@ router.post('/assets/:slot', authenticate, authorize('developer'), upload.single
       return res.status(400).json({ error: 'Only .ttf or .otf font files are supported (WOFF2 is not embeddable in PDFs).' });
     }
   }
-  await saveAsset(slot, req.file.buffer, req.file.mimetype);
+  const domain = scope(req);
+  await saveAsset(slot, req.file.buffer, req.file.mimetype, domain);
   db.prepare(`
-    INSERT INTO branding_assets (slot, blob_key, mime_type, size, updated_at) VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(slot) DO UPDATE SET blob_key = excluded.blob_key, mime_type = excluded.mime_type, size = excluded.size, updated_at = excluded.updated_at
-  `).run(slot, slot, req.file.mimetype, req.file.size, new Date().toISOString());
+    INSERT INTO branding_assets (domain, slot, blob_key, mime_type, size, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(domain, slot) DO UPDATE SET blob_key = excluded.blob_key, mime_type = excluded.mime_type, size = excluded.size, updated_at = excluded.updated_at
+  `).run(domain, slot, slot, req.file.mimetype, req.file.size, new Date().toISOString());
   res.json({ success: true, slot, mime_type: req.file.mimetype, size: req.file.size });
 });
 
 router.delete('/assets/:slot', authenticate, authorize('developer'), async (req, res) => {
   const slot = String(req.params.slot || '');
   if (!ASSET_SLOTS.has(slot)) return res.status(400).json({ error: 'Unknown asset slot' });
-  await deleteAsset(slot);
-  db.prepare('DELETE FROM branding_assets WHERE slot = ?').run(slot);
+  const domain = scope(req);
+  await deleteAsset(slot, domain);
+  db.prepare('DELETE FROM branding_assets WHERE domain = ? AND slot = ?').run(domain, slot);
   res.json({ success: true });
 });
 
 router.post('/reset', authenticate, authorize('developer'), (req, res) => {
-  resetBranding(req.user.id);
-  res.json({ success: true, summary: getPublicSummary() });
+  const domain = scope(req);
+  resetBranding(req.user.id, domain);
+  res.json({ success: true, summary: getPublicSummary(domain) });
 });
 
 router.get('/versions', authenticate, authorize('developer'), (req, res) => {
-  res.json({ versions: listVersions(parseInt(req.query.limit, 10) || 25) });
+  res.json({ versions: listVersions(parseInt(req.query.limit, 10) || 25, scope(req)) });
 });
 
 router.post('/versions/:id/restore', authenticate, authorize('developer'), (req, res) => {
-  const ok = restoreVersion(parseInt(req.params.id, 10), req.user.id);
-  if (!ok) return res.status(404).json({ error: 'Version not found' });
-  res.json({ success: true, summary: getPublicSummary() });
+  const restored = restoreVersion(parseInt(req.params.id, 10), req.user.id);
+  if (!restored) return res.status(404).json({ error: 'Version not found' });
+  res.json({ success: true, summary: getPublicSummary(restored.domain || '') });
 });
 
 router.get('/domain', authenticate, authorize('developer'), (req, res) => {
