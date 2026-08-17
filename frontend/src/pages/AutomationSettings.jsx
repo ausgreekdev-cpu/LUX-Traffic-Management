@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react';
 import api from '../api';
 import { useAppText } from '../context/AppText';
 
-const ENTITY_TYPES = ['tmp', 'permit', 'fee', 'document'];
+const ENTITY_TYPES = ['tmp', 'permit', 'fee', 'document', 'board'];
 const EVENT_TYPES = [
   'tmp.created', 'tmp.status_changed', 'tmp.completed', 'tmp.complexity_changed', 'tmp.expiring', 'tmp.expired',
   'permit.created', 'permit.status_changed', 'permit.complexity_changed', 'permit.expiring', 'permit.expired',
   'fee.created', 'document.uploaded', 'document.deleted', 'email.sent',
   'stage.completed', 'sla.deadline_approaching', 'sla.overdue', 'agent.completed',
-  'correspondence.received', 'correspondence.matched'
+  'correspondence.received', 'correspondence.matched',
+  'board.card_moved', 'board.card_stale', 'board.card_assigned'
 ];
 const OPS = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains', 'in', 'exists'];
-const FIELDS = ['status', 'previous_status', 'complexity', 'plan_type', 'reference', 'tmp_id', 'authority_id', 'is_within_30m_signals', 'requires_mrwa', 'fee_type', 'amount', 'days_left', 'days_overdue', 'entity_type'];
+const FIELDS = ['status', 'previous_status', 'complexity', 'plan_type', 'reference', 'tmp_id', 'authority_id', 'is_within_30m_signals', 'requires_mrwa', 'fee_type', 'amount', 'days_left', 'days_overdue', 'entity_type', 'to_column_name', 'from_column_name', 'lane', 'to_lane', 'from_lane', 'column_name', 'stale_business_days'];
 const ACTION_TYPES = [
   { value: 'notify_user', label: 'Notify owner' },
   { value: 'notify_role', label: 'Notify role' },
@@ -21,6 +22,7 @@ const ACTION_TYPES = [
   { value: 'raise_trigger', label: 'Raise workflow trigger' },
   { value: 'compute_risk_score', label: 'Recompute risk score' },
   { value: 'run_agent', label: 'Run AI agent' },
+  { value: 'assign_card', label: 'Assign board card' },
   { value: 'webhook', label: 'Webhook' }
 ];
 
@@ -62,6 +64,11 @@ const ACTION_PARAMS = {
   ],
   run_agent: [
     { key: 'agent', label: 'Agent', hint: 'triage / drawing_validation / compliance_checker' }
+  ],
+  assign_card: [
+    { key: 'role', label: 'Assign to role', hint: 'developer / manager / staff / client' },
+    { key: 'title', label: 'Title', hint: 'Supports {field} placeholders' },
+    { key: 'message', label: 'Message', hint: 'Supports {field} placeholders' }
   ],
   webhook: [
     { key: 'url', label: 'URL', hint: 'POST endpoint receiving the event' }

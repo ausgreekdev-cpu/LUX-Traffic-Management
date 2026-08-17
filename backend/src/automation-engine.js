@@ -1,8 +1,9 @@
 import { v4 as uuid } from 'uuid';
 import db from './db.js';
-import { onAny } from './events.js';
+import { onAny, emitEvent } from './events.js';
 import { notifyUsers, notifyRole } from './notify.js';
 import { sendEmail } from './emailer.js';
+import { ensureBoardCard, pickUserForRole } from './board.js';
 
 const VALID_NOTIFY_ROLES = ['developer', 'manager', 'staff', 'client'];
 
@@ -68,6 +69,7 @@ export function evaluateCondition(cond, ctx) {
 }
 
 function entityTypeOf(event) {
+  if (event.type.startsWith('board')) return event.entity?.entity_type || 'tmp';
   if (event.type.startsWith('permit')) return 'permit';
   if (event.type.startsWith('tmp')) return 'tmp';
   if (event.type.startsWith('fee')) return 'permit';
@@ -125,6 +127,23 @@ async function executeAction(action, event, ctx, rule) {
       const role = params.role && VALID_NOTIFY_ROLES.includes(params.role) ? params.role : 'manager';
       const created = notifyRole(role, { type: 'task', title, message, entity_type: entityTypeOf(event), entity_id: entityId, dedupe_key: dedupe });
       return { type, created };
+    }
+    case 'assign_card': {
+      const entityType = entityTypeOf(event);
+      const entityId = event.entity?.entity_id || event.entity?.id || null;
+      if (!entityId) return { type, skipped: 'no entity' };
+      const card = ensureBoardCard(entityType, entityId);
+      if (!card) return { type, skipped: 'no board card' };
+      const role = params.role && VALID_NOTIFY_ROLES.includes(params.role) ? params.role : null;
+      const userId = params.user_id || (role ? pickUserForRole(role) : null);
+      if (!userId) return { type, skipped: 'no assignee' };
+      db.prepare("UPDATE board_cards SET assigned_user_id = ?, updated_at = datetime('now') WHERE id = ?").run(userId, card.id);
+      emitEvent('board.card_assigned', { entity_type: entityType, entity_id: entityId, role: role || null, assigned_user_id: userId, column_id: card.column_id });
+      const user = db.prepare('SELECT id, name FROM users WHERE id = ?').get(userId);
+      const title = template(params.title || 'Assigned to you', ctx);
+      const message = template(params.message || '{title} has been assigned to you.', ctx);
+      notifyUsers(userId, { type: 'task', title, message, entity_type: entityType, entity_id: entityId, dedupe_key: `assign-${card.id}-${userId}` });
+      return { type, assigned_user_id: userId, assigned_to: user?.name || null };
     }
     case 'notify_email': {
       const to = template(params.to, ctx);

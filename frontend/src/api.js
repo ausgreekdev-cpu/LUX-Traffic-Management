@@ -200,6 +200,16 @@ const api = {
   correspondence: {
     list: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/integrations/correspondence${q}`); },
     review: (id, review_status) => request(`/integrations/correspondence/${id}/review`, { method: 'POST', body: JSON.stringify({ review_status }) })
+  },
+  kanban: {
+    board: (entityType) => request(`/kanban/board?entity_type=${entityType}`),
+    move: (entityType, entityId, data) => request(`/kanban/cards/${entityType}/${entityId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    columns: (entityType) => request(`/kanban/columns?entity_type=${entityType}`),
+    createColumn: (data) => request('/kanban/columns', { method: 'POST', body: JSON.stringify(data) }),
+    updateColumn: (id, data) => request(`/kanban/columns/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteColumn: (id, force) => request(`/kanban/columns/${id}`, { method: 'DELETE', body: JSON.stringify({ force: !!force }) }),
+    reorderColumns: (entityType, ids) => request('/kanban/columns/reorder', { method: 'POST', body: JSON.stringify({ entity_type: entityType, ids }) }),
+    analytics: (entityType, days) => request(`/kanban/analytics?entity_type=${entityType}&days=${days}`)
   }
 };
 

@@ -7,6 +7,7 @@ import { RANK } from '../context/Auth.jsx';
 const mainNav = [
   { to: '/', label: 'Dashboard', icon: '📊' },
   { to: '/tmps', label: 'TMPs', icon: '📋' },
+  { to: '/kanban', label: 'Kanban', icon: '🗂️' },
   { to: '/projects', label: 'Projects', icon: '📁' },
   { to: '/permits', label: 'Permits', icon: '📄' },
   { to: '/authorities', label: 'Authorities', icon: '🏛️' },

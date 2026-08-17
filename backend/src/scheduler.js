@@ -2,6 +2,7 @@ import db from './db.js';
 import { emitEvent } from './events.js';
 import { sendEmail, getSmtpConfig, getPostmarkConfig, getProvider } from './emailer.js';
 import { maybeAutoBackup } from './backups.js';
+import { businessDaysAgo, entityRow } from './board.js';
 
 function getSetting(key, fallback) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -95,11 +96,49 @@ function cleanupOldRecords() {
   }
 }
 
+export function detectStaleCards() {  const columns = db.prepare('SELECT * FROM board_columns WHERE stale_business_days IS NOT NULL').all();
+  let alerted = 0;
+  for (const column of columns) {
+    const threshold = businessDaysAgo(column.stale_business_days);
+    const cards = db.prepare(`
+      SELECT * FROM board_cards WHERE column_id = ?
+        AND (entered_column_at IS NULL OR entered_column_at < ?)
+        AND (last_stale_alert_at IS NULL OR last_stale_alert_at < ?)
+    `).all(column.id, threshold, new Date(Date.now() - 24 * 3600000).toISOString());
+    for (const card of cards) {
+      const entity = entityRow(column.entity_type, card.entity_id);
+      if (!entity) continue;
+      if (card.lane === 'emergency') continue;
+      const daysStale = card.entered_column_at
+        ? Math.max(1, Math.floor((Date.now() - new Date(String(card.entered_column_at).replace(' ', 'T') + 'Z').getTime()) / 86400000))
+        : 1;
+      emitEvent('board.card_stale', {
+        id: card.id,
+        entity_type: column.entity_type,
+        entity_id: card.entity_id,
+        column_id: column.id,
+        column_name: column.name,
+        stale_business_days: column.stale_business_days,
+        days_stale: daysStale,
+        title: entity.title,
+        reference: entity.reference,
+        status: entity.status,
+        created_by: entity.created_by
+      });
+      db.prepare("UPDATE board_cards SET last_stale_alert_at = ? WHERE id = ?").run(new Date().toISOString(), card.id);
+      alerted++;
+    }
+  }
+  if (alerted) console.log(`Stale-card check: alerted on ${alerted} card(s)`);
+  return alerted;
+}
+
 export async function runScheduledChecks() {
   const reminderDays = Math.max(0, parseInt(getSetting('reminder_days', '14'), 10) || 14);
   const tmpResults = detectExpiringTmps(reminderDays);
   const permitResults = detectExpiringPermits(reminderDays);
   detectSlaDeadlines();
+  detectStaleCards();
   cleanupOldRecords();
   try {
     await maybeAutoBackup();

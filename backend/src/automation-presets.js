@@ -189,6 +189,46 @@ export const PRESETS = [
     ],
     dedupe_key_template: 'corr-{id}',
     default_active: true
+  },
+  {
+    id: 'safety_audit_auto_assign',
+    name: 'Safety Audit auto-assignment',
+    description: 'Automatically assign a Safety Auditor when a plan moves into the Safety Audit column.',
+    entity_type: 'tmp',
+    event_type: 'board.card_moved',
+    conditions: [{ field: 'to_column_name', op: 'eq', value: 'Safety Audit' }],
+    actions: [
+      { type: 'assign_card', params: { role: 'staff', title: 'Safety Audit assigned', message: '{reference} ({title}) moved to Safety Audit. Review and sign off.' } }
+    ],
+    dedupe_key_template: 'safety-audit-{id}-{to_column}',
+    default_active: true
+  },
+  {
+    id: 'stale_council_card_alert',
+    name: 'Stale council card alert',
+    description: 'Alert the owner and managers when a card sits too long in a stale-prone column.',
+    entity_type: 'tmp',
+    event_type: 'board.card_stale',
+    conditions: [],
+    actions: [
+      { type: 'notify_user', params: { title: 'Card stale in {column_name}', message: '{reference} ({title}) has been in {column_name} for over {stale_business_days} business days. Follow up.', notification_type: 'board_stale' } },
+      { type: 'create_task', params: { role: 'manager', title: 'Chase stale card {reference}', message: '{reference} has been in {column_name} for over {stale_business_days} business days.' } }
+    ],
+    dedupe_key_template: 'stale-{id}-{column_id}',
+    default_active: true
+  },
+  {
+    id: 'emergency_fast_track_notify',
+    name: 'Emergency / Fast-Track notification',
+    description: 'Notify managers whenever a card is moved into the Emergency / Fast-Track swimlane.',
+    entity_type: 'tmp',
+    event_type: 'board.card_moved',
+    conditions: [{ field: 'to_lane', op: 'eq', value: 'emergency' }],
+    actions: [
+      { type: 'notify_role', params: { role: 'manager', title: 'Emergency fast-track: {reference}', message: '{reference} ({title}) moved to the Emergency lane in {to_column_name}.', notification_type: 'emergency' } }
+    ],
+    dedupe_key_template: 'emergency-{id}-{to_column}',
+    default_active: true
   }
 ];
 

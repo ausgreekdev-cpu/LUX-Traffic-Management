@@ -24,7 +24,9 @@ import workflowRoutes, { ensureWorkflowSeeds } from './routes/workflows.js';
 import automationRoutes from './routes/automations.js';
 import agentRoutes from './routes/agents.js';
 import integrationRoutes from './routes/integrations.js';
+import kanbanRoutes from './routes/kanban.js';
 import { ensureAutomationPresets } from './automation-presets.js';
+import { ensureBoardColumns } from './board.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
 import { seedDatabase, seedAdminFromEnv, ensureDemoUsers } from './seed.js';
 import { globalRateLimit } from './middleware/rate-limit.js';
@@ -84,6 +86,7 @@ app.use('/api/workflows', workflowRoutes);
 app.use('/api/automations', automationRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/integrations', integrationRoutes);
+app.use('/api/kanban', kanbanRoutes);
 
 app.get('/api/ping', (req, res) => {
   res.json({ pong: true, at: new Date().toISOString() });
@@ -122,6 +125,7 @@ app.use('/api', notFound);
 app.use(errorHandler);
 
 ensureWorkflowSeeds();
+ensureBoardColumns();
 seedDirectoryIfEmpty();
 ensureAutomationPresets();
 ensureEncryptionKey();

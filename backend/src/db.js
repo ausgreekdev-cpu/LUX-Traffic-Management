@@ -510,6 +510,64 @@ const MIGRATIONS = [
         );
       `);
     }
+  },
+  {
+    version: 3,
+    name: 'kanban_board',
+    up() {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS board_columns (
+          id TEXT PRIMARY KEY,
+          entity_type TEXT NOT NULL CHECK(entity_type IN ('tmp','permit')),
+          name TEXT NOT NULL,
+          description TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          wip_limit INTEGER,
+          enforce_wip INTEGER DEFAULT 0,
+          colour TEXT DEFAULT 'bg-gray-50',
+          maps_to_status TEXT,
+          assign_role TEXT,
+          requires_stages_json TEXT,
+          stale_business_days INTEGER,
+          is_final INTEGER DEFAULT 0,
+          is_emergency_lane INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(entity_type, sort_order),
+          UNIQUE(entity_type, name)
+        );
+
+        CREATE TABLE IF NOT EXISTS board_cards (
+          id TEXT PRIMARY KEY,
+          entity_type TEXT NOT NULL CHECK(entity_type IN ('tmp','permit')),
+          entity_id TEXT NOT NULL,
+          column_id TEXT NOT NULL REFERENCES board_columns(id),
+          lane TEXT NOT NULL DEFAULT '',
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          assigned_user_id TEXT REFERENCES users(id),
+          entered_column_at TEXT DEFAULT (datetime('now')),
+          last_stale_alert_at TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(entity_type, entity_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS board_card_history (
+          id TEXT PRIMARY KEY,
+          card_id TEXT NOT NULL REFERENCES board_cards(id) ON DELETE CASCADE,
+          column_id TEXT NOT NULL,
+          lane TEXT NOT NULL DEFAULT '',
+          entered_at TEXT NOT NULL DEFAULT (datetime('now')),
+          left_at TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_board_cards_column ON board_cards(column_id);
+        CREATE INDEX IF NOT EXISTS idx_board_cards_entity ON board_cards(entity_type, entity_id);
+        CREATE INDEX IF NOT EXISTS idx_board_cards_lane ON board_cards(lane);
+        CREATE INDEX IF NOT EXISTS idx_board_cards_assigned ON board_cards(assigned_user_id);
+        CREATE INDEX IF NOT EXISTS idx_board_history_card ON board_card_history(card_id);
+      `);
+    }
   }
 ];
 
