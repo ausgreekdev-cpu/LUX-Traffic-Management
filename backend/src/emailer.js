@@ -1,9 +1,17 @@
-import nodemailer from 'nodemailer';
 import { v4 as uuid } from 'uuid';
+import { createRequire } from 'module';
 import db from './db.js';
 import { decryptSecret } from './secrets-crypto.js';
 
 let transporter = null;
+let _nodemailer = null;
+
+const requirePkg = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
+
+function getNodemailer() {
+  if (!_nodemailer) _nodemailer = requirePkg('nodemailer');
+  return _nodemailer;
+}
 
 const getSetting = (key) => {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -53,8 +61,8 @@ export function getTransporter() {
     port: cfg.port,
     secure: cfg.secure
   };
-  if (cfg.user) transport.auth = { user: cfg.user, pass: cfg.pass };
-  transporter = nodemailer.createTransport(transport);
+if (cfg.user) transport.auth = { user: cfg.user, pass: cfg.pass };
+  transporter = getNodemailer().createTransport(transport);
   return transporter;
 }
 

@@ -85,6 +85,10 @@ app.use('/api/automations', automationRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/integrations', integrationRoutes);
 
+app.get('/api/ping', (req, res) => {
+  res.json({ pong: true, at: new Date().toISOString() });
+});
+
 app.get('/api/health', async (req, res) => {
   let integrity;
   try {

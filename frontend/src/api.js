@@ -1,5 +1,11 @@
 const BASE = '/api';
 
+// Short TTL cache for settings (app name, labels, branding). AppText and
+// Settings both fetch settings; this avoids duplicate requests and speeds up
+// full page reloads while still refreshing after a few minutes.
+const settingsCache = { value: null, at: 0 };
+const SETTINGS_TTL_MS = 5 * 60 * 1000;
+
 async function request(path, options = {}) {
   const token = localStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json', ...options.headers };
@@ -147,8 +153,18 @@ const api = {
     scan: () => request('/notifications/scan', { method: 'POST', body: JSON.stringify({}) })
   },
   settings: {
-    get: () => request('/settings'),
-    update: (data) => request('/settings', { method: 'PUT', body: JSON.stringify(data) })
+    get: async () => {
+      const now = Date.now();
+      if (settingsCache.value && now - settingsCache.at < SETTINGS_TTL_MS) return settingsCache.value;
+      const value = await request('/settings');
+      settingsCache.value = value;
+      settingsCache.at = now;
+      return value;
+    },
+    update: (data) => {
+      settingsCache.value = null;
+      return request('/settings', { method: 'PUT', body: JSON.stringify(data) });
+    }
   },
   workflows: {
     stages: (entityType, templateId) => request(`/workflows/stages${templateId ? '?template_id=' + templateId : (entityType ? '?entity_type=' + entityType : '')}`),
