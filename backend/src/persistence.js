@@ -98,6 +98,10 @@ export async function restoreDbFromBlob() {
 
 let snapshotChain = Promise.resolve();
 const SNAPSHOT_TIMEOUT_MS = 8000;
+// Cache of the last successfully uploaded snapshot bytes. Used to skip the
+// prev-rotation blob read (we already have the previous "current" bytes in
+// memory).
+let lastUploaded = null;
 
 // Netlify freezes the process shortly after the response is flushed, so
 // background work never completes. The snapshot must therefore be awaited
@@ -152,10 +156,11 @@ async function runSnapshot() {
     const current = await store.getMetadata(BLOB_KEY).catch(() => null);
     const seq = (current && current.metadata && Number(current.metadata.seq)) || 0;
 
-    // Rotate the current blob to the previous slot only after it validates.
-    const currentBytes = await store.get(BLOB_KEY, { type: 'arrayBuffer' }).catch(() => null);
-    if (currentBytes && currentBytes.byteLength) {
-      await writeBlobWithRetry(store, BLOB_PREV_KEY, Buffer.from(currentBytes), {
+    // Rotate the previous snapshot to the previous slot. Use the bytes we last
+    // uploaded (already in memory) instead of a blob read whenever possible.
+    const prevBytes = lastUploaded && lastUploaded.bytes ? lastUploaded.bytes : await store.get(BLOB_KEY, { type: 'arrayBuffer' }).catch(() => null);
+    if (prevBytes && prevBytes.byteLength) {
+      await writeBlobWithRetry(store, BLOB_PREV_KEY, Buffer.from(prevBytes), {
         metadata: { saved_from: BLOB_KEY, seq, at: new Date().toISOString() }
       });
     }
@@ -175,6 +180,7 @@ async function runSnapshot() {
       return;
     }
 
+    lastUploaded = { bytes };
     lastSnapshotStatus = { ok: true, seq: seq + 1, bytes: bytes.length, at: new Date().toISOString() };
     console.log(`snapshotDb: uploaded ${bytes.length} bytes (seq ${seq + 1}) to Netlify Blobs`);
   } catch (err) {

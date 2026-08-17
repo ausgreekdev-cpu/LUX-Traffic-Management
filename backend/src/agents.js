@@ -9,7 +9,11 @@ import { suggestComplexity, computeRisk } from './risk.js';
 import { incompleteRequiredStages, swapTemplateForEntity } from './routes/workflows.js';
 
 const requirePdf = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
-const { PDFParse } = requirePdf('pdf-parse');
+let _PDFParse = null;
+function getPDFParse() {
+  if (!_PDFParse) _PDFParse = requirePdf('pdf-parse').PDFParse;
+  return _PDFParse;
+}
 
 const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 const uploadDir = process.env.UPLOADS_DIR || path.resolve(moduleDir, '..', 'uploads');
@@ -115,7 +119,7 @@ const drawingValidation = async (entity) => {
       const filePath = path.join(uploadDir, doc.filename);
       if (fs.existsSync(filePath)) {
         const buffer = fs.readFileSync(filePath);
-        const parsed = await new PDFParse({ data: buffer }).getText();
+        const parsed = await new (getPDFParse())({ data: buffer }).getText();
         const text = parsed.text || '';
         const refPattern = /TMP-\d{4}-\d{3}/i;
         const hasRef = refPattern.test(text);

@@ -10,7 +10,11 @@ import { deserializeAuthority, upsertDirectoryEntries } from '../seed-directory.
 import { buildDirectory } from '../lga-directory.js';
 
 const requirePdf = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
-const { PDFParse } = requirePdf('pdf-parse');
+let _PDFParse = null;
+function getPDFParse() {
+  if (!_PDFParse) _PDFParse = requirePdf('pdf-parse').PDFParse;
+  return _PDFParse;
+}
 
 const router = Router();
 router.use(authenticate);
@@ -162,7 +166,7 @@ router.put('/:id', roleAtLeast('staff'), validate('authority'), (req, res) => {
 router.post('/import-directory', authorize('developer'), upload.single('pdf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No PDF uploaded (field name: pdf)' });
   try {
-    const parsed = await new PDFParse({ data: req.file.buffer }).getText();
+    const parsed = await new (getPDFParse())({ data: req.file.buffer }).getText();
     const entries = buildDirectory(parsed.text);
     if (!entries.length) return res.status(400).json({ error: 'Could not read any local government entries from the PDF' });
     const result = upsertDirectoryEntries(entries, 'WALGA Local Government Directory (import)');

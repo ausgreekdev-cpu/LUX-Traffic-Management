@@ -41,6 +41,13 @@ test('health endpoint responds ok', async () => {
   assert.equal(body.status, 'ok');
 });
 
+test('ping endpoint is cheap and unauthenticated', async () => {
+  const res = await fetch(`${base}/ping`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.pong, true);
+});
+
 test('login rejects bad credentials', async () => {
   const res = await fetch(`${base}/auth/login`, {
     method: 'POST',

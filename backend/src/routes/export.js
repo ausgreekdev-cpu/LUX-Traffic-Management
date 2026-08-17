@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { createRequire } from 'module';
 import multer from 'multer';
 import Database from 'better-sqlite3';
 import db, { dbPath, reopenDatabase, isServerless } from '../db.js';
@@ -10,6 +10,14 @@ import { backupNow, listBackups, backupsDir } from '../backups.js';
 import { authenticate } from '../middleware/auth.js';
 import { roleAtLeast } from '../middleware/auth.js';
 import { isClientUser, tmpOwnedByClient } from '../middleware/scope.js';
+
+const requirePkg = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
+let _PDFDocument = null;
+
+function getPDFDocument() {
+  if (!_PDFDocument) _PDFDocument = requirePkg('pdfkit');
+  return _PDFDocument;
+}
 
 const router = Router();
 router.use(authenticate);
@@ -179,7 +187,7 @@ router.get('/tmp/:id', (req, res) => {
   const companyPhone = getSetting('company_phone', '');
   const companyEmail = getSetting('company_email', '');
 
-  const doc = new PDFDocument({ margin: 50 });
+  const doc = new (getPDFDocument())({ margin: 50 });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${tmp.reference || 'TMP'}.pdf"`);
   doc.pipe(res);
@@ -228,7 +236,7 @@ router.get('/permits-summary', roleAtLeast('staff'), (req, res) => {
     ORDER BY pe.created_at DESC
   `).all();
 
-  const doc = new PDFDocument({ margin: 50 });
+  const doc = new (getPDFDocument())({ margin: 50 });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="permits-summary.pdf"');
   doc.pipe(res);
@@ -255,7 +263,7 @@ router.get('/audit-report', roleAtLeast('staff'), (req, res) => {
 
   const companyName = getSetting('company_name', '');
 
-  const doc = new PDFDocument({ margin: 50 });
+  const doc = new (getPDFDocument())({ margin: 50 });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="audit-report.pdf"');
   doc.pipe(res);
