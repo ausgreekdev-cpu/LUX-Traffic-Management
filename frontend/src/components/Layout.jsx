@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api.js';
 import { useAppText } from '../context/AppText.jsx';
 import { RANK } from '../context/Auth.jsx';
+import { useBranding } from '../context/Branding.jsx';
 
 const mainNav = [
   { to: '/', label: 'Dashboard', icon: '📊' },
@@ -23,7 +24,8 @@ const mainNav = [
 const adminNav = [
   { to: '/workflows', label: 'Workflows', icon: '🔄' },
   { to: '/automations', label: 'Automation & Triggers', icon: '🤖' },
-  { to: '/users', label: 'Users', icon: '🔐' }
+  { to: '/users', label: 'Users', icon: '🔐' },
+  { to: '/branding', label: 'Branding & Themes', icon: '🎨' }
 ];
 
 const roleNavMin = {
@@ -67,6 +69,7 @@ export default function Layout({ user, onLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { nav, appName } = useAppText();
+  const { branding } = useBranding();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -145,8 +148,14 @@ export default function Layout({ user, onLogout }) {
         <div className="h-16 flex items-center justify-between px-4 gap-2 shrink-0">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} title="Toggle sidebar"
             className={`flex items-center min-w-0 rounded-lg transition-colors ${sidebarOpen ? 'hover:bg-gray-800 px-1 py-1' : 'w-full justify-center hover:bg-gray-800 py-1.5'}`}>
-            <div className="h-9 w-9 rounded-lg bg-lux-500 flex items-center justify-center shadow-lg shadow-lux-500/25 shrink-0">
-              <span className="font-black text-gray-900 text-sm tracking-tight">LUX</span>
+            <div className="flex items-center min-w-0 shrink-0">
+              {branding?.assets?.logoLight ? (
+                <img src={branding.assets.logoLight} alt="logo" className="h-9 w-auto max-w-40 object-contain rounded" />
+              ) : (
+                <div className="h-9 w-9 rounded-lg bg-lux-500 flex items-center justify-center shadow-lg shadow-lux-500/25 shrink-0">
+                  <span className="font-black text-gray-900 text-sm tracking-tight">LUX</span>
+                </div>
+              )}
             </div>
             {sidebarOpen && (
               <div className="min-w-0 ml-2.5 text-left">

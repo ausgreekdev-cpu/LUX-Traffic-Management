@@ -149,16 +149,17 @@ async function executeAction(action, event, ctx, rule) {
       const to = template(params.to, ctx);
       let subject = params.subject !== undefined ? template(params.subject, ctx) : null;
       let body = params.body !== undefined ? template(params.body, ctx) : null;
+      let tpl = null;
       if (params.template) {
         const { renderTemplate } = await import('./emailer.js');
-        const tpl = renderTemplate(params.template, ctx);
+        tpl = renderTemplate(params.template, ctx);
         if (!tpl) return { type, skipped: `template "${params.template}" not found` };
         if (subject === null) subject = tpl.subject;
         if (body === null) body = tpl.body;
       }
       if (!to) return { type, skipped: 'no recipient' };
       try {
-        const info = await sendEmail(to, subject, body, event.entity?.tmp_id || entityId || null);
+        const info = await sendEmail(to, subject, body, event.entity?.tmp_id || entityId || null, { html: tpl?.html_body || undefined });
         return { type, messageId: info.messageId };
       } catch (err) {
         return { type, error: err.message };

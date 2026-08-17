@@ -210,6 +210,27 @@ const api = {
     deleteColumn: (id, force) => request(`/kanban/columns/${id}`, { method: 'DELETE', body: JSON.stringify({ force: !!force }) }),
     reorderColumns: (entityType, ids) => request('/kanban/columns/reorder', { method: 'POST', body: JSON.stringify({ entity_type: entityType, ids }) }),
     analytics: (entityType, days) => request(`/kanban/analytics?entity_type=${entityType}&days=${days}`)
+  },
+  branding: {
+    public: () => request('/branding', { skipAuthRedirect: true }),
+    full: () => request('/branding/full'),
+    save: (data) => request('/branding', { method: 'PUT', body: JSON.stringify(data) }),
+    preview: (data) => request('/branding/preview', { method: 'POST', body: JSON.stringify(data) }),
+    uploadAsset: async (slot, file) => {
+      const token = localStorage.getItem('token');
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`${BASE}/branding/assets/${slot}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Upload failed' })); throw new Error(err.error || 'Upload failed'); }
+      return res.json();
+    },
+    deleteAsset: (slot) => request(`/branding/assets/${slot}`, { method: 'DELETE' }),
+    reset: () => request('/branding/reset', { method: 'POST' }),
+    versions: () => request('/branding/versions'),
+    restoreVersion: (id) => request(`/branding/versions/${id}/restore`, { method: 'POST' }),
+    domains: () => request('/branding/domain'),
+    addDomain: (data) => request('/branding/domain', { method: 'POST', body: JSON.stringify(data) }),
+    deleteDomain: (id) => request(`/branding/domain/${id}`, { method: 'DELETE' })
   }
 };
 

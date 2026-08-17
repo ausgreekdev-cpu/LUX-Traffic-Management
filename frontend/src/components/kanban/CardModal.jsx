@@ -77,7 +77,7 @@ export default function CardModal({ card, columns, users, lanes, entityType, can
 
         <div className="p-4 space-y-4">
           {card.lane === 'emergency' && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
+            <div className="px-3 py-2 rounded-lg emg-soft border border-[color:var(--system-emergency)] text-sm">
               Emergency / Fast-Track lane — this card bypasses Definition of Done and WIP limits.
             </div>
           )}

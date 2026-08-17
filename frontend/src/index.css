@@ -2,13 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------------
+ * Brand variables. Defaults mirror the original LUX palette; the Branding
+ * engine (public GET /api/branding) overrides these at runtime via
+ * document.documentElement.style so every lux-* utility re-themes live.
+ * ------------------------------------------------------------------------- */
+:root {
+  --lux-50: 254 243 226;
+  --lux-100: 253 228 185;
+  --lux-200: 252 212 140;
+  --lux-300: 251 195 95;
+  --lux-400: 249 168 37;
+  --lux-500: 245 127 23;
+  --lux-600: 230 81 0;
+  --lux-700: 191 54 12;
+  --lux-800: 139 37 0;
+  --lux-900: 78 22 0;
+
+  --brand-primary: #f57f17;
+  --brand-primary-contrast: #000000;
+  --brand-secondary: #0f766e;
+  --brand-secondary-contrast: #ffffff;
+  --brand-accent: #2563eb;
+  --brand-accent-contrast: #ffffff;
+
+  --system-wip-warn: #fbbf24;
+  --system-wip-alert: #f87171;
+  --system-emergency: #ef4444;
+
+  --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-map: inherit;
+}
+
 @layer base {
   html {
     @apply antialiased;
   }
 
   body {
-    @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+    @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans;
   }
 
   ::-webkit-scrollbar {
@@ -116,5 +148,28 @@
 
   .empty-state {
     @apply flex flex-col items-center justify-center py-12 text-center;
+  }
+
+  /* Semantic system-state classes themed by the Branding engine. */
+  .emg-lane-border {
+    border-left: 4px solid var(--system-emergency);
+  }
+
+  .emg-soft {
+    background-color: color-mix(in srgb, var(--system-emergency) 12%, transparent);
+    color: var(--system-emergency);
+  }
+
+  .emg-chip {
+    background-color: var(--system-emergency);
+    color: #ffffff;
+  }
+
+  .wip-ring-warn {
+    box-shadow: 0 0 0 3px var(--system-wip-warn);
+  }
+
+  .wip-ring-alert {
+    box-shadow: 0 0 0 3px var(--system-wip-alert);
   }
 }
