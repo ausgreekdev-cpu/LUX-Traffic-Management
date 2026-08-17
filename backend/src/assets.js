@@ -7,8 +7,8 @@ import db, { isServerless } from './db.js';
 // data dir; on Netlify the filesystem is read-only at runtime, so uploads go to
 // a durable Netlify Blobs store (mirroring the DB snapshot pattern in
 // persistence.js).
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LOCAL_DIR = process.env.BRANDING_ASSETS_DIR || path.resolve(__dirname, '../data/branding-assets');
+const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+const LOCAL_DIR = process.env.BRANDING_ASSETS_DIR || path.resolve(moduleDir, '../data/branding-assets');
 const BLOB_STORE = 'lux-assets';
 
 const assetBlobKey = (slot) => `assets/${slot}`;
