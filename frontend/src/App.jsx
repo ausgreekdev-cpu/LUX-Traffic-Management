@@ -26,6 +26,7 @@ const Help = lazy(() => import('./pages/Help'));
 const WorkflowSettings = lazy(() => import('./pages/WorkflowSettings'));
 const AutomationSettings = lazy(() => import('./pages/AutomationSettings'));
 const Correspondence = lazy(() => import('./pages/Correspondence'));
+const Kanban = lazy(() => import('./pages/Kanban'));
 
 function PageLoader() {
   return <div className="min-h-[50vh] flex items-center justify-center text-gray-500">Loading…</div>;
@@ -105,6 +106,7 @@ export default function App() {
               <Route path="/" element={<ProtectedRoute><Layout user={user} onLogout={handleLogout} /></ProtectedRoute>}>
                 <Route index element={<Dashboard />} />
                 <Route path="tmps" element={<TMPList />} />
+                <Route path="kanban" element={<Kanban />} />
                 <Route path="tmps/new" element={<RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute>} />
                 <Route path="tmps/:id" element={<TMPDetail />} />
                 <Route path="tmps/:id/edit" element={<RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute>} />
