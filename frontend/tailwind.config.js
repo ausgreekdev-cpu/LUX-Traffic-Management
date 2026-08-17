@@ -5,18 +5,26 @@ export default {
   theme: {
     extend: {
       colors: {
+        // The lux ramp is driven by CSS custom properties injected at runtime by
+        // the Branding engine (backend GET /api/branding -> BrandingProvider).
+        // Defaults live in :root in index.css and match the original palette, so
+        // an unconfigured deployment is byte-for-byte identical to before.
         lux: {
-          50: '#fef3e2',
-          100: '#fde4b9',
-          200: '#fcd48c',
-          300: '#fbc35f',
-          400: '#f9a825',
-          500: '#f57f17',
-          600: '#e65100',
-          700: '#bf360c',
-          800: '#8b2500',
-          900: '#4e1600'
+          50: 'rgb(var(--lux-50) / <alpha-value>)',
+          100: 'rgb(var(--lux-100) / <alpha-value>)',
+          200: 'rgb(var(--lux-200) / <alpha-value>)',
+          300: 'rgb(var(--lux-300) / <alpha-value>)',
+          400: 'rgb(var(--lux-400) / <alpha-value>)',
+          500: 'rgb(var(--lux-500) / <alpha-value>)',
+          600: 'rgb(var(--lux-600) / <alpha-value>)',
+          700: 'rgb(var(--lux-700) / <alpha-value>)',
+          800: 'rgb(var(--lux-800) / <alpha-value>)',
+          900: 'rgb(var(--lux-900) / <alpha-value>)'
         }
+      },
+      fontFamily: {
+        sans: ['var(--font-ui)'],
+        map: ['var(--font-map)']
       }
     }
   },

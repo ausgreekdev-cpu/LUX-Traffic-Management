@@ -27,6 +27,7 @@ const WorkflowSettings = lazy(() => import('./pages/WorkflowSettings'));
 const AutomationSettings = lazy(() => import('./pages/AutomationSettings'));
 const Correspondence = lazy(() => import('./pages/Correspondence'));
 const Kanban = lazy(() => import('./pages/Kanban'));
+const Branding = lazy(() => import('./pages/Branding'));
 
 function PageLoader() {
   return <div className="min-h-[50vh] flex items-center justify-center text-gray-500">Loading…</div>;
@@ -126,6 +127,7 @@ export default function App() {
                 <Route path="automations" element={<RoleRoute user={user} minRole="developer"><AutomationSettings /></RoleRoute>} />
                 <Route path="correspondence" element={<RoleRoute user={user} minRole="manager"><Correspondence /></RoleRoute>} />
                 <Route path="users" element={<RoleRoute user={user} minRole="developer"><UsersList /></RoleRoute>} />
+                <Route path="branding" element={<RoleRoute user={user} minRole="developer"><Branding /></RoleRoute>} />
               </Route>
             </Routes>
           </Suspense>

@@ -568,6 +568,61 @@ const MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_board_history_card ON board_card_history(card_id);
       `);
     }
+  },
+  {
+    version: 4,
+    name: 'branding_engine',
+    up() {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS branding (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          theme_json TEXT NOT NULL DEFAULT '{}',
+          typography_json TEXT NOT NULL DEFAULT '{}',
+          pdf_layout_json TEXT NOT NULL DEFAULT '{}',
+          watermark_json TEXT NOT NULL DEFAULT '{}',
+          email_json TEXT NOT NULL DEFAULT '{}',
+          css_override TEXT NOT NULL DEFAULT '',
+          css_version INTEGER NOT NULL DEFAULT 0,
+          updated_by TEXT,
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+        INSERT OR IGNORE INTO branding (id) VALUES (1);
+
+        CREATE TABLE IF NOT EXISTS branding_assets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          slot TEXT NOT NULL UNIQUE,
+          blob_key TEXT NOT NULL,
+          mime_type TEXT,
+          size INTEGER,
+          width INTEGER,
+          height INTEGER,
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS branding_versions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          label TEXT,
+          snapshot_json TEXT NOT NULL,
+          created_by TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS domain_map (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          domain TEXT NOT NULL UNIQUE,
+          is_primary INTEGER DEFAULT 0,
+          status TEXT DEFAULT 'pending',
+          notes TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_branding_assets_slot ON branding_assets(slot);
+      `);
+      const cols = db.prepare('PRAGMA table_info(email_templates)').all().map(c => c.name);
+      if (!cols.includes('html_body')) {
+        db.exec('ALTER TABLE email_templates ADD COLUMN html_body TEXT');
+      }
+    }
   }
 ];
 

@@ -10,6 +10,8 @@ import { backupNow, listBackups, backupsDir } from '../backups.js';
 import { authenticate } from '../middleware/auth.js';
 import { roleAtLeast } from '../middleware/auth.js';
 import { isClientUser, tmpOwnedByClient } from '../middleware/scope.js';
+import { parseJson, DEFAULT_WATERMARK } from '../branding.js';
+import { loadAsset } from '../assets.js';
 
 const requirePkg = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 let _PDFDocument = null;
@@ -42,6 +44,160 @@ function addFooter(doc) {
   doc.moveDown(2);
   doc.fontSize(8).fillColor('#666').text(footer, { align: 'center' });
   doc.fillColor('#000');
+}
+
+// ------------------------------------------------------ white-label branding
+
+async function loadBranding() {
+  const row = db.prepare('SELECT typography_json, pdf_layout_json, watermark_json FROM branding WHERE id = 1').get();
+  if (!row) return null;
+  return {
+    typography: parseJson(row.typography_json, {}),
+    layout: parseJson(row.pdf_layout_json, { header: [], footer: [] }),
+    watermark: parseJson(row.watermark_json, DEFAULT_WATERMARK)
+  };
+}
+
+async function registerBrandFont(doc, typography) {
+  const src = typography && typography.ui && typography.ui.src;
+  if (!src) return false;
+  const bytes = await loadAsset(src).catch(() => null);
+  if (!bytes || !bytes.length) return false;
+  try {
+    const tmpPath = path.join(os.tmpdir(), `lux-font-${Date.now()}-${String(src).replace(/[^a-zA-Z0-9_-]/g, '_')}`);
+    fs.writeFileSync(tmpPath, bytes);
+    doc.registerFont('brand', tmpPath);
+    return true;
+  } catch (err) {
+    console.warn('Brand font registration failed:', err.message);
+    return false;
+  }
+}
+
+function watermarkText(wm, status) {
+  if (!wm || wm.mode === 'off') return '';
+  if (wm.mode === 'status') return (wm.status_text && wm.status_text[status]) || '';
+  return wm.text || '';
+}
+
+function drawWatermark(doc, text, wm) {
+  const { width, height } = doc.page;
+  doc.save();
+  doc.rotate(-30, { origin: [width / 2, height / 2] });
+  doc.fontSize(wm.fontSize || 56)
+    .fillColor(wm.color || '#cccccc')
+    .fillOpacity(typeof wm.opacity === 'number' ? wm.opacity : 0.14);
+  doc.text(text, width / 2, height / 2, { align: 'center', lineBreak: false });
+  doc.restore();
+  doc.fillColor('#000');
+  doc.fillOpacity(1);
+}
+
+function drawBlock(doc, b, ctx) {
+  const font = ctx.brandFont ? 'brand' : 'Helvetica';
+  const size = b.size || 10;
+  const align = b.align || 'left';
+  const x = b.x !== undefined ? b.x : 50;
+  const y = b.y !== undefined ? b.y : 50;
+
+  if (b.type === 'logo' || b.type === 'seal') {
+    const buffer = b.type === 'logo' ? ctx.logoBuffer : ctx.sealBuffer;
+    if (!buffer) return;
+    const w = b.width || (b.type === 'logo' ? 140 : 64);
+    const h = b.height || (b.type === 'logo' ? 40 : 64);
+    try { doc.image(buffer, x, y, { fit: [w, h] }); } catch (err) { console.warn('brand image draw failed:', err.message); }
+    return;
+  }
+
+  let content;
+  switch (b.type) {
+    case 'text': content = b.text || ''; break;
+    case 'company_name': content = ctx.companyName; break;
+    case 'company_details': content = [ctx.companyPhone, ctx.companyEmail].filter(Boolean).join('  |  '); break;
+    case 'plan_title': content = ctx.tmpTitle; break;
+    case 'reference': content = ctx.reference ? `Reference: ${ctx.reference}` : ''; break;
+    case 'permit_number': content = ctx.permitNumber ? `Permit: ${ctx.permitNumber}` : ''; break;
+    case 'accreditation': content = ctx.accreditation || ''; break;
+    case 'generated_at': content = `Generated: ${fmtDate(new Date().toISOString())}`; break;
+    case 'page_number': content = `Page ${doc.page.pageNumber || 1}`; break;
+    default: content = '';
+  }
+  if (!content) return;
+  doc.font(font).fontSize(size).fillColor(b.color || '#000000');
+  doc.text(content, x, y, { width: doc.page.width - 100, align, lineBreak: false });
+  doc.fillColor('#000');
+}
+
+function renderHeaderBlocks(doc, layout, ctx) {
+  for (const b of layout.header || []) drawBlock(doc, b, ctx);
+  doc.moveDown();
+}
+
+function renderFooterBlocks(doc, layout, ctx) {
+  for (const b of layout.footer || []) {
+    const y = doc.page.height - 70 + (b.y || 0);
+    drawBlock(doc, { ...b, y }, ctx);
+  }
+}
+
+async function applyBranding(doc, tmp) {
+  const br = await loadBranding();
+  if (!br) return { footerHandled: false, headerHandled: false };
+
+  const ctx = {
+    companyName: getSetting('company_name', ''),
+    companyPhone: getSetting('company_phone', ''),
+    companyEmail: getSetting('company_email', ''),
+    tmpTitle: tmp.title,
+    reference: tmp.reference,
+    accreditation: getSetting('company_abn', '') ? `ABN ${getSetting('company_abn', '')}` : '',
+    brandFont: false,
+    logoBuffer: null,
+    sealBuffer: null
+  };
+  const permits = db.prepare('SELECT pe.status, au.short_name FROM permits pe LEFT JOIN authorities au ON pe.authority_id = au.id WHERE pe.tmp_id = ?').all(tmp.id);
+  ctx.permitNumber = permits.filter(p => p.status === 'approved').map(p => p.short_name || 'approved').filter(Boolean).join(', ') || undefined;
+
+  ctx.brandFont = await registerBrandFont(doc, br.typography);
+  ctx.logoBuffer = await loadAsset('logo_dark').catch(() => null);
+  ctx.sealBuffer = await loadAsset('seal').catch(() => null);
+
+  const wmText = watermarkText(br.watermark, tmp.status);
+  const hasHeader = Array.isArray(br.layout.header) && br.layout.header.length > 0;
+  const hasFooter = Array.isArray(br.layout.footer) && br.layout.footer.length > 0;
+
+  const perPage = () => {
+    if (wmText) drawWatermark(doc, wmText, br.watermark);
+    if (hasFooter) renderFooterBlocks(doc, br.layout, ctx);
+  };
+  perPage();
+  doc.on('pageAdded', perPage);
+
+  if (hasHeader) renderHeaderBlocks(doc, br.layout, ctx);
+
+  return { footerHandled: hasFooter || !!wmText, headerHandled: hasHeader, watermark: wmText };
+}
+
+async function applyWatermarkFooter(doc, status, extra = {}) {
+  const br = await loadBranding();
+  if (!br) return { footerHandled: false };
+  const ctx = {
+    companyName: getSetting('company_name', ''),
+    companyPhone: getSetting('company_phone', ''),
+    companyEmail: getSetting('company_email', ''),
+    tmpTitle: '', reference: '', accreditation: '',
+    brandFont: false, logoBuffer: null, sealBuffer: null,
+    ...extra
+  };
+  const wmText = watermarkText(br.watermark, status);
+  const hasFooter = Array.isArray(br.layout.footer) && br.layout.footer.length > 0;
+  const perPage = () => {
+    if (wmText) drawWatermark(doc, wmText, br.watermark);
+    if (hasFooter) renderFooterBlocks(doc, br.layout, ctx);
+  };
+  perPage();
+  doc.on('pageAdded', perPage);
+  return { footerHandled: hasFooter || !!wmText };
 }
 
 router.get('/db-backup', (req, res) => {
@@ -170,7 +326,7 @@ router.delete('/backups/:name', (req, res) => {
   res.json({ success: true });
 });
 
-router.get('/tmp/:id', (req, res) => {
+router.get('/tmp/:id', async (req, res) => {
   const tmp = db.prepare(`
     SELECT t.*, s.name as site_name, s.road_name, s.suburb, p.name as project_name, c.name as client_name, c.company as client_company
     FROM traffic_management_plans t
@@ -192,12 +348,16 @@ router.get('/tmp/:id', (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${tmp.reference || 'TMP'}.pdf"`);
   doc.pipe(res);
 
-  if (companyName) {
-    doc.fontSize(16).text(companyName, { align: 'center' });
-    if (companyPhone || companyEmail) {
-      doc.fontSize(9).text([companyPhone, companyEmail].filter(Boolean).join('  |  '), { align: 'center' });
+  const branding = await applyBranding(doc, tmp).catch(() => ({ footerHandled: false, headerHandled: false }));
+
+  if (!branding.headerHandled) {
+    if (companyName) {
+      doc.fontSize(16).text(companyName, { align: 'center' });
+      if (companyPhone || companyEmail) {
+        doc.fontSize(9).text([companyPhone, companyEmail].filter(Boolean).join('  |  '), { align: 'center' });
+      }
+      doc.moveDown();
     }
-    doc.moveDown();
   }
   doc.fontSize(20).text('Traffic Management Plan', { align: 'center' });
   doc.moveDown();
@@ -222,12 +382,12 @@ router.get('/tmp/:id', (req, res) => {
     });
   }
   doc.moveDown();
-  addFooter(doc);
+  if (!branding.footerHandled) addFooter(doc);
   doc.fontSize(10).text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
 });
 
-router.get('/permits-summary', roleAtLeast('staff'), (req, res) => {
+router.get('/permits-summary', roleAtLeast('staff'), async (req, res) => {
   const permits = db.prepare(`
     SELECT pe.*, au.name as authority_name, au.short_name as authority_short, t.title as tmp_title, t.reference as tmp_reference
     FROM permits pe
@@ -241,6 +401,8 @@ router.get('/permits-summary', roleAtLeast('staff'), (req, res) => {
   res.setHeader('Content-Disposition', 'attachment; filename="permits-summary.pdf"');
   doc.pipe(res);
 
+  const branding = await applyWatermarkFooter(doc, 'approved').catch(() => ({ footerHandled: false }));
+
   doc.fontSize(20).text('Permits Summary', { align: 'center' });
   doc.moveDown();
   doc.fontSize(10);
@@ -248,11 +410,11 @@ router.get('/permits-summary', roleAtLeast('staff'), (req, res) => {
     doc.text(`${p.tmp_reference || 'N/A'} | ${p.authority_short || 'N/A'} | ${p.status} | ${p.complexity}${p.expiry_date ? ' | Expires ' + fmtDate(p.expiry_date) : ''}`);
   });
   if (!permits.length) doc.text('No permits found.');
-  addFooter(doc);
+  if (!branding.footerHandled) addFooter(doc);
   doc.end();
 });
 
-router.get('/audit-report', roleAtLeast('staff'), (req, res) => {
+router.get('/audit-report', roleAtLeast('staff'), async (req, res) => {
   const activities = db.prepare(`
     SELECT a.*, u.name as user_name, t.title as tmp_title, t.reference as tmp_reference
     FROM plan_activities a
@@ -268,6 +430,8 @@ router.get('/audit-report', roleAtLeast('staff'), (req, res) => {
   res.setHeader('Content-Disposition', 'attachment; filename="audit-report.pdf"');
   doc.pipe(res);
 
+  const branding = await applyWatermarkFooter(doc, 'completed').catch(() => ({ footerHandled: false }));
+
   if (companyName) {
     doc.fontSize(16).text(companyName, { align: 'center' });
     doc.moveDown();
@@ -282,7 +446,7 @@ router.get('/audit-report', roleAtLeast('staff'), (req, res) => {
     doc.text(`${fmtDate(a.created_at)}  |  ${a.user_name || 'unknown'}  |  ${a.action}  |  ${a.description || ''}${a.tmp_reference ? '  |  ' + a.tmp_reference : ''}`);
   }
   doc.moveDown();
-  addFooter(doc);
+  if (!branding.footerHandled) addFooter(doc);
   doc.fontSize(10).text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
 });

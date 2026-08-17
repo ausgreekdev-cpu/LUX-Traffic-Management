@@ -13,7 +13,7 @@ function laneLabel(lane) {
 }
 
 function laneBadge(lane) {
-  if (lane === 'emergency') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300';
+  if (lane === 'emergency') return 'emg-soft';
   if (!lane) return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
   return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300';
 }
@@ -21,8 +21,8 @@ function laneBadge(lane) {
 function wipClass(column) {
   if (!column.wip_limit) return '';
   const at = column.count >= column.wip_limit;
-  if (at && column.enforce_wip) return 'ring-2 ring-red-400';
-  if (at) return 'ring-2 ring-amber-400';
+  if (at && column.enforce_wip) return 'wip-ring-alert';
+  if (at) return 'wip-ring-warn';
   return '';
 }
 
@@ -38,7 +38,7 @@ function DraggableCard({ card, entityType, statusFn, users, onOpen }) {
       {...listeners}
       {...attributes}
       onClick={() => onOpen(card)}
-      className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 cursor-grab active:cursor-grabbing select-none touch-none hover:shadow-md transition-all ${isDragging ? 'opacity-40 rotate-2 scale-95' : ''} ${card.lane === 'emergency' ? 'border-l-4 border-l-red-500' : ''}`}
+      className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 cursor-grab active:cursor-grabbing select-none touch-none hover:shadow-md transition-all ${isDragging ? 'opacity-40 rotate-2 scale-95' : ''} ${card.lane === 'emergency' ? 'emg-lane-border' : ''}`}
       style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined}
     >
       <div className="flex items-start justify-between gap-2">
@@ -79,10 +79,10 @@ function DroppableCell({ id, cards, column, entityType, statusFn, users, onOpen 
       className={`min-h-40 p-2 rounded-lg transition-colors border ${isOver ? 'bg-lux-50 dark:bg-lux-900/20 border-lux-400' : 'bg-gray-100 dark:bg-gray-700/40 border-transparent'}`}
     >
       <div className="flex items-center justify-between px-1 mb-1">
-        <span className={`text-[10px] font-semibold ${overLimit && column.enforce_wip ? 'text-red-600' : overLimit ? 'text-amber-600' : 'text-gray-400'}`}>
+        <span className={`text-[10px] font-semibold ${overLimit && column.enforce_wip ? 'text-[color:var(--system-emergency)]' : overLimit ? 'text-[color:var(--system-wip-warn)]' : 'text-gray-400'}`}>
           {cards.length}{column.wip_limit ? ` / ${column.wip_limit}` : ''}
         </span>
-        {overLimit && <span className="text-[9px] font-bold text-red-500">WIP</span>}
+        {overLimit && <span className="text-[9px] font-bold text-[color:var(--system-emergency)]">WIP</span>}
       </div>
       <div className="space-y-2">
         {cards.map(card => (
@@ -137,7 +137,7 @@ export default function BoardView({ board, entityType, onMove, onOpen, statusFn 
               <div key={c.id} className={`px-3 py-2 rounded-t-lg ${c.colour || 'bg-gray-100 dark:bg-gray-700'} border border-b-0 ${wipClass(c)}`}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-bold truncate">{c.name}</p>
-                  <span className={`text-[10px] font-semibold shrink-0 ${c.wip_limit && c.count >= c.wip_limit ? (c.enforce_wip ? 'text-red-600' : 'text-amber-600') : 'text-gray-500'}`}>
+                  <span className={`text-[10px] font-semibold shrink-0 ${c.wip_limit && c.count >= c.wip_limit ? (c.enforce_wip ? 'text-[color:var(--system-emergency)]' : 'text-[color:var(--system-wip-warn)]') : 'text-gray-500'}`}>
                     {c.count}{c.wip_limit ? `/${c.wip_limit}` : ''}
                   </span>
                 </div>
