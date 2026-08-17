@@ -117,6 +117,7 @@ export default function Settings() {
   const [showSecret, setShowSecret] = useState(false);
   const [theme, setTheme] = useState('light');
   const [saved, setSaved] = useState('');
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -179,22 +180,25 @@ export default function Settings() {
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const save = async (keys, message) => {
+  const runSave = async (fn, message) => {
+    setSaving(true);
+    try {
+      await fn();
+      notify(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const save = (keys, message) => runSave(async () => {
     const payload = {};
     for (const k of keys) payload[k] = form[k];
     await api.settings.update(payload);
-    notify(message);
-  };
+  }, message);
 
-  const saveJson = async (key, obj, message) => {
-    await api.settings.update({ [key]: JSON.stringify(obj) });
-    notify(message);
-  };
+  const saveJson = (key, obj, message) => runSave(() => api.settings.update({ [key]: JSON.stringify(obj) }), message);
 
-  const saveScalar = async (key, value, message) => {
-    await api.settings.update({ [key]: String(value) });
-    notify(message);
-  };
+  const saveScalar = (key, value, message) => runSave(() => api.settings.update({ [key]: String(value) }), message);
 
   const toggleTheme = async (t) => {
     setTheme(t);
@@ -333,7 +337,8 @@ export default function Settings() {
         <h1 className="page-header">{pageTitle('settings', 'Settings')}</h1>
         <p className="page-sub">Company profile, reminders and appearance</p>
       </div>
-      {saved && <p className="mb-4 text-sm text-green-600 dark:text-green-400">{saved}</p>}
+      {saving && <p className="mb-4 text-sm text-amber-600 dark:text-amber-400">Saving…</p>}
+      {!saving && saved && <p className="mb-4 text-sm text-green-600 dark:text-green-400">{saved}</p>}
 
       <Card title="Company profile" description="Shown on exported documents and reports.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -513,12 +518,14 @@ export default function Settings() {
             <p>Body may include <code className="font-mono">sender/from</code>, <code className="font-mono">subject</code> and <code className="font-mono">text/body</code> fields; emails are parsed for a TMP reference and outcome keywords (approved, rejected, request info…).</p>
           </div>
           <button onClick={async () => {
+            setSaving(true);
             try {
               if (form.webhook_secret) await api.settings.update({ webhook_secret: form.webhook_secret });
               setWebhookHas(!!form.webhook_secret || webhookHas);
               setForm(f => ({ ...f, webhook_secret: '' }));
               notify('Webhook settings saved');
             } catch (err) { alert(err.message); }
+            finally { setSaving(false); }
           }} className="btn btn-primary">
             Save webhook settings
           </button>
@@ -710,9 +717,13 @@ export default function Settings() {
                 onChange={e => setBehaviour(b => ({ ...b, maintenance_mode: e.target.checked }))} />
               Maintenance mode — block all data changes app-wide (read-only banner shown; Settings remains open so you can turn it off)
             </label>
-            <button onClick={() => {
-              const payload = Object.fromEntries(Object.entries(behaviour).map(([k, v]) => [k, v === true ? 'true' : v === false ? 'false' : v]));
-              api.settings.update(payload).then(() => notify('System behaviour saved'));
+            <button onClick={async () => {
+              setSaving(true);
+              try {
+                const payload = Object.fromEntries(Object.entries(behaviour).map(([k, v]) => [k, v === true ? 'true' : v === false ? 'false' : v]));
+                await api.settings.update(payload);
+                notify('System behaviour saved');
+              } finally { setSaving(false); }
             }} className="btn btn-primary">Save behaviour</button>
           </Card>
         </>
