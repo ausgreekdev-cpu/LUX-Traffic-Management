@@ -146,7 +146,22 @@ async function executeAction(action, event, ctx, rule) {
       return { type, assigned_user_id: userId, assigned_to: user?.name || null };
     }
     case 'notify_email': {
+      // Recipients: explicit `to` (comma-separated emails), plus any roles
+      // listed in `roles`, plus the entity owner when include_owner is set.
       const to = template(params.to, ctx);
+      let recipients = to ? String(to).split(',').map(s => s.trim()).filter(Boolean) : [];
+      const roles = params.roles ? String(params.roles).split(',').map(s => s.trim()).filter(Boolean) : [];
+      if (roles.length) {
+        const ph = roles.map(() => '?').join(',');
+        const users = db.prepare(`SELECT email FROM users WHERE role IN (${ph}) AND email IS NOT NULL AND email != ''`).all(...roles);
+        recipients.push(...users.map(u => u.email));
+      }
+      if (params.include_owner && ctx.created_by) {
+        const owner = db.prepare("SELECT email FROM users WHERE id = ? AND email IS NOT NULL AND email != ''").get(ctx.created_by);
+        if (owner?.email) recipients.push(owner.email);
+      }
+      recipients = [...new Set(recipients.map(s => String(s).trim()).filter(Boolean))];
+      if (!recipients.length) return { type, skipped: 'no recipient' };
       let subject = params.subject !== undefined ? template(params.subject, ctx) : null;
       let body = params.body !== undefined ? template(params.body, ctx) : null;
       let tpl = null;
@@ -157,13 +172,16 @@ async function executeAction(action, event, ctx, rule) {
         if (subject === null) subject = tpl.subject;
         if (body === null) body = tpl.body;
       }
-      if (!to) return { type, skipped: 'no recipient' };
-      try {
-        const info = await sendEmail(to, subject, body, event.entity?.tmp_id || entityId || null, { html: tpl?.html_body || undefined });
-        return { type, messageId: info.messageId };
-      } catch (err) {
-        return { type, error: err.message };
+      const results = [];
+      for (const recipient of recipients) {
+        try {
+          const info = await sendEmail(recipient, subject, body, event.entity?.tmp_id || entityId || null, { html: tpl?.html_body || undefined });
+          results.push({ to: recipient, messageId: info.messageId });
+        } catch (err) {
+          results.push({ to: recipient, error: err.message });
+        }
       }
+      return { type, sent: results.filter(r => r.messageId).length, failed: results.length - results.filter(r => r.messageId).length, results, messageId: results.length === 1 ? results[0].messageId : null };
     }
     case 'set_field': {
       const table = params.entity_type && SAFE_FIELDS[params.entity_type] ? params.entity_type

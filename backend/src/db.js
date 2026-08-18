@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { randomUUID } from 'node:crypto';
 
 const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 export const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
@@ -670,6 +671,44 @@ const MIGRATIONS = [
 
         ALTER TABLE branding_versions ADD COLUMN domain TEXT NOT NULL DEFAULT '';
       `);
+    }
+  },
+  {
+    version: 6,
+    name: 'email_templates_seed',
+    up() {
+      // Built-in notification templates. They carry plain-text bodies only —
+      // outgoing mail is auto-wrapped in the white-labelled HTML shell
+      // (logo, accent, footer from Branding -> Email & Domain) unless a
+      // template defines its own html_body. Idempotent: existing rows with the
+      // same name (UNIQUE) are left untouched.
+      const seed = [
+        {
+          name: 'stale_plan_alert',
+          event_type: 'board.card_stale',
+          subject: 'Stale card: {reference} in {column_name} for {days_stale} day(s)',
+          body: 'Hi,\n\nCard {reference} ({title}) has been sitting in {column_name} for {days_stale} day(s) — beyond the {stale_business_days} business-day alert threshold.\n\n  Plan:     {reference}\n  Status:   {status}\n  Column:   {column_name}\n  Days:     {days_stale}\n\nPlease log in and follow up with the council / stakeholders to chase the approval.\n\nRegards,\nLUX Traffic Management'
+        },
+        {
+          name: 'audit_signoff_request',
+          event_type: 'plan.audit_required',
+          subject: 'Audit / sign-off required: {reference}',
+          body: 'Hi,\n\nPlan {reference} ({title}) requires mandatory audit and sign-off before it can proceed.\n\n  Plan:     {reference}\n  Title:    {title}\n  Status:   {status}\n\nPlease log in and complete the review so the workflow can continue.\n\nRegards,\nLUX Traffic Management'
+        },
+        {
+          name: 'general_notification',
+          event_type: 'general',
+          subject: '{subject}',
+          body: '{message}'
+        }
+      ];
+      const insert = db.prepare(`
+        INSERT OR IGNORE INTO email_templates (id, name, subject, body, event_type, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      `);
+      for (const t of seed) {
+        insert.run(randomUUID(), t.name, t.subject, t.body, t.event_type);
+      }
     }
   }
 ];

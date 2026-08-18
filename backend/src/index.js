@@ -7,6 +7,7 @@ import app from './app.js';
 import { verifyDatabaseHealth } from './backups.js';
 import { cleanupRateLimitBuckets } from './middleware/rate-limit.js';
 import { startScheduler } from './scheduler.js';
+import { verifySmtpConnection } from './emailer.js';
 
 const moduleDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -57,6 +58,15 @@ const server = app.listen(PORT, () => {
   startScheduler();
   if (process.send) {
     process.send({ type: 'server-started', port: PORT });
+  }
+});
+
+// Non-blocking SMTP health probe at startup — logs connectivity/auth status.
+verifySmtpConnection().then((health) => {
+  if (health.ok) {
+    console.log(`[smtp] healthy — ${health.host}:${health.port} (${health.user || 'no auth user'})`);
+  } else {
+    console.warn(`[smtp] UNHEALTHY — ${health.host}:${health.port}: ${health.error}${health.hint ? ' ' + health.hint : ''}`);
   }
 });
 

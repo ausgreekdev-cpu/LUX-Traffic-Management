@@ -4,7 +4,7 @@ import db from '../db.js';
 import { authenticate, authorize, roleAtLeast } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { emitEvent } from '../events.js';
-import { resetTransporter, sendEmail, getSmtpConfig, getPostmarkConfig, getProvider, getSetting } from '../emailer.js';
+import { resetTransporter, sendEmail, getSmtpConfig, getPostmarkConfig, getProvider, getSetting, verifySmtpConnection, classifySmtpError } from '../emailer.js';
 import { encryptSecret } from '../secrets-crypto.js';
 import { paginateResponse } from '../middleware/pagination.js';
 
@@ -59,14 +59,32 @@ router.post('/config', authorize('developer'), (req, res) => {
   res.json({ success: true, message: 'Email configuration saved', keys: Object.keys(values) });
 });
 
-router.post('/test', roleAtLeast('staff'), (req, res) => {
-  const to = req.body.to || process.env.SMTP_USER;
-  sendEmail(to, 'LUX Traffic Management - Email Test', 'This is a test email from LUX Traffic Management system.')
-    .then(info => {
-      res.json({ success: true, messageId: info.messageId });
-    }).catch(err => {
-      res.status(500).json({ error: 'Failed to send email', details: err.message });
+router.post('/test', roleAtLeast('staff'), async (req, res) => {
+  const cfg = getSmtpConfig();
+  const provider = getProvider();
+  const transport = { provider, host: cfg.host, port: cfg.port, secure: cfg.secure, user: cfg.user, from: cfg.fromEmail || cfg.user };
+  const to = String(req.body?.to || '').trim() || cfg.fromEmail || process.env.SMTP_USER;
+  if (!to) {
+    return res.status(400).json({ success: false, error: 'No recipient — provide a "to" email.', transport });
+  }
+  try {
+    const info = await sendEmail(to, 'LUX Traffic Management - Email Test', 'This is a test email from LUX Traffic Management system.');
+    res.json({ success: true, messageId: info.messageId, transport });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      code: err.code || null,
+      response: err.response || null,
+      hint: classifySmtpError(err),
+      transport
     });
+  }
+});
+
+router.get('/verify', roleAtLeast('staff'), async (req, res) => {
+  const result = await verifySmtpConnection();
+  res.json(result);
 });
 
 router.post('/send-tmp', roleAtLeast('staff'), validate('sendEmail'), (req, res) => {

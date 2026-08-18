@@ -18,11 +18,14 @@ async function request(path, options = {}) {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }));
-    const message = err.error || 'Request failed';
+    const e = new Error(err.error || 'Request failed');
+    if (err.hint) e.hint = err.hint;
+    if (err.code) e.code = err.code;
+    if (err.transport) e.transport = err.transport;
     if (res.status === 429 && err.retryAfter) {
-      throw new Error(`${message} Please try again in ${Math.ceil(err.retryAfter)} seconds.`);
+      e.message += ` Please try again in ${Math.ceil(err.retryAfter)} seconds.`;
     }
-    throw new Error(message);
+    throw e;
   }
   return res.json();
 }

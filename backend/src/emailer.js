@@ -44,13 +44,17 @@ export function getSmtpConfig() {
   const port = parseInt(getSetting('smtp_port') || env('SMTP_PORT') || '587', 10);
   const secure = (getSetting('smtp_secure') || env('SMTP_SECURE') || 'false') === 'true';
   const user = getSetting('smtp_user') || env('SMTP_USER') || '';
-  const pass = decryptSecret(getSetting('smtp_pass')) || env('SMTP_PASS') || '';
+  const pass = decryptSecret(getSetting('smtp_pass')) || env('SMTP_PASSWORD') || env('SMTP_PASS') || '';
   const fromName = getSetting('smtp_from_name') || env('SMTP_FROM_NAME') || '';
   const fromEmail = getSetting('smtp_from_email') || env('SMTP_FROM_EMAIL') || user;
-  return { host, port, secure, user, pass, fromName, fromEmail };
+  const ciphers = env('SMTP_CIPHERS') || '';
+  return { host, port, secure, user, pass, fromName, fromEmail, ciphers };
 }
 
 export function resetTransporter() {
+  if (transporter) {
+    try { transporter.close(); } catch {}
+  }
   transporter = null;
 }
 
@@ -60,11 +64,92 @@ export function getTransporter() {
   const transport = {
     host: cfg.host,
     port: cfg.port,
-    secure: cfg.secure
+    secure: cfg.secure,
+    // Connection pooling — reuse warm sockets across sends within one instance.
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 50,
+    // TLS: Microsoft 365 requires TLS 1.2+ and STARTTLS on port 587. Node has
+    // removed SSLv3 entirely, so we pin a modern minimum instead of the legacy
+    // 'SSLv3' cipher string. SMTP_CIPHERS can override the cipher list if ever
+    // needed for an unusual provider.
+    minVersion: 'TLSv1.2',
+    requireTLS: !cfg.secure
   };
-if (cfg.user) transport.auth = { user: cfg.user, pass: cfg.pass };
+  if (cfg.ciphers) transport.ciphers = cfg.ciphers;
+  if (cfg.user) transport.auth = { user: cfg.user, pass: cfg.pass };
   transporter = getNodemailer().createTransport(transport);
   return transporter;
+}
+
+// ----------------------------------------------------------------- retries
+
+const RETRYABLE_SMTP_CODES = new Set(['421', '450', '451', '452', '454']);
+const RETRYABLE_NET_CODES = new Set(['ESOCKET', 'ECONNECTION', 'ETIMEDOUT', 'ECONNRESET', 'EPIPE', 'ECONNREFUSED', 'EAI_AGAIN']);
+
+// Retry only genuinely transient failures (throttling, 4xx retryable codes,
+// connection blips). Auth/relay/permanent 5xx errors fail fast.
+function isTransientError(err) {
+  const code = String(err?.code || '');
+  const response = String(err?.response || '');
+  if (RETRYABLE_NET_CODES.has(code)) return true;
+  if (RETRYABLE_SMTP_CODES.has(code)) return true;
+  const match = response.match(/\b(\d{3})\b/);
+  return !!match && String(match[1]).startsWith('4');
+}
+
+async function sendWithRetry(fn, attempts = 3, baseDelayMs = 750) {
+  let lastErr;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt === attempts - 1 || !isTransientError(err)) throw err;
+      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * 2 ** attempt));
+    }
+  }
+  throw lastErr;
+}
+
+// Map provider error signatures to actionable, human-readable hints.
+export function classifySmtpError(err) {
+  const message = String(err?.message || '');
+  const response = String(err?.response || '');
+  const code = String(err?.code || '');
+  const blob = message + ' ' + response;
+  if (/5\.7\.(8|139|14|34)|535|basic authentication|authentication failed/i.test(blob)) {
+    return 'Authentication failed. For Microsoft 365 this usually means SMTP AUTH is blocked: disable Security Defaults and/or enable SMTP AUTH for the mailbox (Set-CASMailbox -SmtpClientAuthenticationDisabled $false), or use an app password when MFA is enforced.';
+  }
+  if (/5\.7\.57|530|smtp auth not enabled/i.test(blob)) {
+    return 'SMTP AUTH is not enabled for this mailbox. Ask the tenant admin to enable SMTP AUTH (Set-CASMailbox -SmtpClientAuthenticationDisabled $false), then wait up to an hour.';
+  }
+  if (/454|4\.7\.0|throttl|too many|temporar/i.test(blob)) {
+    return 'The provider throttled the request. Microsoft 365 rate-limits per mailbox/IP — retrying automatically, but frequent sends may need to be spread out.';
+  }
+  if (/^421|421 /.test(blob)) {
+    return 'Mail server busy or IP throttled (421). Wait and retry; repeated 421s may indicate the sending IP is restricted.';
+  }
+  if (/ECONNECTION|ETIMEDOUT|ESOCKET|ECONNREFUSED|EAI_AGAIN/.test(code)) {
+    return 'Network connection failed — confirm the host is reachable and outbound port 587 (STARTTLS) is not blocked by a firewall/VPN.';
+  }
+  if (/starttls|tls|ssl|socket/i.test(blob) && !/certificate/i.test(blob)) {
+    return 'TLS negotiation failed — the server rejected STARTTLS. For Microsoft 365 use port 587 with STARTTLS (do not use 465 unless you also set "Use TLS/SSL" on).';
+  }
+  return null;
+}
+
+// Startup health probe — logs whether the configured SMTP endpoint accepts a
+// connection and authenticates. Returns a structured result, never throws.
+export async function verifySmtpConnection() {
+  const cfg = getSmtpConfig();
+  const base = { provider: 'smtp', host: cfg.host, port: cfg.port, secure: cfg.secure, user: cfg.user };
+  try {
+    await getTransporter().verify();
+    return { ...base, ok: true };
+  } catch (err) {
+    return { ...base, ok: false, error: err.message, code: err.code || null, response: err.response || null, hint: classifySmtpError(err) };
+  }
 }
 
 function formatFrom(name, email) {
@@ -130,13 +215,13 @@ export async function sendEmail(to, subject, body, tmpId = null, opts = {}) {
   const html = opts.html || (emailBrandingEnabled() ? buildBrandedHtml(body, subject) : undefined);
   let info;
   if (getProvider() === 'postmark') {
-    info = await sendPostmark(to, subject, body, html);
+    info = await sendWithRetry(() => sendPostmark(to, subject, body, html));
   } else {
     const cfg = getSmtpConfig();
     const from = formatFrom(cfg.fromName, cfg.fromEmail);
     const mail = { from, to, subject, text: body };
     if (html) mail.html = html;
-    info = await getTransporter().sendMail(mail);
+    info = await sendWithRetry(() => getTransporter().sendMail(mail));
     info.provider = 'smtp';
   }
   db.prepare('INSERT INTO email_logs (id, to_address, subject, body, tmp_id, status) VALUES (?, ?, ?, ?, ?, ?)')

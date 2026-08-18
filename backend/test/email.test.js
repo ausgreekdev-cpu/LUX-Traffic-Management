@@ -234,3 +234,29 @@ test('email config write is developer-only (staff gets 403)', async () => {
   });
   assert.equal(res.status, 403);
 });
+
+test('built-in notification templates are seeded (stale alert, audit sign-off, general)', async () => {
+  const staff = await loginAs('staff');
+  const templates = await (await fetch(`${base}/email/templates`, { headers: authed(staff) })).json();
+  const names = templates.map(t => t.name);
+  for (const expected of ['stale_plan_alert', 'audit_signoff_request', 'general_notification']) {
+    assert.ok(names.includes(expected), `${expected} template seeded`);
+  }
+  const stale = templates.find(t => t.name === 'stale_plan_alert');
+  assert.ok(stale.subject.includes('{reference}'));
+  assert.ok(stale.body.includes('{column_name}'));
+  assert.equal(stale.event_type, 'board.card_stale');
+});
+
+test('classifySmtpError maps Microsoft 365 auth and throttle signatures to hints', async () => {
+  const { classifySmtpError } = await import('../src/emailer.js');
+  const auth = classifySmtpError(new Error('Invalid login: 535 5.7.139 Authentication unsuccessful'));
+  assert.match(auth, /SMTP AUTH/i);
+  const relay = classifySmtpError(new Error('Client was not authenticated: 530 5.7.57 SMTP AUTH not enabled'));
+  assert.match(relay, /SMTP AUTH is not enabled/i);
+  const throttle = classifySmtpError(Object.assign(new Error('Request failed'), { response: '454 4.7.0 Temporary authentication failure' }));
+  assert.match(throttle, /throttl/i);
+  const net = classifySmtpError(Object.assign(new Error('connect'), { code: 'ECONNREFUSED' }));
+  assert.match(net, /Network connection failed/i);
+  assert.equal(classifySmtpError(new Error('550 5.4.1 Recipient address rejected')), null, 'permanent 5xx without a known signature gets no hint');
+});

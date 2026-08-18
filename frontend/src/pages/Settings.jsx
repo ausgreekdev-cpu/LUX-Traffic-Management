@@ -228,7 +228,8 @@ export default function Settings() {
       notify(`Test email sent: ${res.messageId}`);
       api.email.logs().then(setEmailLogs).catch(() => {});
     } catch (err) {
-      alert(`Test failed: ${err.message}`);
+      const tx = err.transport ? `\n(${err.transport.provider || ''} ${err.transport.host}:${err.transport.port})` : '';
+      alert(`Test failed: ${err.message}${tx}${err.hint ? `\n\n${err.hint}` : ''}`);
     } finally { setEmailBusy(false); }
   };
 

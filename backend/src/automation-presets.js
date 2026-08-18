@@ -198,7 +198,8 @@ export const PRESETS = [
     event_type: 'board.card_moved',
     conditions: [{ field: 'to_column_name', op: 'eq', value: 'Safety Audit' }],
     actions: [
-      { type: 'assign_card', params: { role: 'staff', title: 'Safety Audit assigned', message: '{reference} ({title}) moved to Safety Audit. Review and sign off.' } }
+      { type: 'assign_card', params: { role: 'staff', title: 'Safety Audit assigned', message: '{reference} ({title}) moved to Safety Audit. Review and sign off.' } },
+      { type: 'notify_email', params: { template: 'audit_signoff_request', roles: 'manager' } }
     ],
     dedupe_key_template: 'safety-audit-{id}-{to_column}',
     default_active: true
@@ -212,6 +213,7 @@ export const PRESETS = [
     conditions: [],
     actions: [
       { type: 'notify_user', params: { title: 'Card stale in {column_name}', message: '{reference} ({title}) has been in {column_name} for over {stale_business_days} business days. Follow up.', notification_type: 'board_stale' } },
+      { type: 'notify_email', params: { template: 'stale_plan_alert', roles: 'manager', include_owner: true } },
       { type: 'create_task', params: { role: 'manager', title: 'Chase stale card {reference}', message: '{reference} has been in {column_name} for over {stale_business_days} business days.' } }
     ],
     dedupe_key_template: 'stale-{id}-{column_id}',
