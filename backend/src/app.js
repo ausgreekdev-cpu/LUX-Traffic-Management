@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import fs from 'fs';
+import path from 'path';
 import db, { isServerless, schemaVersion, dbPath } from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
@@ -27,6 +28,7 @@ import agentRoutes from './routes/agents.js';
 import integrationRoutes from './routes/integrations.js';
 import kanbanRoutes from './routes/kanban.js';
 import brandingRoutes from './routes/branding.js';
+import telemetryRoutes from './routes/telemetry.js';
 import { ensureAutomationPresets } from './automation-presets.js';
 import { ensureBoardColumns } from './board.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
@@ -36,6 +38,7 @@ import { requestLogger } from './middleware/request-log.js';
 import { notFound, errorHandler } from './middleware/error-handler.js';
 import { ensureEncryptionKey, encryptLegacySecrets } from './secrets-crypto.js';
 import { snapshotDbNow, snapshotStatus } from './persistence.js';
+import { dataDir } from './media-store.js';
 import './automation-engine.js';
 
 const app = express();
@@ -91,6 +94,7 @@ app.use('/api/agents', agentRoutes);
 app.use('/api/integrations', integrationRoutes);
 app.use('/api/kanban', kanbanRoutes);
 app.use('/api/branding', brandingRoutes);
+app.use('/api/telemetry', telemetryRoutes);
 
 app.get('/api/ping', (req, res) => {
   res.json({ pong: true, at: new Date().toISOString() });
@@ -107,6 +111,21 @@ app.get('/api/health', async (req, res) => {
   try {
     lastBackup = db.prepare("SELECT value FROM settings WHERE key = 'auto_backup_last'").get()?.value || null;
   } catch {}
+  const mediaDir = dataDir();
+  let mediaFiles = 0;
+  let mediaBytes = 0;
+  if (mediaDir) {
+    try {
+      const walk = (d) => {
+        for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+          const full = path.join(d, entry.name);
+          if (entry.isDirectory()) walk(full);
+          else { mediaBytes += fs.statSync(full).size; mediaFiles += 1; }
+        }
+      };
+      walk(mediaDir);
+    } catch {}
+  }
   const health = {
     status: integrity === 'ok' ? 'ok' : 'degraded',
     serverless: isServerless,
@@ -117,7 +136,13 @@ app.get('/api/health', async (req, res) => {
       size_bytes: (() => { try { return fs.statSync(dbPath).size; } catch { return 0; } })(),
       path: dbPath
     },
-    backups: { last: lastBackup }
+    backups: { last: lastBackup },
+    storage: {
+      media_bytes: mediaBytes,
+      media_files: mediaFiles,
+      photos: (() => { try { return db.prepare('SELECT COUNT(*) as c FROM site_photos').get().c; } catch { return 0; } })(),
+      branding_assets: (() => { try { return db.prepare('SELECT COUNT(*) as c FROM branding_assets').get().c; } catch { return 0; } })()
+    }
   };
   if (isServerless) {
     health.snapshot = await snapshotStatus();

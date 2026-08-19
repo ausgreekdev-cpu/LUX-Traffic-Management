@@ -12,6 +12,12 @@ const BLOB_STORE = 'lux-media';
 
 const blobKey = (id, ext) => `media/${id}${ext}`;
 
+// Local media directory (used by telemetry for storage accounting). On
+// serverless the media lives in Blobs, so this returns null there.
+export function dataDir() {
+  return isServerless ? null : LOCAL_DIR;
+}
+
 async function getBlobStore() {
   const { getStore } = await import('@netlify/blobs');
   const opts = { name: BLOB_STORE, consistency: 'strong' };

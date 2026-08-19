@@ -12,6 +12,7 @@ import { roleAtLeast } from '../middleware/auth.js';
 import { isClientUser, tmpOwnedByClient } from '../middleware/scope.js';
 import { parseJson, DEFAULT_WATERMARK } from '../branding.js';
 import { loadAsset } from '../assets.js';
+import { deserializeMember, groupDefaults } from '../settings-defs.js';
 
 const requirePkg = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 let _PDFDocument = null;
@@ -44,6 +45,17 @@ function addFooter(doc) {
   doc.moveDown(2);
   doc.fontSize(8).fillColor('#666').text(footer, { align: 'center' });
   doc.fillColor('#000');
+}
+
+// Resolve the configured colour for a site's speed zone (export standards).
+function speedZoneColor(speedLimit) {
+  if (!speedLimit) return null;
+  const defaults = groupDefaults('export');
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'export.speed_zone_colors'").get();
+  const zones = row ? deserializeMember('export', 'speed_zone_colors', row.value) : defaults.speed_zone_colors;
+  if (!Array.isArray(zones)) return null;
+  const zone = [...zones].sort((a, b) => Math.abs((a.speed || 0) - speedLimit) - Math.abs((b.speed || 0) - speedLimit))[0];
+  return zone && zone.color && /^#[0-9a-fA-F]{6}$/.test(zone.color) ? zone.color : null;
 }
 
 // ------------------------------------------------------ white-label branding
@@ -328,7 +340,7 @@ router.delete('/backups/:name', (req, res) => {
 
 router.get('/tmp/:id', async (req, res) => {
   const tmp = db.prepare(`
-    SELECT t.*, s.name as site_name, s.road_name, s.suburb, p.name as project_name, c.name as client_name, c.company as client_company
+    SELECT t.*, s.name as site_name, s.road_name, s.suburb, s.speed_limit, p.name as project_name, c.name as client_name, c.company as client_company
     FROM traffic_management_plans t
     LEFT JOIN sites s ON t.site_id = s.id
     LEFT JOIN tmp_projects p ON t.project_id = p.id
@@ -367,6 +379,13 @@ router.get('/tmp/:id', async (req, res) => {
   doc.text(`Status: ${tmp.status}`);
   doc.text(`Type: ${tmp.plan_type}`);
   if (tmp.site_name) doc.text(`Site: ${tmp.site_name}${tmp.road_name ? ', ' + tmp.road_name : ''}${tmp.suburb ? ', ' + tmp.suburb : ''}`);
+  const zoneColor = speedZoneColor(tmp.speed_limit);
+  if (zoneColor && tmp.speed_limit) {
+    const y = doc.y + 2;
+    doc.fillColor(zoneColor).rect(50, y, 12, 12).fill();
+    doc.fillColor('#000').fontSize(10).text(`  ${tmp.speed_limit} km/h speed zone`, 68, y);
+    doc.moveDown();
+  }
   if (tmp.project_name) doc.text(`Project: ${tmp.project_name}`);
   if (tmp.client_name) doc.text(`Client: ${tmp.client_name}${tmp.client_company ? ' (' + tmp.client_company + ')' : ''}`);
   if (tmp.description) { doc.moveDown(); doc.text('Description:'); doc.text(tmp.description); }

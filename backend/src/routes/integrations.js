@@ -1,11 +1,21 @@
 import { Router } from 'express';
 import crypto from 'crypto';
+import { randomUUID } from 'crypto';
 import db from '../db.js';
 import { ingestCorrespondence, reviewCorrespondence } from '../correspondence.js';
 import { authenticate, roleAtLeast } from '../middleware/auth.js';
 import { decryptSecret } from '../secrets-crypto.js';
 
 const router = Router();
+
+function logDelivery({ provider, status, statusCode = null, error = null, correspondenceId = null, tmpReference = null }) {
+  try {
+    db.prepare(`
+      INSERT INTO webhook_deliveries (id, provider, endpoint, status, status_code, error, correspondence_id, tmp_reference)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(randomUUID(), String(provider), '/webhook/' + provider, status, statusCode, error, correspondenceId, tmpReference);
+  } catch {}
+}
 
 function getSetting(key) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -39,11 +49,13 @@ router.post('/webhook/:provider', (req, res) => {
   const provider = String(req.params.provider || 'generic').toLowerCase();
   const secret = decryptSecret(getSetting('webhook_secret'));
   if (secret && !verifySignature(req, secret)) {
+    logDelivery({ provider, status: 'failed', statusCode: 401, error: 'Invalid webhook signature' });
     return res.status(401).json({ error: 'Invalid webhook signature' });
   }
   const b = req.body || {};
   const email = extractEmail(b, provider);
   if (!email.text && !email.subject) {
+    logDelivery({ provider, status: 'failed', statusCode: 400, error: 'No subject or body content provided' });
     return res.status(400).json({ error: 'No subject or body content provided' });
   }
   const result = ingestCorrespondence({
@@ -54,6 +66,7 @@ router.post('/webhook/:provider', (req, res) => {
     raw_text: String(email.text || ''),
     received_at: b.timestamp || b.Date || new Date().toISOString()
   });
+  logDelivery({ provider, status: 'received', statusCode: 202, correspondenceId: result.id, tmpReference: result.tmp_reference });
   res.status(202).json({ received: true, correspondence_id: result.id, tmp_reference: result.tmp_reference, matched: !!result.permit_id, extracted_status: result.extracted_status });
 });
 

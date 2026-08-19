@@ -2,46 +2,30 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api.js';
 import { useAppText } from '../context/AppText.jsx';
-import { RANK } from '../context/Auth.jsx';
 import { useBranding } from '../context/Branding.jsx';
+import { useSettingsStore } from '../stores/SettingsStore';
+import { permissionAllowed } from '../utils/permissions';
 
 const mainNav = [
-  { to: '/', label: 'Dashboard', icon: '📊' },
-  { to: '/field', label: 'Field Mode', icon: '📱' },
-  { to: '/tmps', label: 'TMPs', icon: '📋' },
-  { to: '/kanban', label: 'Kanban', icon: '🗂️' },
-  { to: '/projects', label: 'Projects', icon: '📁' },
-  { to: '/permits', label: 'Permits', icon: '📄' },
-  { to: '/authorities', label: 'Authorities', icon: '🏛️' },
-  { to: '/time-tracking', label: 'Time Tracking', icon: '⏱️' },
-  { to: '/correspondence', label: 'Correspondence', icon: '📨' },
-  { to: '/analytics', label: 'Analytics', icon: '📈' },
-  { to: '/clients', label: 'Clients', icon: '👥' },
-  { to: '/sites', label: 'Sites', icon: '📍' },
-  { to: '/settings', label: 'Settings', icon: '⚙️' },
-  { to: '/help', label: 'Help & FAQ', icon: '📖' }
+  { to: '/', label: 'Dashboard', icon: '📊', permission: 'dashboard' },
+  { to: '/field', label: 'Field Mode', icon: '📱', permission: 'field' },
+  { to: '/tmps', label: 'TMPs', icon: '📋', permission: 'view_tmps' },
+  { to: '/kanban', label: 'Kanban', icon: '🗂️', permission: 'view_kanban' },
+  { to: '/projects', label: 'Projects', icon: '📁', permission: 'view_projects' },
+  { to: '/permits', label: 'Permits', icon: '📄', permission: 'view_permits' },
+  { to: '/authorities', label: 'Authorities', icon: '🏛️', permission: 'view_authorities' },
+  { to: '/time-tracking', label: 'Time Tracking', icon: '⏱️', permission: 'time_tracking' },
+  { to: '/correspondence', label: 'Correspondence', icon: '📨', permission: 'manage_correspondence' },
+  { to: '/analytics', label: 'Analytics', icon: '📈', permission: 'view_analytics' },
+  { to: '/clients', label: 'Clients', icon: '👥', permission: 'view_clients' },
+  { to: '/sites', label: 'Sites', icon: '📍', permission: 'view_sites' },
+  { to: '/settings', label: 'Settings', icon: '⚙️', permission: 'access_settings' },
+  { to: '/help', label: 'Help & FAQ', icon: '📖', permission: 'help' }
 ];
 
-const adminNav = [
-  { to: '/workflows', label: 'Workflows', icon: '🔄' },
-  { to: '/automations', label: 'Automation & Triggers', icon: '🤖' },
-  { to: '/users', label: 'Users', icon: '🔐' },
-  { to: '/branding', label: 'Branding & Themes', icon: '🎨' }
-];
-
-const roleNavMin = {
-  '/time-tracking': 'staff',
-  '/correspondence': 'manager',
-  '/analytics': 'staff',
-  '/settings': 'developer',
-  '/sites': 'staff'
-};
-
-function navVisible(to, role) {
-  if (to === '/help' || to === '/') return true;
-  const min = roleNavMin[to];
-  if (min && (RANK[role] || 0) < RANK[min]) return false;
-  return true;
+function navVisible(item, role, matrix) {
+  if (item.permission === 'help' || item.to === '/') return true;
+  return permissionAllowed(role, item.permission, matrix);
 }
 
 const typeIcons = {
@@ -71,6 +55,8 @@ export default function Layout({ user, onLogout }) {
   const navigate = useNavigate();
   const { nav, appName } = useAppText();
   const { branding } = useBranding();
+  const { groups } = useSettingsStore();
+  const matrix = groups?.rbac?.matrix;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -172,13 +158,7 @@ export default function Layout({ user, onLogout }) {
           )}
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-3">
-          {mainNav.filter(item => navVisible(item.to, user?.role)).map(renderNavItem)}
-          {user?.role === 'developer' && (
-            <>
-              {sidebarOpen && <p className="px-2 pt-5 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-500">Admin</p>}
-              {adminNav.map(renderNavItem)}
-            </>
-          )}
+          {mainNav.filter(item => navVisible(item, user?.role, matrix)).map(renderNavItem)}
         </nav>
         {user && (
           <div className="shrink-0 p-3 border-t border-gray-800">

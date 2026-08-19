@@ -86,7 +86,17 @@ export function isEncrypted(value) {
   return !!value && String(value).startsWith(PREFIX);
 }
 
-export const SECRET_SETTING_KEYS = ['smtp_pass', 'postmark_api_token', 'webhook_secret'];
+export const SECRET_SETTING_KEYS = [
+  'smtp_pass',
+  'postmark_api_token',
+  'webhook_secret',
+  'api_keys.mapbox_token',
+  'api_keys.google_maps_key',
+  'api_keys.weather_api_key',
+  'api_keys.sms_api_key',
+  'sso.certificate',
+  'sso.client_secret'
+];
 
 const MASK_PLACEHOLDER = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 

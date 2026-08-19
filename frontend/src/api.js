@@ -191,8 +191,17 @@ const api = {
     update: (data) => {
       settingsCache.value = null;
       return request('/settings', { method: 'PUT', body: JSON.stringify(data) });
-    }
+    },
+    groups: () => request('/settings/groups'),
+    saveGroups: (data) => request('/settings/groups', { method: 'PUT', body: JSON.stringify(data) })
   },
+  telemetry: {
+    webhooks: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/telemetry/webhooks${q}`); },
+    automations: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/telemetry/automations${q}`); },
+    emails: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/telemetry/emails${q}`); },
+    storage: () => request('/telemetry/storage')
+  },
+  health: () => request('/health'),
   workflows: {
     stages: (entityType, templateId) => request(`/workflows/stages${templateId ? '?template_id=' + templateId : (entityType ? '?entity_type=' + entityType : '')}`),
     createStage: (data) => request('/workflows/stages', { method: 'POST', body: JSON.stringify(data) }),

@@ -1,11 +1,13 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect, lazy, Suspense, useMemo } from 'react';
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
 import api from './api';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AppTextProvider } from './context/AppText';
 import { AuthProvider, RANK } from './context/Auth';
+import { SettingsStoreProvider } from './stores/SettingsStore';
+import SettingsLayout from './components/settings/SettingsLayout';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const TMPList = lazy(() => import('./pages/TMPList'));
@@ -20,20 +22,21 @@ const PermitDetail = lazy(() => import('./pages/PermitDetail'));
 const PermitForm = lazy(() => import('./pages/PermitForm'));
 const TimeTracking = lazy(() => import('./pages/TimeTracking'));
 const Analytics = lazy(() => import('./pages/Analytics'));
-const UsersList = lazy(() => import('./pages/UsersList'));
-const Settings = lazy(() => import('./pages/Settings'));
 const Help = lazy(() => import('./pages/Help'));
-const WorkflowSettings = lazy(() => import('./pages/WorkflowSettings'));
-const AutomationSettings = lazy(() => import('./pages/AutomationSettings'));
 const Correspondence = lazy(() => import('./pages/Correspondence'));
 const Kanban = lazy(() => import('./pages/Kanban'));
-const Branding = lazy(() => import('./pages/Branding'));
 const FieldLayout = lazy(() => import('./pages/field/FieldLayout'));
 const FieldHome = lazy(() => import('./pages/field/FieldHome'));
 const FieldTmpDetail = lazy(() => import('./pages/field/FieldTmpDetail'));
 const FieldBoard = lazy(() => import('./pages/field/FieldBoard'));
 const FieldPermits = lazy(() => import('./pages/field/FieldPermits'));
 const FieldPermitDetail = lazy(() => import('./pages/field/FieldPermitDetail'));
+
+// Settings hub panels
+const SystemPanel = lazy(() => import('./pages/settings/SystemPanel'));
+const BrandingPanel = lazy(() => import('./pages/settings/BrandingPanel'));
+const TrafficEnginePanel = lazy(() => import('./pages/settings/TrafficEnginePanel'));
+const SecurityPanel = lazy(() => import('./pages/settings/SecurityPanel'));
 
 function PageLoader() {
   return <div className="min-h-[50vh] flex items-center justify-center text-gray-500">Loading…</div>;
@@ -95,6 +98,64 @@ export default function App() {
     setUser(null);
   };
 
+  const router = useMemo(() => createBrowserRouter([
+    {
+      path: '/login',
+      element: user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
+    },
+    {
+      path: '/',
+      element: <ProtectedRoute><Layout user={user} onLogout={handleLogout} /></ProtectedRoute>,
+      children: [
+        { index: true, element: <Dashboard /> },
+        { path: 'tmps', element: <TMPList /> },
+        { path: 'kanban', element: <Kanban /> },
+        { path: 'tmps/new', element: <RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute> },
+        { path: 'tmps/:id', element: <TMPDetail /> },
+        { path: 'tmps/:id/edit', element: <RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute> },
+        { path: 'projects', element: <ProjectList /> },
+        { path: 'clients', element: <ClientList /> },
+        { path: 'sites', element: <RoleRoute user={user} minRole="staff"><SiteList /></RoleRoute> },
+        { path: 'authorities', element: <AuthorityList /> },
+        { path: 'permits', element: <PermitList /> },
+        { path: 'permits/new', element: <RoleRoute user={user} minRole="staff"><PermitForm /></RoleRoute> },
+        { path: 'permits/:id', element: <PermitDetail /> },
+        { path: 'permits/:id/edit', element: <RoleRoute user={user} minRole="staff"><PermitForm /></RoleRoute> },
+        { path: 'time-tracking', element: <RoleRoute user={user} minRole="staff"><TimeTracking /></RoleRoute> },
+        { path: 'analytics', element: <RoleRoute user={user} minRole="staff"><Analytics /></RoleRoute> },
+        { path: 'help', element: <Help /> },
+        { path: 'correspondence', element: <RoleRoute user={user} minRole="manager"><Correspondence /></RoleRoute> },
+        {
+          path: 'settings',
+          element: <RoleRoute user={user} minRole="developer"><SettingsLayout /></RoleRoute>,
+          children: [
+            { index: true, element: <Navigate to="system" replace /> },
+            { path: 'system', element: <SystemPanel /> },
+            { path: 'branding', element: <BrandingPanel /> },
+            { path: 'traffic', element: <TrafficEnginePanel /> },
+            { path: 'security', element: <SecurityPanel /> }
+          ]
+        }
+      ]
+    },
+    {
+      path: '/field',
+      element: <ProtectedRoute><FieldLayout user={user} onLogout={handleLogout} /></ProtectedRoute>,
+      children: [
+        { index: true, element: <FieldHome /> },
+        { path: 'tmps/:id', element: <FieldTmpDetail /> },
+        { path: 'board', element: <FieldBoard /> },
+        { path: 'permits', element: <FieldPermits /> },
+        { path: 'permits/:id', element: <FieldPermitDetail /> }
+      ]
+    },
+    // Legacy settings-adjacent routes now live inside the /settings hub.
+    { path: '/branding', element: <RoleRoute user={user} minRole="developer"><Navigate to="/settings/branding" replace /></RoleRoute> },
+    { path: '/workflows', element: <RoleRoute user={user} minRole="developer"><Navigate to="/settings/traffic?tab=workflows" replace /></RoleRoute> },
+    { path: '/automations', element: <RoleRoute user={user} minRole="developer"><Navigate to="/settings/traffic?tab=automations" replace /></RoleRoute> },
+    { path: '/users', element: <RoleRoute user={user} minRole="developer"><Navigate to="/settings/security?tab=users" replace /></RoleRoute> }
+  ]), [user]);
+
   if (authLoading) {
     return (
       <ErrorBoundary>
@@ -107,43 +168,11 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider user={user}>
         <AppTextProvider key={user ? 'authed' : 'anon'}>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />} />
-              <Route path="/" element={<ProtectedRoute><Layout user={user} onLogout={handleLogout} /></ProtectedRoute>}>
-                <Route index element={<Dashboard />} />
-                <Route path="tmps" element={<TMPList />} />
-                <Route path="kanban" element={<Kanban />} />
-                <Route path="tmps/new" element={<RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute>} />
-                <Route path="tmps/:id" element={<TMPDetail />} />
-                <Route path="tmps/:id/edit" element={<RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute>} />
-                <Route path="projects" element={<ProjectList />} />
-                <Route path="clients" element={<ClientList />} />
-                <Route path="sites" element={<RoleRoute user={user} minRole="staff"><SiteList /></RoleRoute>} />
-                <Route path="authorities" element={<AuthorityList />} />
-                <Route path="permits" element={<PermitList />} />
-                <Route path="permits/new" element={<RoleRoute user={user} minRole="staff"><PermitForm /></RoleRoute>} />
-                <Route path="permits/:id" element={<PermitDetail />} />
-                <Route path="permits/:id/edit" element={<RoleRoute user={user} minRole="staff"><PermitForm /></RoleRoute>} />
-                <Route path="time-tracking" element={<RoleRoute user={user} minRole="staff"><TimeTracking /></RoleRoute>} />
-                <Route path="analytics" element={<RoleRoute user={user} minRole="staff"><Analytics /></RoleRoute>} />
-                <Route path="settings" element={<RoleRoute user={user} minRole="developer"><Settings /></RoleRoute>} />
-                <Route path="help" element={<Help />} />
-                <Route path="workflows" element={<RoleRoute user={user} minRole="developer"><WorkflowSettings /></RoleRoute>} />
-                <Route path="automations" element={<RoleRoute user={user} minRole="developer"><AutomationSettings /></RoleRoute>} />
-                <Route path="correspondence" element={<RoleRoute user={user} minRole="manager"><Correspondence /></RoleRoute>} />
-                <Route path="users" element={<RoleRoute user={user} minRole="developer"><UsersList /></RoleRoute>} />
-                <Route path="branding" element={<RoleRoute user={user} minRole="developer"><Branding /></RoleRoute>} />
-              </Route>
-              <Route path="/field" element={<ProtectedRoute><FieldLayout user={user} onLogout={handleLogout} /></ProtectedRoute>}>
-                <Route index element={<FieldHome />} />
-                <Route path="tmps/:id" element={<FieldTmpDetail />} />
-                <Route path="board" element={<FieldBoard />} />
-                <Route path="permits" element={<FieldPermits />} />
-                <Route path="permits/:id" element={<FieldPermitDetail />} />
-              </Route>
-            </Routes>
-          </Suspense>
+          <SettingsStoreProvider>
+            <Suspense fallback={<PageLoader />}>
+              <RouterProvider router={router} />
+            </Suspense>
+          </SettingsStoreProvider>
         </AppTextProvider>
       </AuthProvider>
     </ErrorBoundary>

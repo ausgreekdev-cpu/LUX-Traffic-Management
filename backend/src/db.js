@@ -737,6 +737,29 @@ const MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_site_photos_card ON site_photos(card_id);
       `);
     }
+  },
+  {
+    version: 8,
+    name: 'webhook_deliveries',
+    up() {
+      // Telemetry for inbound webhook deliveries — records successful ingests and
+      // signature/content failures so operators can audit delivery reliability.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS webhook_deliveries (
+          id TEXT PRIMARY KEY,
+          provider TEXT NOT NULL,
+          endpoint TEXT,
+          status TEXT NOT NULL CHECK(status IN ('received', 'failed')),
+          status_code INTEGER,
+          error TEXT,
+          correspondence_id TEXT,
+          tmp_reference TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_created ON webhook_deliveries(created_at);
+        CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status ON webhook_deliveries(status);
+      `);
+    }
   }
 ];
 
