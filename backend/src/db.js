@@ -710,6 +710,33 @@ const MIGRATIONS = [
         insert.run(randomUUID(), t.name, t.subject, t.body, t.event_type);
       }
     }
+  },
+  {
+    version: 7,
+    name: 'site_photos',
+    up() {
+      // Field-app site photos. Images are stored durably (local disk or Netlify
+      // Blobs via media-store.js); this row carries the blob key + metadata.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS site_photos (
+          id TEXT PRIMARY KEY,
+          tmp_id TEXT NOT NULL REFERENCES traffic_management_plans(id) ON DELETE CASCADE,
+          card_id TEXT,
+          blob_key TEXT NOT NULL,
+          mime_type TEXT NOT NULL,
+          size INTEGER,
+          latitude REAL,
+          longitude REAL,
+          captured_at TEXT,
+          caption TEXT,
+          watermark_on INTEGER DEFAULT 1,
+          uploaded_by TEXT REFERENCES users(id),
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_site_photos_tmp ON site_photos(tmp_id);
+        CREATE INDEX IF NOT EXISTS idx_site_photos_card ON site_photos(card_id);
+      `);
+    }
   }
 ];
 

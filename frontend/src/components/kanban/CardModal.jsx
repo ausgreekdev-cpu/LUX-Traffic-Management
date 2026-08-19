@@ -3,6 +3,7 @@ import api from '../../api';
 import { useAppText } from '../../context/AppText';
 import { badgeFor, TMP_BADGES, PERMIT_BADGES } from '../../utils/status';
 import WorkflowChecklist from '../WorkflowChecklist';
+import PhotoGallery from '../PhotoGallery';
 
 function initials(name = '') {
   return name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?';
@@ -15,6 +16,17 @@ export default function CardModal({ card, columns, users, lanes, entityType, can
   const [assignee, setAssignee] = useState(card.assigned_user_id || '');
   const [targetCol, setTargetCol] = useState(card.column_id);
   const [customLane, setCustomLane] = useState('');
+  const [photos, setPhotos] = useState([]);
+
+  const reloadPhotos = () => {
+    if (entityType !== 'tmp') return Promise.resolve();
+    return api.photos.listByTmp(card.entity_id).then(setPhotos).catch(() => setPhotos([]));
+  };
+
+  useEffect(() => {
+    reloadPhotos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityType, card.entity_id]);
 
   useEffect(() => {
     setLane(card.lane || '');
@@ -130,6 +142,10 @@ export default function CardModal({ card, columns, users, lanes, entityType, can
           </div>
 
           <WorkflowChecklist entityType={entityType} entityId={card.entity_id} />
+
+          {entityType === 'tmp' && (
+            <PhotoGallery tmpId={card.entity_id} photos={photos} canUpload={canAssign} canDelete={canAssign} onChanged={reloadPhotos} />
+          )}
         </div>
 
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500">

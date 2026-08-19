@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import WorkflowChecklist from '../components/WorkflowChecklist';
+import PhotoGallery from '../components/PhotoGallery';
 import { useAppText } from '../context/AppText';
 import { useAuth, hasRole } from '../context/Auth';
 
@@ -155,6 +156,7 @@ export default function TMPDetail() {
               {canEdit && uploading && <span className="text-xs text-gray-500">Uploading...</span>}
             </div>
           </div>
+          <PhotoGallery tmpId={id} photos={tmp.photos || []} canDelete={canDelete} canUpload={canEdit} onChanged={loadTmp} />
           {canEdit && <WorkflowChecklist entityType="tmp" entityId={id} />}
         </div>
         <div className="space-y-4">

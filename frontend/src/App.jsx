@@ -28,6 +28,12 @@ const AutomationSettings = lazy(() => import('./pages/AutomationSettings'));
 const Correspondence = lazy(() => import('./pages/Correspondence'));
 const Kanban = lazy(() => import('./pages/Kanban'));
 const Branding = lazy(() => import('./pages/Branding'));
+const FieldLayout = lazy(() => import('./pages/field/FieldLayout'));
+const FieldHome = lazy(() => import('./pages/field/FieldHome'));
+const FieldTmpDetail = lazy(() => import('./pages/field/FieldTmpDetail'));
+const FieldBoard = lazy(() => import('./pages/field/FieldBoard'));
+const FieldPermits = lazy(() => import('./pages/field/FieldPermits'));
+const FieldPermitDetail = lazy(() => import('./pages/field/FieldPermitDetail'));
 
 function PageLoader() {
   return <div className="min-h-[50vh] flex items-center justify-center text-gray-500">Loading…</div>;
@@ -128,6 +134,13 @@ export default function App() {
                 <Route path="correspondence" element={<RoleRoute user={user} minRole="manager"><Correspondence /></RoleRoute>} />
                 <Route path="users" element={<RoleRoute user={user} minRole="developer"><UsersList /></RoleRoute>} />
                 <Route path="branding" element={<RoleRoute user={user} minRole="developer"><Branding /></RoleRoute>} />
+              </Route>
+              <Route path="/field" element={<ProtectedRoute><FieldLayout user={user} onLogout={handleLogout} /></ProtectedRoute>}>
+                <Route index element={<FieldHome />} />
+                <Route path="tmps/:id" element={<FieldTmpDetail />} />
+                <Route path="board" element={<FieldBoard />} />
+                <Route path="permits" element={<FieldPermits />} />
+                <Route path="permits/:id" element={<FieldPermitDetail />} />
               </Route>
             </Routes>
           </Suspense>

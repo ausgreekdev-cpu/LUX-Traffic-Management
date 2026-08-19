@@ -1,0 +1,18 @@
+{
+  "appId": "com.lux.traffic.field",
+  "appName": "LUX Field",
+  "webDir": "../frontend/dist",
+  "backgroundColor": "#111827",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "plugins": {
+    "Camera": {
+      "saveToGallery": false
+    }
+  }
+}

@@ -55,7 +55,7 @@ router.get('/risk-preview', roleAtLeast('staff'), (req, res) => {
 
 router.get('/:id', (req, res) => {
   const tmp = db.prepare(`
-    SELECT t.*, s.name as site_name, s.road_name, s.suburb, p.name as project_name, u.name as creator_name
+    SELECT t.*, s.name as site_name, s.road_name, s.suburb, s.state, s.postcode, s.speed_limit, s.road_class, s.aadt, p.name as project_name, u.name as creator_name
     FROM traffic_management_plans t
     LEFT JOIN sites s ON t.site_id = s.id
     LEFT JOIN tmp_projects p ON t.project_id = p.id
@@ -68,7 +68,8 @@ router.get('/:id', (req, res) => {
   const activities = db.prepare('SELECT a.*, u.name as user_name FROM plan_activities a LEFT JOIN users u ON a.user_id = u.id WHERE a.tmp_id = ? ORDER BY a.created_at DESC').all(req.params.id);
   const documents = db.prepare('SELECT * FROM documents WHERE tmp_id = ? ORDER BY created_at DESC').all(req.params.id);
   const permits = db.prepare('SELECT pe.*, au.name as authority_name, au.short_name as authority_short FROM permits pe LEFT JOIN authorities au ON pe.authority_id = au.id WHERE pe.tmp_id = ?').all(req.params.id);
-  res.json({ ...tmp, activities, documents, permits });
+  const photos = db.prepare('SELECT p.*, u.name as uploaded_by_name FROM site_photos p LEFT JOIN users u ON p.uploaded_by = u.id WHERE p.tmp_id = ? ORDER BY p.created_at DESC').all(req.params.id);
+  res.json({ ...tmp, activities, documents, permits, photos });
 });
 
 router.post('/', roleAtLeast('staff'), validate('tmp'), (req, res) => {

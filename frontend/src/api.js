@@ -1,4 +1,9 @@
-const BASE = '/api';
+// In the browser the SPA and the API share an origin, so relative /api works.
+// When wrapped natively (Capacitor) the app is served from a local scheme, so
+// main.jsx sets window.__LUX_API_BASE__ to the deployed API origin at boot.
+const BASE = (typeof window !== 'undefined' && window.__LUX_API_BASE__) || '/api';
+
+const isNativeShell = () => (typeof window !== 'undefined' && window.__LUX_API_BASE__ && window.__LUX_API_BASE__ !== '/api');
 
 // Short TTL cache for settings (app name, labels, branding). AppText and
 // Settings both fetch settings; this avoids duplicate requests and speeds up
@@ -13,7 +18,10 @@ async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (res.status === 401 && !options.skipAuthRedirect) {
     localStorage.removeItem('token');
-    if (window.location.pathname !== '/login') window.location.href = '/login';
+    // Native shell has no server-side SPA fallback for deep paths; reloading at
+    // the current route lets ProtectedRoute client-navigate to /login instead.
+    if (isNativeShell()) window.location.reload();
+    else window.location.href = '/login';
     throw new Error('Unauthorized');
   }
   if (!res.ok) {
@@ -81,6 +89,20 @@ const api = {
     download: (id) => `${BASE}/documents/download/${id}`,
     preview: (id) => `${BASE}/documents/preview/${id}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`,
     delete: (id) => request(`/documents/${id}`, { method: 'DELETE' })
+  },
+  photos: {
+    listByTmp: (tmpId) => request(`/photos/tmps/${tmpId}`),
+    upload: async (tmpId, file, meta) => {
+      const token = localStorage.getItem('token');
+      const form = new FormData();
+      form.append('file', file);
+      form.append('meta', JSON.stringify({ tmp_id: tmpId, ...meta }));
+      const res = await fetch(`${BASE}/photos`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Upload failed' })); throw new Error(err.error || 'Upload failed'); }
+      return res.json();
+    },
+    url: (id) => `${BASE}/photos/${id}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`,
+    delete: (id) => request(`/photos/${id}`, { method: 'DELETE' })
   },
   dashboard: () => request('/dashboard'),
   authorities: {

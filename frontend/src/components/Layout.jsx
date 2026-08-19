@@ -7,6 +7,7 @@ import { useBranding } from '../context/Branding.jsx';
 
 const mainNav = [
   { to: '/', label: 'Dashboard', icon: '📊' },
+  { to: '/field', label: 'Field Mode', icon: '📱' },
   { to: '/tmps', label: 'TMPs', icon: '📋' },
   { to: '/kanban', label: 'Kanban', icon: '🗂️' },
   { to: '/projects', label: 'Projects', icon: '📁' },

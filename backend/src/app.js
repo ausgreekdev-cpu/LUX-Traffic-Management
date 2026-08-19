@@ -11,6 +11,7 @@ import siteRoutes from './routes/sites.js';
 import projectRoutes from './routes/projects.js';
 import tmpRoutes from './routes/tmps.js';
 import documentRoutes from './routes/documents.js';
+import photoRoutes from './routes/photos.js';
 import dashboardRoutes from './routes/dashboard.js';
 import exportRoutes from './routes/export.js';
 import emailRoutes from './routes/email.js';
@@ -40,7 +41,7 @@ import './automation-engine.js';
 const app = express();
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-official.netlify.app', 'https://lux-tmp.netlify.app'] }));
+app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-official.netlify.app', 'https://lux-tmp.netlify.app', 'https://localhost', 'capacitor://localhost', 'http://localhost'] }));
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 app.use(requestLogger);
 
@@ -74,6 +75,7 @@ app.use('/api/sites', siteRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tmps', tmpRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/photos', photoRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/email', emailRoutes);

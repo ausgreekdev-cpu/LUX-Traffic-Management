@@ -12,3 +12,13 @@ Thumbs.db
 
 # Local Netlify folder
 .netlify
+
+# Capacitor native build artifacts (regenerate with `cap add` / `cap sync`)
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/local.properties
+mobile/android/app/src/main/assets/
+mobile/ios/App/App/public/
+mobile/ios/App/Pods/
+mobile/ios/App/Podfile.lock
