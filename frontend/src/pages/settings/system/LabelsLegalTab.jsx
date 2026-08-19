@@ -9,8 +9,7 @@ const NAV_ITEMS = [
   { key: '/permits', label: 'Permits' }, { key: '/authorities', label: 'Authorities' },
   { key: '/time-tracking', label: 'Time Tracking' }, { key: '/correspondence', label: 'Correspondence' },
   { key: '/analytics', label: 'Analytics' }, { key: '/clients', label: 'Clients' }, { key: '/sites', label: 'Sites' },
-  { key: '/settings', label: 'Settings' }, { key: '/help', label: 'Help & FAQ' },
-  { key: '/workflows', label: 'Workflows' }, { key: '/automations', label: 'Automation & Triggers' }, { key: '/users', label: 'Users' }
+  { key: '/settings', label: 'Settings' }, { key: '/help', label: 'Help & FAQ' }
 ];
 
 const PAGE_TITLES = [

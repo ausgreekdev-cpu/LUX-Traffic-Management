@@ -12,7 +12,7 @@ troubleshoot when something does not work.
   on port 465).
 - Every send is recorded in the **email log** (`email_logs` table) so you can see what went
   out, to whom, and whether it failed.
-- **Email templates** (Automation & Triggers → Email templates) define reusable subjects and
+- **Email templates** (Settings → Traffic Engine → Automation → Email templates) define reusable subjects and
   bodies with `{field}` placeholders filled from the record (e.g. `{reference}`, `{title}`,
   `{status}`). Automation rules with a **Send email** action reference a template by name.
 
@@ -24,7 +24,7 @@ troubleshoot when something does not work.
 | Environment variables | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL`, `SMTP_SECURE` | 2 (fallback) |
 | Built-in default      | `smtp.example.com:587`                   | 3        |
 
-The in-app **Settings → Email (SMTP)** card is the easiest place to configure email on the
+The in-app **Settings → General & System → Email & Webhooks** card is the easiest place to configure email on the
 desktop app. On a headless/server install, the `SMTP_*` environment variables (or a `.env`
 file in `backend/`) work the same way — the settings saved in the app simply take priority.
 
@@ -96,7 +96,7 @@ useful if email is a core workflow for you.
 
 ## Testing
 
-1. Open **Settings → Email (SMTP)**, fill in the provider details and press **Save SMTP**.
+1. Open **Settings → General & System → Email & Webhooks**, fill in the provider details and press **Save SMTP**.
 2. Optionally type a recipient into the **Send test email** box and press **Send**.
 3. The result shows the provider message ID on success, or a readable error on failure.
 4. Every attempt appears in the **Recent email log** on the same page (last 20 by default):
@@ -108,7 +108,7 @@ useful if email is a core workflow for you.
 
 | Error / symptom                                      | Likely cause & fix                                                                 |
 |------------------------------------------------------|------------------------------------------------------------------------------------|
-| `getaddrinfo ENOTFOUND smtp.example.com`             | The host field still holds the placeholder (or is wrong). Set the real hostname in Settings → Email, or `SMTP_HOST`. |
+| `getaddrinfo ENOTFOUND smtp.example.com`             | The host field still holds the placeholder (or is wrong). Set the real hostname in Settings → General & System → Email & Webhooks, or `SMTP_HOST`. |
 | `535 5.7.8 Username and Password not accepted`       | Wrong credentials. Gmail/Outlook need an **app password**, not the normal password. |
 | `535 5.7.3 Authentication unsuccessful`              | SMTP AUTH disabled for the mailbox/tenant (Microsoft 365). Enable SMTP AUTH for the account. |
 | `453 Too many messages` / rate limits                | Provider sending limits reached (e.g. free Gmail ≈ 500/day). Use a business provider. |
@@ -117,17 +117,19 @@ useful if email is a core workflow for you.
 | Connection times out on port 25/465                  | Outbound port blocked by your network/ISP. Use port 587 (STARTTLS). |
 | Mail sends but lands in spam                         | Set up SPF/DKIM for your sending domain at the provider; use a From address at a domain you control. |
 | Test passes but automation emails never arrive       | Check the email log for failed statuses, and confirm the **Send email** rule references a template that exists (templates are resolved by name). |
-| Nothing in the email log at all                     | No send was attempted — check the rule conditions fired (Automation & Triggers → Runs). |
+| Nothing in the email log at all                     | No send was attempted — check the rule conditions fired (Settings → Traffic Engine → Automation → Run history). |
 
-If you still get stuck, take a database backup (Settings → Data) and reproduce the send —
+If you still get stuck, take a database backup (Settings → General & System → Data & Backups) and reproduce the send —
 the email log plus the exact error message above will tell you which part of the chain failed.
 
 ---
 
 ## Security notes
 
-- The SMTP password is stored **in the local settings table** (plaintext inside the SQLite
-  database). Anyone with file access to the data folder can read it — protect the data
+- The SMTP password is stored **in the local settings table, encrypted at rest**
+  (AES-256-GCM) using a key at `~/.lux/encryption.key` on the desktop, or the
+  `LUX_ENCRYPTION_KEY` environment variable on serverless deployments. If no key is
+  configured the value falls back to plaintext — always set a key and protect the data
   folder the same way you protect your email account.
 - For server deployments, prefer the `SMTP_PASS` **environment variable**; it is never
   exposed in the UI or stored in the database.

@@ -140,12 +140,14 @@ const guides = [
   {
     id: 'settings',
     icon: '⚙️',
-    title: 'Settings & your company',
+    title: 'Settings hub',
     steps: [
+      'Everything administrative lives in one <b>Settings</b> hub (developer role) with four categories: <b>General &amp; System</b> (profile, labels &amp; legal copy, email &amp; webhooks, API keys, telemetry, health, backups), <b>Branding &amp; White-Labeling</b>, <b>Traffic Engine</b> (Kanban rules, workflows, automation &amp; email templates, export standards) and <b>Access &amp; Security</b> (users, permissions, SSO).',
       '<b>Company profile</b>: set your company name, ABN, phone and email — they are printed on exported PDFs.',
       '<b>Reminders</b>: change how many days before an end/expiry a reminder is created.',
       '<b>Appearance</b>: switch between light and dark theme (your choice is saved).',
-      '<b>Data</b>: download a complete database backup anytime. Keep backups somewhere safe and make a habit of taking one before major changes.'
+      '<b>Data</b>: under General &amp; System → Data &amp; Backups, download a complete database backup anytime or schedule automatic ones. Keep backups somewhere safe and make a habit of taking one before major changes.',
+      'Legacy links (Branding, Workflows, Automation &amp; Triggers, Users) now point into the hub, and unsaved changes in a settings panel are caught with a prompt before you navigate away.'
     ]
   },
   {
@@ -164,9 +166,9 @@ const guides = [
     title: 'Correspondence & webhooks',
     steps: [
       'The <b>Correspondence</b> page shows inbound emails and webhook payloads, parsed for a TMP reference and an outcome (approved, rejected, request for information, under review, received).',
-      'Point your provider at <b>Settings → Inbound webhooks</b>: choose mailgun, sendgrid, postmark or generic. Set a <b>webhook secret</b> and send the HMAC-SHA256 digest of the request body in the <b>x-lux-signature</b> (or x-webhook-signature) header.',
+      'Point your provider at <b>Settings → General &amp; System → Email &amp; Webhooks</b>: choose mailgun, sendgrid, postmark or generic. Set a <b>webhook secret</b> and send the HMAC-SHA256 digest of the request body in the <b>x-lux-signature</b> (or x-webhook-signature) header.',
       'Matched emails are listed for review. <b>Apply to permit</b> pushes an approved/rejected outcome onto the linked permit (updating its status and recording the reason); <b>Dismiss</b> or <b>Mark reviewed</b> keeps the record without changing the permit.',
-      'Reusable <b>email templates</b> live under Automation & Triggers → Email templates, with {field} placeholders filled from the record — reference one by name in a <b>Send email</b> rule action.'
+      'Reusable <b>email templates</b> live under Settings → Traffic Engine → Automation → Email templates, with {field} placeholders filled from the record — reference one by name in a <b>Send email</b> rule action.'
     ]
   }
 ];
@@ -174,11 +176,15 @@ const guides = [
 const faqs = [
   {
     q: 'Where is my data stored?',
-    a: 'Everything lives in a local SQLite database inside the app’s data folder (per-user, e.g. %APPDATA%\\LUX Traffic Management). It is not sent to any cloud service. Use Settings → Data → Download database backup to keep a copy, and enable Scheduled backups there to take one automatically (default: every 24 hours, keep 30 days).'
+    a: 'Everything lives in a local SQLite database inside the app’s data folder (per-user, e.g. %APPDATA%\\LUX Traffic Management). It is not sent to any cloud service. Use Settings → General &amp; System → Data &amp; Backups → Download database backup to keep a copy, and enable Scheduled backups there to take one automatically (default: every 24 hours, keep 30 days).'
+  },
+  {
+    q: 'Where are branding, automation, permissions and API keys configured?',
+    a: 'In the unified <b>Settings</b> hub (developer role). <b>General &amp; System</b> covers the company profile, labels &amp; legal copy, email &amp; webhooks, external API keys, audit &amp; telemetry, health and data &amp; backups. <b>Branding &amp; White-Labeling</b> has the theme/PDF/email-branding engine. <b>Traffic Engine</b> holds Kanban rules, workflows, automation rules &amp; email templates and export standards. <b>Access &amp; Security</b> has user management, the role-permission matrix and SSO config. Legacy routes for branding, workflows, automation and users now redirect into the hub, and the sidebar shows a single Settings entry.'
   },
   {
     q: 'How do I restore a database backup?',
-    a: 'Admins: Settings → Data → Restore database from backup, then choose a .db backup file. The current database is replaced (a safety copy is kept on disk, but download a backup first). Restore is not available on serverless demo deployments.'
+    a: 'Admins: Settings → General &amp; System → Data &amp; Backups → Restore database from backup, then choose a .db backup file. The current database is replaced (a safety copy is kept on disk, but download a backup first). Restore is not available on serverless demo deployments.'
   },
   {
     q: 'Why don’t I see a reminder for a TMP that ends soon?',

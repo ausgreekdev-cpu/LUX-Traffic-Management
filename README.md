@@ -16,8 +16,8 @@ WA Traffic Management System — TMP & Permit Management
 - **Time Tracking** — Billable/non-billable entries with cost codes, configurable default rate and currency
 - **Analytics** — Approval times, planner throughput, financial summary, rejection analysis
 - **Exports** — Branded TMP/permits-summary/audit PDFs and CSV exports honouring date format, currency and footer text
-- **Developer & Branding Settings** — Rename menu items, page titles, section headings, table columns, status/complexity labels, app name and legal text (privacy policy / terms of service) without touching code
-- **Security** — JWT sessions with configurable timeout, login rate limiting, maintenance mode (read-only), persisted auto-generated `JWT_SECRET`, masked SMTP credentials
+- **Settings Hub** — a single `/settings` admin hub with four categories: **General & System** (profile, labels & legal copy, email & webhooks, API keys, audit & telemetry, health, data & backups), **Branding & White-Labeling**, **Traffic Engine** (Kanban rules, workflows, automation & email templates, export standards) and **Access & Security** (users, RBAC permission matrix, SSO) — role-gated, with validated namespaced settings groups, encrypted secrets and an unsaved-changes prompt
+- **Security** — JWT sessions with configurable timeout, login rate limiting, maintenance mode (read-only), persisted auto-generated `JWT_SECRET`, secrets encrypted at rest (AES-256-GCM) and masked in the UI
 - **Desktop App** — Electron-based Windows application (NSIS installer, portable EXE and ISO)
 - **Mobile Field App** — Capacitor Android/iOS app for on-site crews (view-only plans/board/permits + site-photo capture that syncs to the web app; see `mobile/README.md`)
 
@@ -79,11 +79,12 @@ Artifacts land in `release/`: NSIS installer, portable EXE, and an ISO built fro
 │   └── src/db.js       SQLite schema, migrations, reopen/restore support
 ├── frontend/           React + Vite + Tailwind
 │   ├── src/context/    AppTextProvider (developer & branding overrides)
-│   └── src/pages/      20 pages
+│   ├── src/pages/      Page components (incl. the /settings hub panels)
+│   └── src/stores/     SettingsStore + reactive stores
 ├── electron/           Electron desktop shell
 ├── mobile/             Capacitor mobile app (Android + iOS)
 ├── netlify/            Serverless adapter (demo deployments)
-├── docs/               email-setup.md, server-deployment.md, workflow-automation.md
+├── docs/               email-setup.md, server-deployment.md, workflow-automation.md, settings-hub.md
 └── assets/             App icons
 ```
 

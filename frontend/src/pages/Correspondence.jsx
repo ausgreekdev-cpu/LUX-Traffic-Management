@@ -64,7 +64,7 @@ export default function Correspondence() {
         <div className="card empty-state p-12">
           <span className="text-3xl mb-2">📨</span>
           <p className="text-sm text-gray-500">No correspondence yet.</p>
-          <p className="text-xs text-gray-400 mt-1">Point your email/webhook provider at the inbound endpoint in Settings → Webhooks.</p>
+          <p className="text-xs text-gray-400 mt-1">Point your email/webhook provider at the inbound endpoint in Settings → General &amp; System → Email &amp; Webhooks.</p>
         </div>
       ) : (
         <div className="card overflow-x-auto">

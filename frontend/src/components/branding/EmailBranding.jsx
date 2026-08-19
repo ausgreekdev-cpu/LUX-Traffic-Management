@@ -15,7 +15,7 @@ export default function EmailBranding({ email, onChange, onSave, saving }) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-semibold">Branded HTML email shell</h3>
-            <p className="text-xs text-gray-500 mt-1">When enabled, plain-text messages are wrapped in a branded HTML shell (logo header, accent footer). Fully custom templates can add an <code>html_body</code> in Settings → Email.</p>
+            <p className="text-xs text-gray-500 mt-1">When enabled, plain-text messages are wrapped in a branded HTML shell (logo header, accent footer). Fully custom templates can add an <code>html_body</code> in Settings → General &amp; System → Email &amp; Webhooks.</p>
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={!!draft.enabled} onChange={e => update('enabled', e.target.checked)} className="h-4 w-4 accent-lux-500" />
@@ -48,7 +48,7 @@ export default function EmailBranding({ email, onChange, onSave, saving }) {
 
       <div>
         <button onClick={() => onSave(draft)} disabled={saving} className="btn btn-primary">Save email branding</button>
-        <p className="text-xs text-gray-500 mt-2">SMTP credentials and editable templates (with <code>html_body</code>) are managed in Settings → Email.</p>
+        <p className="text-xs text-gray-500 mt-2">SMTP credentials and editable templates (with <code>html_body</code>) are managed in Settings → General &amp; System → Email &amp; Webhooks.</p>
       </div>
     </div>
   );

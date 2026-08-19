@@ -58,6 +58,9 @@ Principle: **agents are automation actions with human-in-the-loop gates** — th
 
 ## 4. Automation Engine & "Automation & Trigger Settings"
 
+> The automation UI lives under **Settings → Traffic Engine → Automation** in the
+> unified Settings hub (see `docs/settings-hub.md`).
+
 ### 4.1 Architecture
 
 - **Event bus** (`src/events.js`): `emitEvent(type, entity, payload)`. Every mutation route calls it. Replaces scattered inline logic; single place for audit + automation + AI hooks.
@@ -114,7 +117,9 @@ automation_runs(
 | Risk triage | `tmp.created` | — | run Complexity & Risk Triage Agent |
 | Expiry reminder | daily scheduler | end_date within 14 days | notify created_by |
 
-### 4.4 UI — Automation & Trigger Settings page (admin)
+### 4.4 UI — Automation & Trigger settings (admin)
+
+Reached from **Settings → Traffic Engine → Automation**:
 
 1. **Rules table** — name, entity, event, active toggle, last run, run count, Edit/Test/Delete.
 2. **Rule builder** — `WHEN <entity> <event>` → `IF <field> <op> <value>` → `THEN <action> <params>`; natural-language preview line.
@@ -129,7 +134,7 @@ Endpoints: `GET/POST/PUT/DELETE /api/automations/rules`, `POST /api/automations/
 | Phase | Scope | Builds on |
 |---|---|---|
 | P1 | Event bus + scheduler + `automation_runs` table; migrate `/scan` logic to events | — |
-| P2 | Automation engine (rules CRUD, condition/action engine) + Automation & Trigger Settings UI + presets + test console | P1 |
+| P2 | Automation engine (rules CRUD, condition/action engine) + Automation & Trigger settings UI (Settings → Traffic Engine → Automation) + presets + test console | P1 |
 | P3 | Workflow templates & branching; complexity triage UI on TMP form; per-authority stage sets | P2 |
 | P4 | Risk scoring model; site data fields (speed, AADT, class); triage rules | P2 |
 | P5 | ✅ AI agents (Triage, Drawing Validation, Compliance Checker) as `run_agent` actions — deterministic, human-in-the-loop (`agent_runs` + Apply) | P2 |
@@ -140,7 +145,7 @@ Endpoints: `GET/POST/PUT/DELETE /api/automations/rules`, `POST /api/automations/
 - `backend/src/agents.js` — deterministic registry: `triage` (reuses `risk.js`), `drawing_validation` (format/naming checks + pdf-parse text scan for TMP reference, AS 1742.3, date, title-block markers), `compliance_checker` (workflow stages, documents, MRWA/signals referral, SLA rule, risk mitigations, fees → score 0–100 + blockers).
 - Runs stored in `agent_runs`; verdict `ok|warn|fail`, score, findings + `recommended_json`. Apply is explicit (`POST /api/agents/runs/:id/apply`) and only the triage agent mutates (sets complexity + `complexity_source='auto'`, swaps workflow template, logs activity, emits `tmp.complexity_changed`).
 - Engine action `run_agent` (params: `agent`); on warn/fail it raises an `agent_blocker` workflow trigger (permit events) and notifies admins. Emits `agent.completed` so rules can react.
-- Presets: `risk_triage_agent`, `drawing_validate_agent`, `compliance_check_agent`. UI: Automation Settings → AI Agents tab + panels on TMP/Permit detail pages.
+- Presets: `risk_triage_agent`, `drawing_validate_agent`, `compliance_check_agent`. UI: Settings → Traffic Engine → Automation → AI Agents tab + panels on TMP/Permit detail pages.
 
 ## 7. Correspondence & inbound integrations implementation notes (P6)
 
@@ -149,13 +154,13 @@ Endpoints: `GET/POST/PUT/DELETE /api/automations/rules`, `POST /api/automations/
 - `backend/src/correspondence.js` — `parseCorrespondence` extracts a `TMP-\d{4}-\d{3}` reference and an outcome status. **Order matters:** `rejected` (incl. `not approved`, `cannot be approved`) is checked before `approved` so negations never classify as approvals; then `requested_information`, `under_review`, `received`. Rejection reason = first sentence containing the rejection wording, cleaned of boilerplate.
 - `matchPermit` prefers a `submitted`/`under_review` permit on the TMP, else the latest. `ingestCorrespondence` emits `correspondence.received` (always) and `correspondence.matched` (when a TMP matched).
 - `reviewCorrespondence` (via `POST /api/integrations/correspondence/:id/review`) applies only `approved`/`rejected` when a permit is matched: updates the permit (+ `approval_date` / `rejection_reason`), writes a `permit_status_changed` activity, emits `permit.status_changed` with `{previous_status, by, from_correspondence: true}`. Other review states: `reviewed`, `dismissed`.
-- **Email templates** (`email_templates` table): CRUD + preview at `/api/email/templates*`; rendered by `emailer.renderTemplate(name, ctx)`; referenced by the `notify_email` action via its `template` param. UI: Automation Settings → Email templates tab + Correspondence page (`/correspondence`) for review queue.
+- **Email templates** (`email_templates` table): CRUD + preview at `/api/email/templates*`; rendered by `emailer.renderTemplate(name, ctx)`; referenced by the `notify_email` action via its `template` param. UI: Settings → Traffic Engine → Automation → Email templates tab + Correspondence page (`/correspondence`) for review queue.
 - Preset `correspondence_status_notify` (event `correspondence.matched`) notifies the TMP owner with the extracted outcome. `ensureAutomationPresets` seeds only presets missing from the rules table, so new presets install on existing databases at startup.
 - No SMS provider, `sms_logs` table, `users.phone` field, or `notify_sms` action — dropped by product decision during P6.
 
-## 8. Developer & branding settings, SMTP persistence (P7)
+## 8. Settings hub, developer & branding labels, SMTP persistence (P7)
 
-- **Settings → Developer & branding (admin only, gated on `user.role === 'admin'`)** lets an admin rename UI copy without touching code. The frontend loads them through the `AppTextProvider` context (`frontend/src/context/AppText.jsx`) which exposes `nav(route)`, `pageTitle(key)`, `section(key)`, `column(page,key)`, `status(code)`, `complexity(code)` and `appName()`, each falling back to the built-in default when a key is missing.
+- **Settings → General & System → Labels & Legal (developer role)** lets an admin rename UI copy without touching code. The frontend loads them through the `AppTextProvider` context (`frontend/src/context/AppText.jsx`) which exposes `nav(route)`, `pageTitle(key)`, `section(key)`, `column(page,key)`, `status(code)`, `complexity(code)` and `appName()`, each falling back to the built-in default when a key is missing.
 - Stored as JSON strings in the `settings` table: `nav_labels_json` (15 sidebar routes), `page_titles_json` (15 pages), `sections_json` (11 detail-page panels), `columns_json` (7 table groups), `status_labels_json` (8 statuses), `complexity_labels_json` (4 complexities).
 - **Branding**: `app_name` (login header, sidebar brand), `login_subtitle`, `footer_text`, `pdf_footer_text` (exported PDF footers), `privacy_policy` / `terms_of_service` (rendered as sections on the Help page and linked from the login screen). Company profile fields (name/ABN/phone/email) remain in the base settings and feed PDF exports.
 - **System behaviour settings** (plain scalars in `settings`): `default_currency` (AUD/USD/GBP/EUR/NZD → export + time-tracking symbol), `timezone`, `date_format` (`yyyymmdd`/`ddmmyyyy` → PDF exports), `default_rate` (Time Tracking form/fallback), `session_timeout_minutes` (JWT expiry on login, default 1440, min 5), `default_sla_days` (SLA fallback when no rule matches, default 14), `risk_high_threshold` / `risk_extreme_threshold` (risk band boundaries, defaults 10/16), `notif_retention_days` / `email_retention_days` (scheduler cleanup of notifications/email logs, min 7, defaults 180/365), `maintenance_mode` (503s all `/api` writes except `/health`, `/auth`, `/settings`).
