@@ -19,6 +19,7 @@ WA Traffic Management System — TMP & Permit Management
 - **Developer & Branding Settings** — Rename menu items, page titles, section headings, table columns, status/complexity labels, app name and legal text (privacy policy / terms of service) without touching code
 - **Security** — JWT sessions with configurable timeout, login rate limiting, maintenance mode (read-only), persisted auto-generated `JWT_SECRET`, masked SMTP credentials
 - **Desktop App** — Electron-based Windows application (NSIS installer, portable EXE and ISO)
+- **Mobile Field App** — Capacitor Android/iOS app for on-site crews (view-only plans/board/permits + site-photo capture that syncs to the web app; see `mobile/README.md`)
 
 ## Quick Start
 
@@ -80,6 +81,7 @@ Artifacts land in `release/`: NSIS installer, portable EXE, and an ISO built fro
 │   ├── src/context/    AppTextProvider (developer & branding overrides)
 │   └── src/pages/      20 pages
 ├── electron/           Electron desktop shell
+├── mobile/             Capacitor mobile app (Android + iOS)
 ├── netlify/            Serverless adapter (demo deployments)
 ├── docs/               email-setup.md, server-deployment.md, workflow-automation.md
 └── assets/             App icons
