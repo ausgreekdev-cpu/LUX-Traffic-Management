@@ -9,7 +9,7 @@ function initials(name = '') {
   return name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?';
 }
 
-export default function CardModal({ card, columns, users, lanes, entityType, canAssign, onClose, onChanged, onError }) {
+export default function CardModal({ card, columns, users, lanes, entityType, canAssign, canDeletePhoto = false, onClose, onChanged, onError }) {
   const { status } = useAppText();
   const [busy, setBusy] = useState(false);
   const [lane, setLane] = useState(card.lane || '');
@@ -144,7 +144,7 @@ export default function CardModal({ card, columns, users, lanes, entityType, can
           <WorkflowChecklist entityType={entityType} entityId={card.entity_id} />
 
           {entityType === 'tmp' && (
-            <PhotoGallery tmpId={card.entity_id} photos={photos} canUpload={canAssign} canDelete={canAssign} onChanged={reloadPhotos} />
+            <PhotoGallery tmpId={card.entity_id} photos={photos} canUpload={canAssign} canDelete={canDeletePhoto} onChanged={reloadPhotos} />
           )}
         </div>
 

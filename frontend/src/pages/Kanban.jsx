@@ -104,6 +104,7 @@ export default function Kanban() {
           lanes={board.lanes}
           entityType={entityType}
           canAssign={hasRole(user, 'staff')}
+          canDeletePhoto={hasRole(user, 'manager')}
           onClose={() => setOpenCard(null)}
           onChanged={async () => { await load(entityType); }}
           onError={notify}
