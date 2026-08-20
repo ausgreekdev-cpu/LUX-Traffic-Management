@@ -4,6 +4,24 @@ All notable changes to LUX Traffic Management are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] — 2026-08-20 — "Blank-screen hotfix"
+
+Fixes the runtime crash introduced in 1.2.0 that blanked the app for all
+clients. The 1.2.0 frontend mounted the React data router inside an extra
+`<BrowserRouter>` wrapper; the data router's internal `<Router>` then threw
+*"cannot render a `<Router>` inside another `<Router>`"* (its message is
+stripped in the production bundle, so users saw a bare "Something went wrong"
+fallback and never reached the login screen). The redundant wrapper is removed
+and the login flow verified in a headless browser.
+
+### Fixed
+
+- Removed the outer `<BrowserRouter>` from `frontend/src/main.jsx` — `App` owns
+  routing via `createBrowserRouter`/`RouterProvider`.
+- Verified end-to-end: web/PWA login page renders on the live deployment;
+  desktop/mobile builds are re-published as 1.2.1 so existing installs update
+  to a working build instead of the broken 1.2.0 bundle.
+
 ## [1.2.0] — 2026-08-19 — "Field & Settings Hub"
 
 This release turns LUX into a two-surface product: the desktop/web app gains a
