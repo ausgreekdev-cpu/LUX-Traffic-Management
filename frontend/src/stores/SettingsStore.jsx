@@ -11,6 +11,12 @@ export function SettingsStoreProvider({ children }) {
   const [dirty, setDirtyState] = useState({});
 
   const refreshGroups = useCallback(() => {
+    // Settings groups are developer-only and the whole /api/settings router is
+    // authenticated, so there is nothing to fetch while logged out.
+    if (!localStorage.getItem('token')) {
+      setGroups(null);
+      return Promise.resolve(null);
+    }
     return api.settings.groups().then(setGroups).catch(() => setGroups(null));
   }, []);
 

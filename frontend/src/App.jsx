@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense, useMemo } from 'react';
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
-import api from './api';
+import api, { apiUrl } from './api';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -77,7 +77,7 @@ export default function App() {
     let handle;
     const ping = async () => {
       try {
-        await fetch('/api/ping', { cache: 'no-store' });
+        await fetch(apiUrl('/ping'), { cache: 'no-store' });
       } catch {}
     };
     ping();
