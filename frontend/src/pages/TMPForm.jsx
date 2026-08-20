@@ -6,12 +6,14 @@ export default function TMPForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;
-  const [form, setForm] = useState({ title: '', plan_type: 'temporary', complexity: 'standard', status: 'draft', description: '', project_id: '', site_id: '', start_date: '', end_date: '' });
+  const [form, setForm] = useState({ title: '', plan_type: 'temporary', complexity: 'standard', status: 'draft', description: '', project_id: '', site_id: '', start_date: '', end_date: '', work_type: 'general', authority_id: '' });
   const [projects, setProjects] = useState([]);
   const [sites, setSites] = useState([]);
+  const [authorities, setAuthorities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [missingStages, setMissingStages] = useState([]);
+  const [complianceViolations, setComplianceViolations] = useState([]);
   const [complexityTouched, setComplexityTouched] = useState(false);
   const [riskPreview, setRiskPreview] = useState(null);
   const [riskLoading, setRiskLoading] = useState(false);
@@ -46,25 +48,28 @@ export default function TMPForm() {
   };
 
   useEffect(() => {
-    Promise.all([api.projects.list(), api.sites.list()]).then(([p, s]) => { setProjects(p); setSites(s); });
+    Promise.all([api.projects.list(), api.sites.list(), api.authorities.list()]).then(([p, s, a]) => { setProjects(p); setSites(s); setAuthorities(a.data || a || []); });
     if (isEdit) {
       api.tmps.get(id).then(tmp => {
-        setForm({ title: tmp.title || '', plan_type: tmp.plan_type || 'temporary', complexity: tmp.complexity || 'standard', status: tmp.status || 'draft', description: tmp.description || '', project_id: tmp.project_id || '', site_id: tmp.site_id || '', start_date: tmp.start_date || '', end_date: tmp.end_date || '' });
+        setForm({ title: tmp.title || '', plan_type: tmp.plan_type || 'temporary', complexity: tmp.complexity || 'standard', status: tmp.status || 'draft', description: tmp.description || '', project_id: tmp.project_id || '', site_id: tmp.site_id || '', start_date: tmp.start_date || '', end_date: tmp.end_date || '', work_type: tmp.work_type || 'general', authority_id: tmp.authority_id || '' });
         loadRiskPreview(tmp.plan_type || 'temporary', tmp.start_date || '', tmp.end_date || '', tmp.site_id || '');
         return tmp;
       })
         .then(() => api.workflows.checklist('tmp', id))
         .then(cl => setMissingStages(cl.data.filter(s => !s.is_optional && !s.is_done).map(s => s.name)))
+        .then(() => api.compliance.violations(id).then(r => setComplianceViolations(r.violations)).catch(() => {}))
         .catch(() => {})
         .finally(() => setLoading(false));
     } else setLoading(false);
   }, [id, isEdit]);
 
   const statusBlocks = (['approved', 'completed'].includes(form.status)) && missingStages.length > 0;
+  const submitBlocks = form.status === 'submitted' && complianceViolations.length > 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (statusBlocks) { alert('Complete the required workflow stages first: ' + missingStages.join(', ')); return; }
+    if (submitBlocks) { alert('Compliance violations must be resolved before submission: ' + complianceViolations.join('; ')); return; }
     setSaving(true);
     const payload = { ...form, complexity_source: complexityTouched ? 'manual' : 'auto' };
     try {
@@ -82,6 +87,25 @@ export default function TMPForm() {
           <div>
             <label className="label">Title *</label>
             <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="input w-full" required />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Work type</label>
+              <select value={form.work_type} onChange={e => setForm({ ...form, work_type: e.target.value })} className="input w-full">
+                <option value="general">General works</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="event">Event</option>
+                <option value="footpath_utility">Footpath / utility</option>
+                <option value="skip_bin_hoarding">Skip bin / hoarding</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Authority / council</label>
+              <select value={form.authority_id} onChange={e => setForm({ ...form, authority_id: e.target.value })} className="input w-full">
+                <option value="">None (state rules only)</option>
+                {authorities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -145,6 +169,13 @@ export default function TMPForm() {
           {statusBlocks && (
             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl text-sm text-amber-800 dark:text-amber-300">
               Cannot mark as <b>{form.status}</b> — required workflow stages still incomplete: <b>{missingStages.join(', ')}</b>. Tick them off on the TMP's workflow checklist first.
+            </div>
+          )}
+          {submitBlocks && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-800 dark:text-red-300">
+              Cannot mark as <b>submitted</b> — compliance violations must be resolved first:
+              <ul className="list-disc pl-5 mt-1"><li>{complianceViolations.join('</li><li>')}</li></ul>
+              Resolve them on the TMP's Traffic Guidance Scheme & Compliance panel.
             </div>
           )}
           <div>

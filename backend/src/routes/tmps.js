@@ -8,6 +8,7 @@ import { validate } from '../middleware/validate.js';
 import { incompleteRequiredStages, swapTemplateForEntity } from './workflows.js';
 import { emitEvent } from '../events.js';
 import { suggestComplexity, computeRisk, riskPreviewQuery } from '../risk.js';
+import { unresolvedComplianceViolations, latestComplianceSummary } from '../compliance/ruleset.js';
 
 const router = Router();
 router.use(authenticate);
@@ -69,19 +70,19 @@ router.get('/:id', (req, res) => {
   const documents = db.prepare('SELECT * FROM documents WHERE tmp_id = ? ORDER BY created_at DESC').all(req.params.id);
   const permits = db.prepare('SELECT pe.*, au.name as authority_name, au.short_name as authority_short FROM permits pe LEFT JOIN authorities au ON pe.authority_id = au.id WHERE pe.tmp_id = ?').all(req.params.id);
   const photos = db.prepare('SELECT p.*, u.name as uploaded_by_name FROM site_photos p LEFT JOIN users u ON p.uploaded_by = u.id WHERE p.tmp_id = ? ORDER BY p.created_at DESC').all(req.params.id);
-  res.json({ ...tmp, activities, documents, permits, photos });
+  res.json({ ...tmp, activities, documents, permits, photos, compliance: latestComplianceSummary(req.params.id) });
 });
 
 router.post('/', roleAtLeast('staff'), validate('tmp'), (req, res) => {
   const id = uuid();
   const reference = generateReference();
-  const { project_id, site_id, title, status, plan_type, complexity, complexity_source, description, start_date, end_date } = req.validated;
+  const { project_id, site_id, title, status, plan_type, complexity, complexity_source, description, start_date, end_date, work_type, authority_id } = req.validated;
   const site = site_id ? db.prepare('SELECT * FROM sites WHERE id = ?').get(site_id) : null;
   const autoComplexity = suggestComplexity({ plan_type: plan_type || 'temporary', start_date, end_date, site });
   const useAuto = complexity_source === 'auto' || !complexity;
   const finalComplexity = useAuto ? autoComplexity : complexity;
   const risk = computeRisk({ plan_type: plan_type || 'temporary', start_date, end_date, site });
-  db.prepare('INSERT INTO traffic_management_plans (id, project_id, site_id, title, reference, status, plan_type, complexity, complexity_source, description, start_date, end_date, risk_consequence, risk_likelihood, risk_score, risk_band, risk_mitigations, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, project_id || null, site_id || null, title, reference, status || 'draft', plan_type || 'temporary', finalComplexity, useAuto ? 'auto' : 'manual', description || null, start_date || null, end_date || null, risk.consequence, risk.likelihood, risk.score, risk.band, JSON.stringify(risk.mitigations), req.user.id);
+  db.prepare('INSERT INTO traffic_management_plans (id, project_id, site_id, title, reference, status, plan_type, complexity, complexity_source, description, start_date, end_date, work_type, authority_id, risk_consequence, risk_likelihood, risk_score, risk_band, risk_mitigations, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, project_id || null, site_id || null, title, reference, status || 'draft', plan_type || 'temporary', finalComplexity, useAuto ? 'auto' : 'manual', description || null, start_date || null, end_date || null, work_type || null, authority_id || null, risk.consequence, risk.likelihood, risk.score, risk.band, JSON.stringify(risk.mitigations), req.user.id);
   db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), id, req.user.id, 'created', 'Plan created');
   if (useAuto) {
     db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), id, req.user.id, 'complexity_changed', `Complexity auto-suggested as ${autoComplexity} (triage)`);
@@ -93,8 +94,12 @@ router.post('/', roleAtLeast('staff'), validate('tmp'), (req, res) => {
 router.put('/:id', roleAtLeast('staff'), validate('tmp'), (req, res) => {
   const existing = db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'TMP not found' });
-  const { project_id, site_id, title, status, plan_type, complexity, complexity_source, description, start_date, end_date } = req.validated;
+  const { project_id, site_id, title, status, plan_type, complexity, complexity_source, description, start_date, end_date, work_type, authority_id } = req.validated;
   const nextStatus = status || existing.status;
+  if ((nextStatus === 'submitted') && nextStatus !== existing.status) {
+    const violations = unresolvedComplianceViolations(req.params.id);
+    if (violations.length) return res.status(400).json({ error: 'Compliance violations must be resolved before submission: ' + violations.join('; ') });
+  }
   if ((nextStatus === 'approved' || nextStatus === 'completed') && nextStatus !== existing.status) {
     const missing = incompleteRequiredStages('tmp', req.params.id);
     if (missing.length) return res.status(400).json({ error: `Incomplete required workflow stages: ${missing.join(', ')}` });
@@ -106,7 +111,7 @@ router.put('/:id', roleAtLeast('staff'), validate('tmp'), (req, res) => {
   const useAuto = complexity_source === 'auto';
   const finalComplexity = useAuto ? suggestComplexity({ plan_type: nextPlanType, start_date: nextStart, end_date: nextEnd, site }) : (complexity || existing.complexity);
   const risk = computeRisk({ plan_type: nextPlanType, start_date: nextStart, end_date: nextEnd, site });
-  db.prepare('UPDATE traffic_management_plans SET project_id=?, site_id=?, title=?, status=?, plan_type=?, complexity=?, complexity_source=?, description=?, start_date=?, end_date=?, risk_consequence=?, risk_likelihood=?, risk_score=?, risk_band=?, risk_mitigations=?, updated_at=datetime(\'now\') WHERE id=?').run(project_id !== undefined ? (project_id || null) : existing.project_id, site_id !== undefined ? (site_id || null) : existing.site_id, title, nextStatus, nextPlanType, finalComplexity, useAuto ? 'auto' : (complexity ? 'manual' : existing.complexity_source), description !== undefined ? (description || null) : existing.description, nextStart !== undefined ? nextStart : null, nextEnd !== undefined ? nextEnd : null, risk.consequence, risk.likelihood, risk.score, risk.band, JSON.stringify(risk.mitigations), req.params.id);
+  db.prepare('UPDATE traffic_management_plans SET project_id=?, site_id=?, title=?, status=?, plan_type=?, complexity=?, complexity_source=?, description=?, start_date=?, end_date=?, work_type=?, authority_id=?, risk_consequence=?, risk_likelihood=?, risk_score=?, risk_band=?, risk_mitigations=?, updated_at=datetime(\'now\') WHERE id=?').run(project_id !== undefined ? (project_id || null) : existing.project_id, site_id !== undefined ? (site_id || null) : existing.site_id, title, nextStatus, nextPlanType, finalComplexity, useAuto ? 'auto' : (complexity ? 'manual' : existing.complexity_source), description !== undefined ? (description || null) : existing.description, nextStart !== undefined ? nextStart : null, nextEnd !== undefined ? nextEnd : null, work_type !== undefined ? work_type : existing.work_type, authority_id !== undefined ? (authority_id || null) : existing.authority_id, risk.consequence, risk.likelihood, risk.score, risk.band, JSON.stringify(risk.mitigations), req.params.id);
   if (status && status !== existing.status) {
     db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), req.params.id, req.user.id, 'status_changed', `Status changed to ${status}`);
     emitEvent('tmp.status_changed', { ...existing, ...db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(req.params.id) }, { previous_status: existing.status, by: req.user.id });
@@ -132,6 +137,16 @@ router.post('/bulk', roleAtLeast('staff'), (req, res) => {
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'No ids provided' });
   if (action === 'status') {
     if (!status) return res.status(400).json({ error: 'Status required' });
+    if (status === 'submitted') {
+      const violationPerId = [];
+      for (const id of ids) {
+        const tmp = db.prepare('SELECT id FROM traffic_management_plans WHERE id = ?').get(id);
+        if (!tmp) continue;
+        const violations = unresolvedComplianceViolations(id);
+        if (violations.length) violationPerId.push(`${id}: ${violations.join('; ')}`);
+      }
+      if (violationPerId.length) return res.status(400).json({ error: 'Compliance violations must be resolved before submission: ' + violationPerId.join(' | ') });
+    }
     if (status === 'approved' || status === 'completed') {
       const missingPerId = [];
       for (const id of ids) {

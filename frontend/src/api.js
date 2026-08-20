@@ -173,6 +173,7 @@ const api = {
   },
   export: {
     tmpPDF: (id) => fetch(`${BASE()}/export/tmp/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+    sitePlan: (id) => `${BASE()}/export/tmp/${id}/site-plan.svg?token=${encodeURIComponent(localStorage.getItem('token') || '')}`,
     downloadCSV: async (url, filename) => {
       const token = localStorage.getItem('token');
       const res = await fetch(`${BASE()}${url}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -227,6 +228,17 @@ const api = {
     deleteTemplate: (id) => request(`/workflows/templates/${id}`, { method: 'DELETE' }),
     checklist: (entityType, entityId) => request(`/workflows/checklist/${entityType}/${entityId}`),
     setStage: (entityType, entityId, stageId, done) => request(`/workflows/checklist/${entityType}/${entityId}`, { method: 'POST', body: JSON.stringify({ stageId, done }) })
+  },
+  compliance: {
+    rules: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/compliance/rules${q}`); },
+    createRule: (data) => request('/compliance/rules', { method: 'POST', body: JSON.stringify(data) }),
+    updateRule: (id, data) => request(`/compliance/rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteRule: (id) => request(`/compliance/rules/${id}`, { method: 'DELETE' }),
+    seedRules: () => request('/compliance/rules/seed', { method: 'POST' }),
+    check: (tmpId) => request('/compliance/check', { method: 'POST', body: JSON.stringify({ tmp_id: tmpId }) }),
+    getTgs: (tmpId) => request(`/compliance/tgs/${tmpId}`),
+    saveTgs: (tmpId, data) => request(`/compliance/tgs/${tmpId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    violations: (tmpId) => request(`/compliance/tgs/${tmpId}/violations`)
   },
   automations: {
     rules: (params) => { const q = params ? '?' + new URLSearchParams(params).toString() : ''; return request(`/automations/rules${q}`); },

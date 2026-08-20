@@ -29,7 +29,9 @@ import integrationRoutes from './routes/integrations.js';
 import kanbanRoutes from './routes/kanban.js';
 import brandingRoutes from './routes/branding.js';
 import telemetryRoutes from './routes/telemetry.js';
+import complianceRoutes from './routes/compliance.js';
 import { ensureAutomationPresets } from './automation-presets.js';
+import { seedComplianceRules } from './compliance/ruleset.js';
 import { ensureBoardColumns } from './board.js';
 import { seedDirectoryIfEmpty } from './seed-directory.js';
 import { seedDatabase, seedAdminFromEnv, ensureDemoUsers } from './seed.js';
@@ -95,6 +97,7 @@ app.use('/api/integrations', integrationRoutes);
 app.use('/api/kanban', kanbanRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/telemetry', telemetryRoutes);
+app.use('/api/compliance', complianceRoutes);
 
 app.get('/api/ping', (req, res) => {
   res.json({ pong: true, at: new Date().toISOString() });
@@ -157,6 +160,7 @@ ensureWorkflowSeeds();
 ensureBoardColumns();
 seedDirectoryIfEmpty();
 ensureAutomationPresets();
+seedComplianceRules();
 ensureEncryptionKey();
 encryptLegacySecrets(db);
 

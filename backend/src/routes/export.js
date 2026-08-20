@@ -13,6 +13,7 @@ import { isClientUser, tmpOwnedByClient } from '../middleware/scope.js';
 import { parseJson, DEFAULT_WATERMARK } from '../branding.js';
 import { loadAsset } from '../assets.js';
 import { deserializeMember, groupDefaults } from '../settings-defs.js';
+import { buildSitePlanSvg } from '../compliance/siteplan.js';
 
 const requirePkg = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 let _PDFDocument = null;
@@ -404,6 +405,24 @@ router.get('/tmp/:id', async (req, res) => {
   if (!branding.footerHandled) addFooter(doc);
   doc.fontSize(10).text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
+});
+
+router.get('/tmp/:id/site-plan.svg', async (req, res) => {
+  const tmp = db.prepare(`
+    SELECT t.*, s.name as site_name, s.road_name, s.suburb, s.road_class
+    FROM traffic_management_plans t
+    LEFT JOIN sites s ON t.site_id = s.id WHERE t.id = ?
+  `).get(req.params.id);
+  if (!tmp) return res.status(404).json({ error: 'TMP not found' });
+  if (isClientUser(req.user) && !tmpOwnedByClient(tmp, req.user.clientId)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+  const site = tmp.site_id ? db.prepare('SELECT * FROM sites WHERE id = ?').get(tmp.site_id) : null;
+  const tgs = db.prepare('SELECT layout_json FROM tgs WHERE tmp_id = ?').get(tmp.id) || null;
+  const svg = buildSitePlanSvg({ tmp, site, tgs });
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.setHeader('Content-Disposition', `inline; filename="${tmp.reference || 'TMP'}-site-plan.svg"`);
+  res.send(svg);
 });
 
 router.get('/permits-summary', roleAtLeast('staff'), async (req, res) => {

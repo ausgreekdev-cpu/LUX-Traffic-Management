@@ -458,6 +458,51 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_correspondence_status ON correspondence(review_status);
 `);
 
+// Phase 7: LGA compliance rulesets + Traffic Guidance Schemes (TGS) + work type/jurisdiction.
+{
+  const tmpCols = db.prepare('PRAGMA table_info(traffic_management_plans)').all().map(c => c.name);
+  const add = (name, def) => { if (!tmpCols.includes(name)) db.exec(`ALTER TABLE traffic_management_plans ADD COLUMN ${name} ${def}`); };
+  add('authority_id', 'TEXT REFERENCES authorities(id) ON DELETE SET NULL');
+  add('work_type', "TEXT CHECK(work_type IN ('general','maintenance','event','footpath_utility','skip_bin_hoarding'))");
+}
+{
+  const siteCols = db.prepare('PRAGMA table_info(sites)').all().map(c => c.name);
+  if (!siteCols.includes('jurisdiction')) db.exec("ALTER TABLE sites ADD COLUMN jurisdiction TEXT DEFAULT 'lga' CHECK(jurisdiction IN ('lga','state','shared'))");
+}
+db.exec(`
+  CREATE TABLE IF NOT EXISTS compliance_rules (
+    id TEXT PRIMARY KEY,
+    authority_id TEXT REFERENCES authorities(id) ON DELETE CASCADE,
+    state TEXT DEFAULT 'WA',
+    work_type TEXT,
+    category TEXT,
+    name TEXT NOT NULL,
+    description TEXT,
+    condition TEXT NOT NULL,
+    message TEXT NOT NULL,
+    guidance TEXT,
+    severity TEXT NOT NULL DEFAULT 'violation' CHECK(severity IN ('violation','warning')),
+    is_active INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_compliance_rules_scope ON compliance_rules(authority_id, work_type, is_active);
+
+  CREATE TABLE IF NOT EXISTS tgs (
+    id TEXT PRIMARY KEY,
+    tmp_id TEXT UNIQUE REFERENCES traffic_management_plans(id) ON DELETE CASCADE,
+    work_type TEXT,
+    layout_json TEXT,
+    diagram_svg TEXT,
+    check_summary_json TEXT,
+    checked_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_tgs_tmp ON tgs(tmp_id);
+`);
+
   // Migration: multi-level roles (developer/manager/staff/client) + client linkage.
   const userCols = db.prepare('PRAGMA table_info(users)').all().map(c => c.name);
   if (!userCols.includes('client_id')) {

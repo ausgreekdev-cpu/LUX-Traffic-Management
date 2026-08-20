@@ -38,7 +38,8 @@ export const schemas = {
     pedestrian_activity: z.enum(['low', 'medium', 'high']).optional(),
     cyclist_activity: z.enum(['low', 'medium', 'high']).optional(),
     rail_corridor: z.boolean().optional(),
-    school_zone: z.boolean().optional()
+    school_zone: z.boolean().optional(),
+    jurisdiction: z.enum(['lga', 'state', 'shared']).optional()
   }),
 
   project: z.object({
@@ -61,7 +62,30 @@ export const schemas = {
     complexity_source: z.enum(['auto', 'manual']).optional(),
     description: z.string().optional(),
     start_date: z.string().optional(),
-    end_date: z.string().optional()
+    end_date: z.string().optional(),
+    work_type: z.enum(['general', 'maintenance', 'event', 'footpath_utility', 'skip_bin_hoarding']).optional(),
+    authority_id: z.string().optional().nullable()
+  }),
+
+  rule: z.object({
+    authority_id: z.string().optional().nullable(),
+    state: z.string().optional(),
+    work_type: z.enum(['general', 'maintenance', 'event', 'footpath_utility', 'skip_bin_hoarding']).optional().nullable(),
+    category: z.string().optional(),
+    name: z.string().min(1).optional(),
+    description: z.string().optional(),
+    condition: z.record(z.unknown()).optional(),
+    message: z.string().min(1).optional(),
+    guidance: z.string().optional(),
+    severity: z.enum(['violation', 'warning']).optional(),
+    is_active: z.boolean().optional(),
+    sort_order: z.number().int().min(0).optional()
+  }),
+
+  tgs: z.object({
+    work_type: z.enum(['general', 'maintenance', 'event', 'footpath_utility', 'skip_bin_hoarding']).optional().nullable(),
+    layout: z.record(z.unknown()).optional(),
+    resolutions: z.record(z.boolean()).optional()
   }),
 
   authority: z.object({

@@ -4,6 +4,36 @@ All notable changes to LUX Traffic Management are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **LGA compliance suite, Phase 1 — council compliance rulesets + Traffic
+  Guidance Scheme (TGS) pre-flight checks.** A planner can bind a TMP to a
+  council (or rely on state-level rules), capture the TGS worksite profile
+  (work type, working hours/days, footpath widths, closures, detours, bus
+  stops, school-zone proximity, clearway/signal/rail/MRWA referrals) and run an
+  automated check against the bound council's guidelines before submission.
+  - New `compliance_rules` table with a seeded WA-first base catalog (school
+    zone peak hours, clearway occupancy, 1.5 m DDA footpath width, 1.2 m clear
+    path, bus-stop relocation, residential curfews, public-notice requirement,
+    MRWA referral for arterial/highway/freeway and 30 m signal zones,
+    rail-corridor approval, plus work-type-specific checks for events,
+    footpath/utility, skip-bin/hoarding and maintenance). Rules are editable by
+    developers, and council-specific rules can override the base catalog.
+  - New `tgs` table storing the TGS layout JSON, a generated site-plan SVG and
+    the latest check summary per TMP.
+  - `POST /api/compliance/check`, TGS read/save endpoints, and
+    `GET /api/export/tmp/:id/site-plan.svg` for an auto-generated diagram.
+  - Submission to `submitted` is blocked while any violation is unresolved
+    (single and bulk), mirroring the existing workflow-stage gate; violations
+    can be individually marked resolved.
+  - `traffic_management_plans` gained `work_type` and `authority_id`; `sites`
+    gained a `jurisdiction` field (`lga`/`state`/`shared`).
+  - New "Traffic Guidance Scheme & Compliance" panel on the TMP detail page
+    with the worksite profile form, live findings list, resolution toggles and
+    a site-plan preview.
+
 ## [1.2.3] - 2026-08-20 - "Stale-deploy crash fix"
 
 ### Fixed
