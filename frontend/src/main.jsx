@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import App from './App';
 import { BrandingProvider } from './context/Branding';
@@ -14,12 +13,13 @@ if (typeof Capacitor !== 'undefined' && Capacitor.getPlatform && Capacitor.getPl
   window.__LUX_API_BASE__ = localStorage.getItem('lux_api_base') || 'https://lux-official.netlify.app';
 }
 
+// App owns routing via createBrowserRouter + RouterProvider, so no outer
+// Router wrapper is needed here (a <BrowserRouter> around it would make the
+// data router's internal <Router> throw "cannot render inside another Router").
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <BrandingProvider>
-        <App />
-      </BrandingProvider>
-    </BrowserRouter>
+    <BrandingProvider>
+      <App />
+    </BrandingProvider>
   </React.StrictMode>
 );
