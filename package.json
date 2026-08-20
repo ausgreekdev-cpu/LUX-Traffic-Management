@@ -1,6 +1,6 @@
 {
   "name": "lux-traffic-management",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "WA Traffic Management System - TMP & Permit Management",
   "main": "electron/main.js",
   "author": "LUX Traffic Management",
