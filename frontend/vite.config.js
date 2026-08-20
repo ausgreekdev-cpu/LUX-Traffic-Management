@@ -71,9 +71,23 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/assets\//],
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         runtimeCaching: [
+          {
+            // Navigations are network-first so a fresh deploy's index.html is
+            // picked up immediately instead of serving a stale cached copy that
+            // references old, hashed chunks (the cause of "Failed to fetch
+            // dynamically imported module" after every release). The cached
+            // copy still serves as the offline fallback.
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'lux-navigation',
+              networkTimeoutSeconds: 4,
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
           {
             urlPattern: /\/api\/photos\/[^?]+/,
             handler: 'NetworkFirst',

@@ -1,5 +1,5 @@
 [build]
-  command = "npm run install:all && npm run build"
+  command = "rm -rf frontend/dist && npm run install:all && npm run build"
   publish = "frontend/dist"
   functions = "netlify/functions"
 
@@ -29,6 +29,14 @@
 
 [functions.node]
   node_version = "24"
+
+# Missing static assets must 404, not be rewritten to index.html. Served as HTML
+# they make dynamic import() throw "Failed to fetch dynamically imported module"
+# for stale-cache clients. Existing files still win over this rule.
+[[redirects]]
+  from = "/assets/*"
+  to = "/404.html"
+  status = 404
 
 [[redirects]]
   from = "/api/*"

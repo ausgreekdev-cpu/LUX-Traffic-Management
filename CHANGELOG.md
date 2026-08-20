@@ -4,6 +4,21 @@ All notable changes to LUX Traffic Management are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Stale-cache "Failed to fetch dynamically imported module" crash after every
+  deploy. A client that still held an old `index.html` referenced hashed chunks
+  that the new release had pruned; Netlify's catch-all rewrote the missing
+  `.js` request to `index.html` with HTTP 200, and `import()` of that HTML threw
+  a `TypeError`. Missing `/assets/*` now return a real 404 instead, the service
+  worker fetches the current `index.html` network-first on every navigation
+  (cache as offline fallback), and the router error element auto-reloads once
+  on chunk-load failures so stale clients recover on their own.
+- Netlify builds now remove `frontend/dist` up front so old hashed chunks can
+  never linger beside a newer release.
+
 ## [1.2.2] — 2026-08-20 — "Login-loop hotfix"
 
 Fixes a second boot-time defect from 1.2.0 that the 1.2.1 blank-screen fix

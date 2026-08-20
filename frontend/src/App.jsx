@@ -4,6 +4,7 @@ import api, { apiUrl } from './api';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import ErrorBoundary from './components/ErrorBoundary';
+import ChunkErrorElement from './components/ChunkErrorElement';
 import { AppTextProvider } from './context/AppText';
 import { AuthProvider, RANK } from './context/Auth';
 import { SettingsStoreProvider } from './stores/SettingsStore';
@@ -101,11 +102,13 @@ export default function App() {
   const router = useMemo(() => createBrowserRouter([
     {
       path: '/login',
-      element: user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
+      element: user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />,
+      errorElement: <ChunkErrorElement />
     },
     {
       path: '/',
       element: <ProtectedRoute><Layout user={user} onLogout={handleLogout} /></ProtectedRoute>,
+      errorElement: <ChunkErrorElement />,
       children: [
         { index: true, element: <Dashboard /> },
         { path: 'tmps', element: <TMPList /> },
@@ -141,6 +144,7 @@ export default function App() {
     {
       path: '/field',
       element: <ProtectedRoute><FieldLayout user={user} onLogout={handleLogout} /></ProtectedRoute>,
+      errorElement: <ChunkErrorElement />,
       children: [
         { index: true, element: <FieldHome /> },
         { path: 'tmps/:id', element: <FieldTmpDetail /> },
