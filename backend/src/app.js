@@ -44,7 +44,7 @@ import './automation-engine.js';
 const app = express();
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-official.netlify.app', 'https://lux-tmp.netlify.app', 'https://localhost', 'capacitor://localhost', 'http://localhost'] }));
+app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-official.netlify.app', 'https://main--lux-official.netlify.app', 'https://lux-tmp.netlify.app', 'https://localhost', 'capacitor://localhost', 'http://localhost'] }));
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 app.use(requestLogger);
 

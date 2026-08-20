@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { isOnline, onNetworkChange } from '../../lib/mobileCaps';
 import { getQueue, removeFromQueue, cacheGet } from '../../lib/fieldStore';
+import { apiUrl } from '../../api';
 
 async function flushUploads(setStatus) {
   const queue = await getQueue();
@@ -10,7 +11,7 @@ async function flushUploads(setStatus) {
       const form = new FormData();
       form.append('file', item.blob, 'site.jpg');
       form.append('meta', JSON.stringify(item.meta));
-      const res = await fetch('/api/photos', {
+      const res = await fetch(apiUrl('/photos'), {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: form

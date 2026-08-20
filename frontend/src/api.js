@@ -1,9 +1,17 @@
 // In the browser the SPA and the API share an origin, so relative /api works.
 // When wrapped natively (Capacitor) the app is served from a local scheme, so
-// main.jsx sets window.__LUX_API_BASE__ to the deployed API origin at boot.
-const BASE = (typeof window !== 'undefined' && window.__LUX_API_BASE__) || '/api';
+// main.jsx resolves a reachable API origin during bootstrap and parks it on
+// window.__LUX_API_BASE__. That happens after this module is evaluated, so the
+// base is read per call rather than captured at import time.
+const BASE = () => `${(typeof window !== 'undefined' && window.__LUX_API_BASE__) || ''}/api`;
 
-const isNativeShell = () => (typeof window !== 'undefined' && window.__LUX_API_BASE__ && window.__LUX_API_BASE__ !== '/api');
+// Absolute URL for callers that reach for fetch directly (uploads, keep-warm
+// pings) instead of going through request().
+export const apiUrl = (path) => `${BASE()}${path}`;
+
+const isNativeShell = () => (typeof window !== 'undefined' && !!window.__LUX_API_BASE__);
+
+const isLoginScreen = () => (typeof window !== 'undefined' && window.location.pathname === '/login');
 
 // Short TTL cache for settings (app name, labels, branding). AppText and
 // Settings both fetch settings; this avoids duplicate requests and speeds up
@@ -15,13 +23,19 @@ async function request(path, options = {}) {
   const token = localStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${BASE()}${path}`, { ...options, headers });
   if (res.status === 401 && !options.skipAuthRedirect) {
     localStorage.removeItem('token');
-    // Native shell has no server-side SPA fallback for deep paths; reloading at
-    // the current route lets ProtectedRoute client-navigate to /login instead.
-    if (isNativeShell()) window.location.reload();
-    else window.location.href = '/login';
+    // Only bounce when a live session actually just ended. A 401 on a request
+    // that carried no token means we were already logged out, and navigating to
+    // the page we are on is a full reload — any unauthenticated fetch that
+    // remounts with it turns into an endless refresh loop.
+    if (token && !isLoginScreen()) {
+      // Native shell has no server-side SPA fallback for deep paths; reloading
+      // at the current route lets ProtectedRoute client-navigate to /login.
+      if (isNativeShell()) window.location.reload();
+      else window.location.href = '/login';
+    }
     throw new Error('Unauthorized');
   }
   if (!res.ok) {
@@ -82,12 +96,12 @@ const api = {
       const token = localStorage.getItem('token');
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch(`${BASE}/documents/upload/${tmpId}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      const res = await fetch(`${BASE()}/documents/upload/${tmpId}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
       if (!res.ok) throw new Error('Upload failed');
       return res.json();
     },
-    download: (id) => `${BASE}/documents/download/${id}`,
-    preview: (id) => `${BASE}/documents/preview/${id}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`,
+    download: (id) => `${BASE()}/documents/download/${id}`,
+    preview: (id) => `${BASE()}/documents/preview/${id}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`,
     delete: (id) => request(`/documents/${id}`, { method: 'DELETE' })
   },
   photos: {
@@ -97,11 +111,11 @@ const api = {
       const form = new FormData();
       form.append('file', file);
       form.append('meta', JSON.stringify({ tmp_id: tmpId, ...meta }));
-      const res = await fetch(`${BASE}/photos`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      const res = await fetch(`${BASE()}/photos`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
       if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Upload failed' })); throw new Error(err.error || 'Upload failed'); }
       return res.json();
     },
-    url: (id) => `${BASE}/photos/${id}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`,
+    url: (id) => `${BASE()}/photos/${id}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`,
     delete: (id) => request(`/photos/${id}`, { method: 'DELETE' })
   },
   dashboard: () => request('/dashboard'),
@@ -117,7 +131,7 @@ const api = {
       const token = localStorage.getItem('token');
       const form = new FormData();
       form.append('pdf', file);
-      const res = await fetch(`${BASE}/authorities/import-directory`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      const res = await fetch(`${BASE()}/authorities/import-directory`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
       if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Import failed' })); throw new Error(err.error || 'Import failed'); }
       return res.json();
     }
@@ -158,10 +172,10 @@ const api = {
     previewTemplate: (id, data) => request(`/email/templates/${id}/preview`, { method: 'POST', body: JSON.stringify(data) })
   },
   export: {
-    tmpPDF: (id) => fetch(`${BASE}/export/tmp/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+    tmpPDF: (id) => fetch(`${BASE()}/export/tmp/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
     downloadCSV: async (url, filename) => {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${BASE}${url}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${BASE()}${url}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Download failed' }));
         throw new Error(err.error || 'Download failed');
@@ -192,7 +206,7 @@ const api = {
       settingsCache.value = null;
       return request('/settings', { method: 'PUT', body: JSON.stringify(data) });
     },
-    groups: () => request('/settings/groups'),
+    groups: () => request('/settings/groups', { skipAuthRedirect: true }),
     saveGroups: (data) => request('/settings/groups', { method: 'PUT', body: JSON.stringify(data) })
   },
   telemetry: {
@@ -257,7 +271,7 @@ const api = {
       const token = localStorage.getItem('token');
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch(`${BASE}/branding/assets/${slot}${api.branding._scope(domain)}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      const res = await fetch(`${BASE()}/branding/assets/${slot}${api.branding._scope(domain)}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
       if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Upload failed' })); throw new Error(err.error || 'Upload failed'); }
       return res.json();
     },

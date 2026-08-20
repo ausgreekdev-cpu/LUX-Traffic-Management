@@ -4,6 +4,42 @@ All notable changes to LUX Traffic Management are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.2] — 2026-08-20 — "Login-loop hotfix"
+
+Fixes a second boot-time defect from 1.2.0 that the 1.2.1 blank-screen fix
+uncovered: the login page reloaded itself in a tight loop, so no logged-out user
+could sign in. The settings hub's store fetched developer-only settings groups
+on mount for every visitor, including anonymous ones; the resulting 401 sent the
+API client into `window.location.href = '/login'`, which is a full reload when
+the login page is already open, which remounted the store, which fetched again.
+The store now waits for a session, and the 401 handler can no longer navigate to
+the page it is already on. The same release makes the native shell's API origin
+actually take effect and gives it a fallback.
+
+### Fixed
+
+- `frontend/src/stores/SettingsStore.jsx` no longer requests `/settings/groups`
+  without a session; it refetches on login, when the provider remounts.
+- `frontend/src/api.js` only redirects on a 401 when a live session just ended,
+  and never when the login screen is already showing. `settings.groups()` is a
+  background prefetch and opts out of auth redirects entirely.
+- The native API base is resolved per request instead of being captured when
+  `api.js` is first imported. It was previously read before `main.jsx` could set
+  it, so the Capacitor shell silently called its own local scheme, and the base
+  was missing the `/api` path segment even when it was read.
+- The keep-warm ping in `frontend/src/App.jsx` and the offline photo-queue drain
+  in `frontend/src/pages/field/FieldLayout.jsx` went to a hardcoded `/api/...`
+  and bypassed the base entirely; queued field photos could never upload from
+  the native app.
+
+### Changed
+
+- The native shell probes a list of API origins at launch and uses the first one
+  that answers `/api/ping`, remembering the winner for subsequent launches, so a
+  single unreachable hostname no longer takes the field app down. An offline
+  launch skips probing. `https://main--lux-official.netlify.app` is the fallback
+  and was added to the backend CORS allow-list.
+
 ## [1.2.1] — 2026-08-20 — "Blank-screen hotfix"
 
 Fixes the runtime crash introduced in 1.2.0 that blanked the app for all
