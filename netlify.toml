@@ -1,5 +1,5 @@
 [build]
-  command = "set -e; rm -rf frontend/dist; echo 'Installing deps...'; npm run install:all; echo 'Building...'; npm run build"
+  command = "rm -rf frontend/dist && cd frontend && npm install && npm run build"
   publish = "frontend/dist"
   functions = "netlify/functions"
 
