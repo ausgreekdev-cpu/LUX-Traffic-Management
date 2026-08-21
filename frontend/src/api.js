@@ -275,6 +275,17 @@ const api = {
     reorderColumns: (entityType, ids) => request('/kanban/columns/reorder', { method: 'POST', body: JSON.stringify({ entity_type: entityType, ids }) }),
     analytics: (entityType, days) => request(`/kanban/analytics?entity_type=${entityType}&days=${days}`)
   },
+  residentNotices: {
+    list: (tmpId) => request(`/resident-notices/tmp/${tmpId}`),
+    get: (id) => request(`/resident-notices/${id}`),
+    create: (data) => request('/resident-notices', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/resident-notices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => request(`/resident-notices/${id}`, { method: 'DELETE' }),
+    suggestRecipients: (tmpId, params) => request(`/resident-notices/tmp/${tmpId}/suggest-recipients`, { method: 'POST', body: JSON.stringify(params) }),
+    queue: (id) => request(`/resident-notices/${id}/queue`, { method: 'POST' }),
+    send: (id) => request(`/resident-notices/${id}/send`, { method: 'POST' }),
+    letter: (id, recipientIndex) => `${BASE()}/resident-notices/${id}/letter/${recipientIndex}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`
+  },
   branding: {
     public: () => request('/branding', { skipAuthRedirect: true }),
     _scope: (domain) => domain ? `?domain=${encodeURIComponent(domain)}` : '',

@@ -503,6 +503,39 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_tgs_tmp ON tgs(tmp_id);
 `);
 
+// Phase 7b: Letter template fields on email_templates.
+{
+  const tplCols = db.prepare('PRAGMA table_info(email_templates)').all().map(c => c.name);
+  const add = (name, def) => { if (!tplCols.includes(name)) db.exec(`ALTER TABLE email_templates ADD COLUMN ${name} ${def}`); };
+  add('type', "TEXT DEFAULT 'email' CHECK(type IN ('email','letter'))");
+  add('letter_heading', 'TEXT');
+  add('letter_footer', 'TEXT');
+  add('letter_margin_top', 'INTEGER DEFAULT 50');
+  add('letter_margin_bottom', 'INTEGER DEFAULT 50');
+}
+
+// Phase 8: Resident & stakeholder notifications (Phase 3).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS resident_notices (
+    id TEXT PRIMARY KEY,
+    tmp_id TEXT REFERENCES traffic_management_plans(id) ON DELETE CASCADE,
+    template_id TEXT REFERENCES email_templates(id) ON DELETE SET NULL,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    html_body TEXT,
+    radius_m INTEGER NOT NULL DEFAULT 200,
+    address_filter TEXT,          -- JSON: { suburbs: [], postcodes: [], max_distance_m: 200 }
+    recipients_json TEXT NOT NULL, -- [{ name, address, email, phone, channel: 'email'|'letter'|'both', status: 'pending'|'sent'|'failed', sent_at, error }]
+    status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','queued','sending','sent','partial','failed')),
+    created_by TEXT REFERENCES users(id),
+    created_at TEXT DEFAULT (datetime('now')),
+    sent_at TEXT,
+    completed_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_resident_notices_tmp ON resident_notices(tmp_id);
+  CREATE INDEX IF NOT EXISTS idx_resident_notices_status ON resident_notices(status);
+`);
+
   // Migration: multi-level roles (developer/manager/staff/client) + client linkage.
   const userCols = db.prepare('PRAGMA table_info(users)').all().map(c => c.name);
   if (!userCols.includes('client_id')) {

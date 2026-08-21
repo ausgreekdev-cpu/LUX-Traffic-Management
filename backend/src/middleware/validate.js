@@ -88,6 +88,23 @@ export const schemas = {
     resolutions: z.record(z.boolean()).optional()
   }),
 
+  residentNotice: z.object({
+    tmp_id: z.string(),
+    template_id: z.string().optional().nullable(),
+    subject: z.string().min(1),
+    body: z.string().min(1),
+    html_body: z.string().optional(),
+    radius_m: z.number().int().min(50).max(5000).optional(),
+    address_filter: z.record(z.unknown()).optional(),
+    recipients: z.array(z.object({
+      name: z.string().min(1),
+      address: z.string().min(1),
+      email: z.string().email().optional().nullable(),
+      phone: z.string().optional(),
+      channel: z.enum(['email', 'letter', 'both']).optional()
+    })).optional()
+  }),
+
   authority: z.object({
     name: z.string().min(1),
     short_name: z.string().optional(),

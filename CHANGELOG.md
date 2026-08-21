@@ -45,10 +45,28 @@ adheres to [Semantic Versioning](https://semver.org/).
   - New "Create New TMP" wizard page (`/tmps/new`) presents the work-type cards
     with icons, descriptions and complexity badges; selecting one navigates to
     the form with all defaults applied.
-  - Event template auto-adds VMS, emergency corridor, public-notice and MRWA
+- Event template auto-adds VMS, emergency corridor, public-notice and MRWA
     referral stages; Maintenance template pre-fills lane closure + detour;
     Footpath/utility pre-fills 1.5 m footpath + tactile indicators; Skip-bin
     pre-fills loading-zone reservation.
+
+- **LGA compliance suite, Phase 3 — resident & stakeholder notification tools.**
+  - New `resident_notices` table with template support, recipient lists (email,
+    letter, both), address filtering (suburb/postcode/radius), and delivery
+    status tracking.
+  - `GET /api/resident-notices/tmp/:tmpId` lists notices; `POST` creates draft;
+    `POST /:id/queue` validates recipients; `POST /:id/send` dispatches emails
+    and generates letter PDFs (pdfkit) stored as documents.
+  - `GET /api/resident-notices/tmp/:tmpId/suggest-recipients` reverse-geocodes
+    the TMP site via Nominatim and returns suggested recipients within a
+    configurable radius.
+  - Letter PDF generation with company branding, recipient merge fields
+    (`{{name}}`, `{{address}}`), and automatic document attachment to the TMP.
+  - New "Resident & Stakeholder Notifications" panel on the TMP detail page:
+    - Leaflet + OSM impact-radius map (click to add recipients, drag to move).
+    - Recipient editor with channel selection (email/letter/both).
+    - Draft → Queue → Send workflow with per-recipient status.
+    - Letter preview/download per recipient.
 
 ## [1.2.3] - 2026-08-20 - "Stale-deploy crash fix"
 

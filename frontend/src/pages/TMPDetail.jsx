@@ -4,6 +4,7 @@ import api from '../api';
 import WorkflowChecklist from '../components/WorkflowChecklist';
 import PhotoGallery from '../components/PhotoGallery';
 import CompliancePanel from '../components/CompliancePanel';
+import NotificationPanel from '../components/NotificationPanel';
 import { useAppText } from '../context/AppText';
 import { useAuth, hasRole } from '../context/Auth';
 
@@ -133,6 +134,7 @@ export default function TMPDetail() {
             </div>
           )}
           <CompliancePanel tmpId={id} tmp={tmp} canEdit={canEdit} />
+          <NotificationPanel tmpId={id} tmp={tmp} canEdit={canEdit} />
           <div className="card p-4">
             <h2 className="font-semibold mb-2">{section('tmp_documents', 'Documents')} ({(tmp.documents||[]).length})</h2>
             <div className="space-y-1 mb-3">
