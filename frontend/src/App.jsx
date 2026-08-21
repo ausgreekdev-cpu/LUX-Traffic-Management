@@ -14,6 +14,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const TMPList = lazy(() => import('./pages/TMPList'));
 const TMPDetail = lazy(() => import('./pages/TMPDetail'));
 const TMPForm = lazy(() => import('./pages/TMPForm'));
+const TMPWizard = lazy(() => import('./pages/TMPWizard'));
 const ClientList = lazy(() => import('./pages/ClientList'));
 const SiteList = lazy(() => import('./pages/SiteList'));
 const ProjectList = lazy(() => import('./pages/ProjectList'));
@@ -113,7 +114,8 @@ export default function App() {
         { index: true, element: <Dashboard /> },
         { path: 'tmps', element: <TMPList /> },
         { path: 'kanban', element: <Kanban /> },
-        { path: 'tmps/new', element: <RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute> },
+        { path: 'tmps/new', element: <RoleRoute user={user} minRole="staff"><TMPWizard /></RoleRoute> },
+        { path: 'tmps/new/form', element: <RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute> },
         { path: 'tmps/:id', element: <TMPDetail /> },
         { path: 'tmps/:id/edit', element: <RoleRoute user={user} minRole="staff"><TMPForm /></RoleRoute> },
         { path: 'projects', element: <ProjectList /> },

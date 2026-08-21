@@ -88,7 +88,9 @@ const api = {
     update: (id, data) => request(`/tmps/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/tmps/${id}`, { method: 'DELETE' }),
     bulk: (ids, action, status) => request('/tmps/bulk', { method: 'POST', body: JSON.stringify({ ids, action, status }) }),
-    riskPreview: (params) => { const q = new URLSearchParams(params).toString(); return request(`/tmps/risk-preview?${q}`); }
+    riskPreview: (params) => { const q = new URLSearchParams(params).toString(); return request(`/tmps/risk-preview?${q}`); },
+    workTypes: () => request('/tmps/work-types'),
+    quickCreate: (data) => request('/tmps/quick-create', { method: 'POST', body: JSON.stringify(data) })
   },
   documents: {
     list: (tmpId) => request(`/documents/tmp/${tmpId}`),

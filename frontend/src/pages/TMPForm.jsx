@@ -1,12 +1,30 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
 
 export default function TMPForm() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isEdit = !!id;
-  const [form, setForm] = useState({ title: '', plan_type: 'temporary', complexity: 'standard', status: 'draft', description: '', project_id: '', site_id: '', start_date: '', end_date: '', work_type: 'general', authority_id: '' });
+  const prefillWorkType = searchParams.get('work_type');
+  const prefillPlanType = searchParams.get('plan_type') || 'temporary';
+  const prefillComplexity = searchParams.get('complexity') || 'standard';
+  const isQuickCreate = !!prefillWorkType && !isEdit;
+
+  const [form, setForm] = useState({
+    title: '',
+    plan_type: isQuickCreate ? prefillPlanType : 'temporary',
+    complexity: isQuickCreate ? prefillComplexity : 'standard',
+    status: 'draft',
+    description: '',
+    project_id: '',
+    site_id: '',
+    start_date: '',
+    end_date: '',
+    work_type: isQuickCreate ? prefillWorkType : 'general',
+    authority_id: ''
+  });
   const [projects, setProjects] = useState([]);
   const [sites, setSites] = useState([]);
   const [authorities, setAuthorities] = useState([]);
@@ -73,8 +91,17 @@ export default function TMPForm() {
     setSaving(true);
     const payload = { ...form, complexity_source: complexityTouched ? 'manual' : 'auto' };
     try {
-      if (isEdit) { await api.tmps.update(id, payload); navigate(`/tmps/${id}`); }
-      else { const res = await api.tmps.create(payload); navigate(`/tmps/${res.id}`); }
+      if (isEdit) {
+        await api.tmps.update(id, payload);
+        navigate(`/tmps/${id}`);
+      } else if (isQuickCreate) {
+        // Quick-create: pre-filled work_type + site required, auto-creates TGS + workflow
+        const res = await api.tmps.quickCreate(payload);
+        navigate(`/tmps/${res.id}`);
+      } else {
+        const res = await api.tmps.create(payload);
+        navigate(`/tmps/${res.id}`);
+      }
     } catch (err) { alert(err.message); } finally { setSaving(false); }
   };
 

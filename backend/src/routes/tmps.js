@@ -9,6 +9,7 @@ import { incompleteRequiredStages, swapTemplateForEntity } from './workflows.js'
 import { emitEvent } from '../events.js';
 import { suggestComplexity, computeRisk, riskPreviewQuery } from '../risk.js';
 import { unresolvedComplianceViolations, latestComplianceSummary } from '../compliance/ruleset.js';
+import { getWorkTypeList, createTmpFromTemplate } from '../tmp-templates.js';
 
 const router = Router();
 router.use(authenticate);
@@ -52,6 +53,27 @@ router.get('/', (req, res) => {
 router.get('/risk-preview', roleAtLeast('staff'), (req, res) => {
   const { site_id, plan_type, start_date, end_date } = req.query;
   res.json(riskPreviewQuery({ site_id: site_id || null, plan_type: plan_type || 'temporary', start_date: start_date || null, end_date: end_date || null }));
+});
+
+router.get('/work-types', roleAtLeast('staff'), (req, res) => {
+  res.json(getWorkTypeList());
+});
+
+router.post('/quick-create', roleAtLeast('staff'), (req, res) => {
+  const { work_type, title, site_id, project_id, authority_id } = req.body || {};
+  if (!work_type || !title || !site_id) {
+    return res.status(400).json({ error: 'work_type, title, and site_id are required' });
+  }
+  const site = db.prepare('SELECT id FROM sites WHERE id = ?').get(site_id);
+  if (!site) return res.status(404).json({ error: 'Site not found' });
+  if (project_id && !db.prepare('SELECT id FROM tmp_projects WHERE id = ?').get(project_id)) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+  if (authority_id && !db.prepare('SELECT id FROM authorities WHERE id = ?').get(authority_id)) {
+    return res.status(404).json({ error: 'Authority not found' });
+  }
+  const result = createTmpFromTemplate(db, emitEvent, { work_type, title, site_id, project_id: project_id || null, authority_id: authority_id || null, created_by: req.user.id });
+  res.status(201).json(result);
 });
 
 router.get('/:id', (req, res) => {

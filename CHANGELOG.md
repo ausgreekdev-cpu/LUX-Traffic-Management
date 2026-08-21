@@ -34,6 +34,22 @@ adheres to [Semantic Versioning](https://semver.org/).
     with the worksite profile form, live findings list, resolution toggles and
     a site-plan preview.
 
+- **LGA compliance suite, Phase 2 — work-type taxonomy + quick-create templates.**
+  - Five work types (`general`, `maintenance`, `event`, `footpath_utility`,
+    `skip_bin_hoarding`) each with a pre-filled TGS layout, suggested plan type
+    and complexity tier.
+  - `GET /api/tmps/work-types` lists all types with their defaults for the UI.
+  - `POST /api/tmps/quick-create` creates a TMP, a pre-filled TGS, and the
+    workflow checklist in a single call — planners pick a work type, enter title
+    and site, and get a ready-to-edit plan with the right stages.
+  - New "Create New TMP" wizard page (`/tmps/new`) presents the work-type cards
+    with icons, descriptions and complexity badges; selecting one navigates to
+    the form with all defaults applied.
+  - Event template auto-adds VMS, emergency corridor, public-notice and MRWA
+    referral stages; Maintenance template pre-fills lane closure + detour;
+    Footpath/utility pre-fills 1.5 m footpath + tactile indicators; Skip-bin
+    pre-fills loading-zone reservation.
+
 ## [1.2.3] - 2026-08-20 - "Stale-deploy crash fix"
 
 ### Fixed

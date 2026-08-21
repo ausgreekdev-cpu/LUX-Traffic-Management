@@ -238,3 +238,91 @@ test('site-plan SVG export returns a valid diagram', async () => {
   assert.match(body, /<svg/);
   assert.match(body, /CARRIAGEWAY/);
 });
+
+test('GET /tmps/work-types returns all work types with defaults', async () => {
+  const staff = await loginAs('staff');
+  const res = await fetch(`${base}/tmps/work-types`, { headers: authed(staff) });
+  assert.equal(res.status, 200);
+  const types = await res.json();
+  assert.ok(Array.isArray(types));
+  assert.ok(types.length >= 5);
+  const keys = types.map(t => t.value);
+  for (const k of ['general', 'maintenance', 'event', 'footpath_utility', 'skip_bin_hoarding']) {
+    assert.ok(keys.includes(k), `work type ${k} present`);
+  }
+  const maint = types.find(t => t.value === 'maintenance');
+  assert.equal(maint.plan_type, 'temporary');
+  assert.equal(maint.default_complexity, 'simple');
+  const evt = types.find(t => t.value === 'event');
+  assert.equal(evt.plan_type, 'event');
+  assert.equal(evt.default_complexity, 'complex');
+});
+
+test('POST /tmps/quick-create creates TMP + TGS + workflow checklist in one call', async () => {
+  const staff = await loginAs('staff');
+
+  const siteRes = await fetch(`${base}/sites`, {
+    method: 'POST',
+    headers: { ...authed(staff), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Quick Create Rd', road_class: 'local' })
+  });
+  assert.equal(siteRes.status, 201);
+  const siteId = (await siteRes.json()).id;
+
+  const authRes = await fetch(`${base}/authorities`, { headers: authed(staff) });
+  const authBody = await authRes.json();
+  const lga = (authBody.data || authBody).find((a) => a.type === 'lga') || (authBody.data || authBody)[0];
+
+  // Quick-create an event TMP
+  const qcRes = await fetch(`${base}/tmps/quick-create`, {
+    method: 'POST',
+    headers: { ...authed(staff), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ work_type: 'event', title: 'Quick Event TMP', site_id: siteId, authority_id: lga?.id || null })
+  });
+  assert.equal(qcRes.status, 201);
+  const created = await qcRes.json();
+  assert.ok(created.id);
+  assert.equal(created.work_type, 'event');
+  assert.equal(created.plan_type, 'event');
+  assert.equal(created.complexity, 'complex');
+
+  // Verify TGS was created with event-specific defaults
+  const tgsRes = await fetch(`${base}/compliance/tgs/${created.id}`, { headers: authed(staff) });
+  const tgsData = await tgsRes.json();
+  assert.ok(tgsData.tgs);
+  assert.equal(tgsData.tgs.work_type, 'event');
+  assert.ok(tgsData.tgs.layout.vms >= 3);
+  assert.equal(tgsData.tgs.layout.emergency_access_corridor, true);
+
+  // Verify workflow checklist was created
+  const checklistRes = await fetch(`${base}/workflows/checklist/tmp/${created.id}`, { headers: authed(staff) });
+  const cl = await checklistRes.json();
+  assert.ok(cl.data.length > 0, 'workflow checklist populated from template');
+  assert.ok(cl.data.some(s => s.name.includes('MRWA referral')), 'event template includes MRWA referral stage');
+
+  // Quick-create a maintenance TMP (simple complexity, different TGS defaults)
+  const qc2 = await fetch(`${base}/tmps/quick-create`, {
+    method: 'POST',
+    headers: { ...authed(staff), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ work_type: 'maintenance', title: 'Quick Maintenance TMP', site_id: siteId })
+  });
+  assert.equal(qc2.status, 201);
+  const c2 = await qc2.json();
+  assert.equal(c2.work_type, 'maintenance');
+  assert.equal(c2.complexity, 'simple');
+
+  const tgs2 = await fetch(`${base}/compliance/tgs/${c2.id}`, { headers: authed(staff) }).then(r => r.json());
+  assert.equal(tgs2.tgs.work_type, 'maintenance');
+  assert.ok(tgs2.tgs.layout.closures.length >= 1);
+  assert.equal(tgs2.tgs.layout.detours[0]?.label, 'Single lane traffic via cones');
+});
+
+test('POST /tmps/quick-create validates required fields', async () => {
+  const staff = await loginAs('staff');
+  const bad = await fetch(`${base}/tmps/quick-create`, {
+    method: 'POST',
+    headers: { ...authed(staff), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ work_type: 'general' })
+  });
+  assert.equal(bad.status, 400);
+});
