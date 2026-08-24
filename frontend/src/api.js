@@ -176,6 +176,8 @@ const api = {
   export: {
     tmpPDF: (id) => fetch(`${BASE()}/export/tmp/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
     sitePlan: (id) => `${BASE()}/export/tmp/${id}/site-plan.svg?token=${encodeURIComponent(localStorage.getItem('token') || '')}`,
+    councilPDF: (id) => fetch(`${BASE()}/export/tmp/${id}/council-pdf`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+    geoJSON: (id) => fetch(`${BASE()}/export/tmp/${id}/geojson`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
     downloadCSV: async (url, filename) => {
       const token = localStorage.getItem('token');
       const res = await fetch(`${BASE()}${url}`, { headers: { Authorization: `Bearer ${token}` } });

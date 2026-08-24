@@ -68,6 +68,18 @@ adheres to [Semantic Versioning](https://semver.org/).
     - Draft → Queue → Send workflow with per-recipient status.
     - Letter preview/download per recipient.
 
+- **LGA compliance suite, Phase 4 — council application exporters.**
+  - `GET /api/export/tmp/:id/council-pdf` — branded PDF coversheet with company
+    header, TMP reference table, TGS summary, compliance verdict, and signatory
+    block; uses company branding settings and pdfkit.
+  - `GET /api/export/tmp/:id/geojson` — GeoJSON FeatureCollection with site
+    point, closures, detours, footpaths, bus stops, VMS, and impact-radius
+    circle; compatible with QGIS, ArcGIS, and web mapping.
+  - `GET /api/export/tmp/:id/site-plan.svg` — existing auto-generated site-plan
+    diagram (SVG).
+  - New export buttons on TMP detail page: Export PDF, Council PDF, GeoJSON,
+    Site Plan SVG (staff+).
+
 ## [1.2.3] - 2026-08-20 - "Stale-deploy crash fix"
 
 ### Fixed

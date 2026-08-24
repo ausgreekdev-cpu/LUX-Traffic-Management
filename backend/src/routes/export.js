@@ -535,4 +535,337 @@ router.get('/permits-csv', roleAtLeast('staff'), (req, res) => {
   res.send([header, ...rows].join('\n'));
 });
 
+// ---- Phase 4: Council Application Exporters ----
+
+// Branded PDF coversheet for council application
+router.get('/tmp/:id/council-pdf', async (req, res) => {
+  const tmp = db.prepare(`
+    SELECT t.*, s.name as site_name, s.road_name, s.suburb, s.state, s.postcode, s.latitude, s.longitude,
+           s.road_class, s.speed_limit, s.aadt, s.pedestrian_activity, s.cyclist_activity,
+           p.name as project_name, c.name as client_name, c.company as client_company
+    FROM traffic_management_plans t
+    LEFT JOIN sites s ON t.site_id = s.id
+    LEFT JOIN tmp_projects p ON t.project_id = p.id
+    LEFT JOIN clients c ON p.client_id = c.id WHERE t.id = ?
+  `).get(req.params.id);
+  if (!tmp) return res.status(404).json({ error: 'TMP not found' });
+  if (isClientUser(req.user) && !tmpOwnedByClient(tmp, req.user.clientId)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+
+  const companyName = getSetting('company_name', '');
+  const companyPhone = getSetting('company_phone', '');
+  const companyEmail = getSetting('company_email', '');
+  const companyAddress = getSetting('company_address', '');
+  const signatoryName = getSetting('signatory_name', 'Traffic Management Team');
+  const signatoryTitle = getSetting('signatory_title', 'LUX Traffic Management');
+
+  const tgs = db.prepare('SELECT layout_json, check_summary_json FROM tgs WHERE tmp_id = ?').get(tmp.id) || null;
+  const layout = tgs?.layout_json ? JSON.parse(tgs.layout_json) : {};
+  const check = tgs?.check_summary_json ? JSON.parse(tgs.check_summary_json) : null;
+
+  const doc = new (getPDFDocument())({ margin: 50 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${tmp.reference || 'TMP'}-council-application.pdf"`);
+  doc.pipe(res);
+
+  const branding = await applyBranding(doc, tmp).catch(() => ({ footerHandled: false, headerHandled: false }));
+
+  // Company header
+  if (!branding.headerHandled) {
+    if (companyName) {
+      doc.fontSize(18).fillColor('#1e3a8a').text(companyName, { align: 'center' });
+      const contactLine = [companyAddress, companyPhone, companyEmail].filter(Boolean).join('  |  ');
+      if (contactLine) {
+        doc.moveDown(0.3);
+        doc.fontSize(9).fillColor('#64748b').text(contactLine, { align: 'center' });
+      }
+      doc.moveDown(1);
+    }
+  }
+
+  doc.fontSize(20).fillColor('#111827').text('Council Application', { align: 'center' });
+  doc.fontSize(14).fillColor('#374151').text(tmp.reference || 'New TMP', { align: 'center' });
+  doc.moveDown(1.5);
+
+  // Reference table
+  const refData = [
+    ['Reference', tmp.reference || '—'],
+    ['Title', tmp.title || '—'],
+    ['Type', tmp.plan_type || '—'],
+    ['Work Type', tmp.work_type || '—'],
+    ['Complexity', tmp.complexity || '—'],
+    ['Status', tmp.status || 'draft'],
+    ['Site', [tmp.site_name, tmp.road_name, tmp.suburb, tmp.state, tmp.postcode].filter(Boolean).join(', ') || '—'],
+    ['Road Class', tmp.road_class || '—'],
+    ['Speed Limit', tmp.speed_limit ? `${tmp.speed_limit} km/h` : '—'],
+    ['AADT', tmp.aadt ? String(tmp.aadt) : '—'],
+    ['Pedestrian Activity', tmp.pedestrian_activity || '—'],
+    ['Cyclist Activity', tmp.cyclist_activity || '—'],
+    ['Rail Corridor', tmp.rail_corridor ? 'Yes' : 'No'],
+    ['School Zone', tmp.school_zone ? 'Yes' : 'No'],
+    ['Start Date', fmtDate(tmp.start_date) || '—'],
+    ['End Date', fmtDate(tmp.end_date) || '—'],
+    ['Project', tmp.project_name || '—'],
+    ['Client', [tmp.client_name, tmp.client_company].filter(Boolean).join(' (') + (tmp.client_company ? ')' : '') || '—']
+  ];
+
+  const col1 = 50;
+  const col2 = 180;
+  const rowH = 18;
+  doc.fontSize(9);
+  refData.forEach(([label, value], i) => {
+    const y = doc.y + (i === 0 ? 0 : rowH);
+    if (y > doc.page.height - 80) { doc.addPage(); }
+    doc.font('Helvetica-Bold').fillColor('#374151').text(label, col1, y, { width: 120 });
+    doc.font('Helvetica').fillColor('#111827').text(String(value), col2, y, { width: 350 });
+  });
+
+  doc.moveDown(2);
+
+  // TGS Summary
+  if (Object.keys(layout).length > 0) {
+    doc.fontSize(14).fillColor('#1e3a8a').text('Traffic Guidance Scheme Summary', { align: 'left' });
+    doc.moveDown(0.5);
+
+    const tgsFields = [
+      ['Work Type', layout.work_type || '—'],
+      ['Working Hours', layout.working_hours ? `${layout.working_hours.start} – ${layout.working_hours.end}` : '—'],
+      ['Working Days', layout.working_days ? layout.working_days.join(', ') : '—'],
+      ['Road Lanes', layout.road_lanes || '—'],
+      ['Footpath Width', layout.footpath?.min_width_m ? `${layout.footpath.min_width_m} m` : '—'],
+      ['Footpath Closed', layout.footpath?.closed ? 'Yes' : 'No'],
+      ['Min Clear Path', layout.footpath?.min_clear_path_mm ? `${layout.footpath.min_clear_path_mm} mm` : '—'],
+      ['Signed Alternate', layout.footpath?.signed_alternate ? 'Yes' : 'No'],
+      ['Ramp ≤ 1:14', layout.footpath?.ramp_gradient_1in14 ? 'Yes' : 'No'],
+      ['Bus Stops Affected', layout.bus_stops || '0'],
+      ['Bus Stop Relocation', layout.bus_stop_relocation_planned ? 'Planned' : 'Not planned'],
+      ['School Zone Proximity', layout.school_zone_proximity_m ? `${layout.school_zone_proximity_m} m` : '—'],
+      ['Clearway Nearby', layout.clearway_nearby ? 'Yes' : 'No'],
+      ['Signalised ≤ 30m', layout.signalised_intersection_within_30m ? 'Yes' : 'No'],
+      ['VMS Deployed', layout.vms || '0'],
+      ['Emergency Corridor', layout.emergency_access_corridor ? 'Yes' : 'No'],
+      ['Tactile Indicators', layout.tactile_indicators ? 'Yes' : 'No'],
+      ['Loading Zone Reserved', layout.loading_zone_reserved ? 'Yes' : 'No'],
+      ['Resident Notice', layout.resident_notice_planned ? 'Planned' : 'Not planned'],
+      ['MRWA Referral', layout.mrwa_referral_planned ? 'Planned' : 'Not planned'],
+      ['Rail Approval', layout.rail_authority_approved ? 'Yes' : 'No']
+    ];
+
+    tgsFields.forEach(([label, value], i) => {
+      const y = doc.y + (i === 0 ? 0 : rowH);
+      if (y > doc.page.height - 80) { doc.addPage(); }
+      doc.font('Helvetica-Bold').fillColor('#374151').text(label, col1, y, { width: 120 });
+      doc.font('Helvetica').fillColor('#111827').text(String(value), col2, y, { width: 350 });
+    });
+
+    doc.moveDown(1.5);
+  }
+
+  // Compliance check summary
+  if (check) {
+    doc.fontSize(14).fillColor('#1e3a8a').text('Compliance Check Summary', { align: 'left' });
+    doc.moveDown(0.5);
+    const verdictColors = { ok: '#16a34a', warn: '#ca8a04', fail: '#dc2626' };
+    doc.fontSize(11).fillColor(verdictColors[check.verdict] || '#374151')
+       .text(`Verdict: ${check.verdict.toUpperCase()}  •  Score: ${Math.round(check.score)}/100  •  Rules Checked: ${check.rules_checked}  •  ${new Date(check.checked_at).toLocaleString()}`);
+    doc.moveDown(0.5);
+    if (check.findings?.length) {
+      doc.fontSize(9).fillColor('#374151').text('Findings:');
+      check.findings.forEach(f => {
+        const color = f.severity === 'violation' ? '#dc2626' : '#ca8a04';
+        doc.fillColor(color).text(`  [${f.severity.toUpperCase()}] ${f.message}`);
+        if (f.guidance) doc.fillColor('#64748b').text(`    Guidance: ${f.guidance}`);
+      });
+    }
+    doc.moveDown(1);
+  }
+
+  // Signatory block
+  doc.moveDown(2);
+  doc.fontSize(10).fillColor('#374151').text('Submitted by:');
+  doc.moveDown(0.5);
+  doc.fontSize(11).fillColor('#111827').font('Helvetica-Bold').text(signatoryName);
+  doc.fontSize(10).fillColor('#64748b').font('Helvetica').text(signatoryTitle);
+
+  if (!branding.footerHandled) addFooter(doc);
+  doc.fontSize(8).fillColor('#94a3b8').text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
+  doc.end();
+});
+
+// GeoJSON export for TMP site plan
+router.get('/tmp/:id/geojson', (req, res) => {
+  const tmp = db.prepare(`
+    SELECT t.*, s.name as site_name, s.road_name, s.suburb, s.latitude, s.longitude,
+           s.road_class, s.speed_limit, s.pedestrian_activity, s.cyclist_activity,
+           s.rail_corridor, s.school_zone
+    FROM traffic_management_plans t
+    LEFT JOIN sites s ON t.site_id = s.id WHERE t.id = ?
+  `).get(req.params.id);
+  if (!tmp) return res.status(404).json({ error: 'TMP not found' });
+  if (isClientUser(req.user) && !tmpOwnedByClient(tmp, req.user.clientId)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+
+  const tgs = db.prepare('SELECT layout_json FROM tgs WHERE tmp_id = ?').get(tmp.id) || null;
+  const layout = tgs?.layout_json ? JSON.parse(tgs.layout_json) : {};
+
+  const features = [];
+
+  // Site point
+  if (tmp.latitude && tmp.longitude) {
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [parseFloat(tmp.longitude), parseFloat(tmp.latitude)] },
+      properties: {
+        type: 'work_site',
+        name: tmp.site_name || tmp.road_name || 'Work Site',
+        tmp_reference: tmp.reference,
+        road_class: tmp.road_class,
+        speed_limit: tmp.speed_limit,
+        pedestrian_activity: tmp.pedestrian_activity,
+        cyclist_activity: tmp.cyclist_activity,
+        rail_corridor: !!tmp.rail_corridor,
+        school_zone: !!tmp.school_zone
+      }
+    });
+  }
+
+  // Closures as line segments
+  if (Array.isArray(layout.closures)) {
+    layout.closures.forEach((c, i) => {
+      if (tmp.latitude && tmp.longitude && c.from_m != null && c.to_m != null) {
+        const offset = (c.from_m + c.to_m) / 2 / 111000; // rough m to deg
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: [
+            [tmp.longitude - offset, tmp.latitude],
+            [tmp.longitude + offset, tmp.latitude]
+          ]},
+          properties: {
+            type: 'closure',
+            label: c.label || `Closure ${i + 1}`,
+            from_m: c.from_m,
+            to_m: c.to_m,
+            tmp_reference: tmp.reference
+          }
+        });
+      }
+    });
+  }
+
+  // Detours as lines
+  if (Array.isArray(layout.detours)) {
+    layout.detours.forEach((d, i) => {
+      if (tmp.latitude && tmp.longitude) {
+        const offset = 0.002;
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: [
+            [tmp.longitude - offset, tmp.latitude + offset * i],
+            [tmp.longitude + offset, tmp.latitude + offset * i]
+          ]},
+          properties: {
+            type: 'detour',
+            label: d.label || `Detour ${i + 1}`,
+            tmp_reference: tmp.reference
+          }
+        });
+      }
+    });
+  }
+
+  // Footpath segments
+  if (layout.footpath) {
+    if (tmp.latitude && tmp.longitude) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: [
+          [tmp.longitude - 0.0015, tmp.latitude + 0.0005],
+          [tmp.longitude + 0.0015, tmp.latitude + 0.0005]
+        ]},
+        properties: {
+          type: 'footpath',
+          side: 'north',
+          width_m: layout.footpath.min_width_m,
+          closed: !!layout.footpath.closed,
+          tmp_reference: tmp.reference
+        }
+      });
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: [
+          [tmp.longitude - 0.0015, tmp.latitude - 0.0005],
+          [tmp.longitude + 0.0015, tmp.latitude - 0.0005]
+        ]},
+        properties: {
+          type: 'footpath',
+          side: 'south',
+          width_m: layout.footpath.min_width_m,
+          closed: !!layout.footpath.closed,
+          tmp_reference: tmp.reference
+        }
+      });
+    }
+  }
+
+  // Bus stops
+  if (layout.bus_stops && layout.bus_stops > 0 && tmp.latitude && tmp.longitude) {
+    for (let i = 0; i < Math.min(layout.bus_stops, 5); i++) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [tmp.longitude + (i - 2) * 0.0003, tmp.latitude + 0.0008] },
+        properties: {
+          type: 'bus_stop',
+          index: i + 1,
+          relocation_planned: !!layout.bus_stop_relocation_planned,
+          tmp_reference: tmp.reference
+        }
+      });
+    }
+  }
+
+  // VMS
+  if (layout.vms && layout.vms > 0 && tmp.latitude && tmp.longitude) {
+    for (let i = 0; i < Math.min(layout.vms, 4); i++) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [tmp.longitude + (i - 1.5) * 0.0004, tmp.latitude - 0.0008] },
+        properties: {
+          type: 'vms',
+          index: i + 1,
+          tmp_reference: tmp.reference
+        }
+      });
+    }
+  }
+
+  // Impact radius circle
+  const radius = layout.radius_m || 200;
+  if (tmp.latitude && tmp.longitude) {
+    const circleCoords = [];
+    for (let i = 0; i <= 36; i++) {
+      const angle = (i * 10) * Math.PI / 180;
+      const lat = tmp.latitude + (radius / 111000) * Math.cos(angle);
+      const lon = tmp.longitude + (radius / 111000) * Math.sin(angle) / Math.cos(tmp.latitude * Math.PI / 180);
+      circleCoords.push([lon, lat]);
+    }
+    circleCoords.push(circleCoords[0]);
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [circleCoords] },
+      properties: {
+        type: 'impact_radius',
+        radius_m: radius,
+        tmp_reference: tmp.reference
+      }
+    });
+  }
+
+  const geojson = { type: 'FeatureCollection', features };
+  res.setHeader('Content-Type', 'application/geo+json');
+  res.setHeader('Content-Disposition', `attachment; filename="${tmp.reference || 'TMP'}-site-plan.geojson"`);
+  res.json(geojson);
+});
+
 export default router;

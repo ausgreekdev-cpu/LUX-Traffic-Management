@@ -54,6 +54,44 @@ export default function TMPDetail() {
     }
   };
 
+  const handleExportCouncilPDF = async () => {
+    try {
+      const res = await api.export.councilPDF(id);
+      if (!res.ok) throw new Error('Council PDF export failed');
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl; a.download = `${tmp.reference || 'TMP'}-council-application.pdf`; a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleExportGeoJSON = async () => {
+    try {
+      const res = await api.export.geoJSON(id);
+      if (!res.ok) throw new Error('GeoJSON export failed');
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl; a.download = `${tmp.reference || 'TMP'}-site-plan.geojson`; a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleExportSitePlanSVG = async () => {
+    try {
+      const url = api.export.sitePlan(id);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${tmp.reference || 'TMP'}-site-plan.svg`; a.click();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -85,8 +123,11 @@ export default function TMPDetail() {
           <h1 className="page-header mt-1">{tmp.title}</h1>
           <p className="text-gray-500 text-sm">{tmp.reference}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {canEdit && <button onClick={handleExportPDF} className="btn btn-secondary">Export PDF</button>}
+          {canEdit && <button onClick={handleExportCouncilPDF} className="btn btn-secondary">Council PDF</button>}
+          {canEdit && <button onClick={handleExportGeoJSON} className="btn btn-secondary">GeoJSON</button>}
+          {canEdit && <button onClick={handleExportSitePlanSVG} className="btn btn-secondary">Site Plan SVG</button>}
           {canEdit && <Link to={`/tmps/${id}/edit`} className="btn btn-primary">Edit</Link>}
           {canDelete && <button onClick={handleDelete} className="btn btn-danger">Delete</button>}
         </div>
