@@ -464,10 +464,11 @@ db.exec(`
   const add = (name, def) => { if (!tmpCols.includes(name)) db.exec(`ALTER TABLE traffic_management_plans ADD COLUMN ${name} ${def}`); };
   add('authority_id', 'TEXT REFERENCES authorities(id) ON DELETE SET NULL');
   add('work_type', "TEXT CHECK(work_type IN ('general','maintenance','event','footpath_utility','skip_bin_hoarding'))");
+  add('jurisdiction', "TEXT DEFAULT 'unknown' CHECK(jurisdiction IN ('lga','state','shared','unknown'))");
 }
 {
   const siteCols = db.prepare('PRAGMA table_info(sites)').all().map(c => c.name);
-  if (!siteCols.includes('jurisdiction')) db.exec("ALTER TABLE sites ADD COLUMN jurisdiction TEXT DEFAULT 'lga' CHECK(jurisdiction IN ('lga','state','shared'))");
+  if (!siteCols.includes('jurisdiction')) db.exec("ALTER TABLE sites ADD COLUMN jurisdiction TEXT DEFAULT 'lga' CHECK(jurisdiction IN ('lga','state','shared','unknown'))");
 }
 db.exec(`
   CREATE TABLE IF NOT EXISTS compliance_rules (

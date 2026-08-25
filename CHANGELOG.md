@@ -80,6 +80,23 @@ adheres to [Semantic Versioning](https://semver.org/).
   - New export buttons on TMP detail page: Export PDF, Council PDF, GeoJSON,
     Site Plan SVG (staff+).
 
+- **LGA compliance suite, Phase 5 — jurisdiction derivation + paired permit packets.**
+  - `backend/src/jurisdiction.js` derives jurisdiction (`lga` | `state` | `shared` |
+    `unknown`) from site coordinates, suburb/postcode, road class, and bound
+    authority using the WA LGA directory (139 LGAs with suburb/postcode data).
+  - Sites and TMPs auto-populate `jurisdiction` on create/update; column
+    `jurisdiction` (`lga` | `state` | `shared` | `unknown`) added to `sites`
+    and `traffic_management_plans`.
+  - `GET /api/tmps/:id/jurisdiction` returns derived jurisdiction, permit packet
+    config, and relevant authorities.
+  - `POST /api/tmps/:id/create-permits` creates paired permit packets in one
+    call — e.g. for `shared` jurisdiction it creates both LGA and MRWA permits
+    with correct SLA rules, workflow templates, and 30 m signal/rail flags.
+  - Jurisdiction badge displayed on TMP detail page; "Create Permits" button
+    for `shared`/`state`/`lga` jurisdictions.
+  - Permit workflow auto-routing: LGA permits use LGA templates, MRWA permits
+    use MRWA templates, shared gets both.
+
 ## [1.2.3] - 2026-08-20 - "Stale-deploy crash fix"
 
 ### Fixed

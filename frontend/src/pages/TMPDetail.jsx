@@ -92,6 +92,18 @@ export default function TMPDetail() {
     }
   };
 
+  const handleCreatePermits = async () => {
+    try {
+      const res = await api.tmps.createPermits(id);
+      if (!res.ok) throw new Error('Failed to create permits');
+      const data = await res.json();
+      alert(`Created ${data.permits?.length || 0} permit(s) for ${data.jurisdiction?.toUpperCase()} jurisdiction`);
+      await loadTmp();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -128,6 +140,7 @@ export default function TMPDetail() {
           {canEdit && <button onClick={handleExportCouncilPDF} className="btn btn-secondary">Council PDF</button>}
           {canEdit && <button onClick={handleExportGeoJSON} className="btn btn-secondary">GeoJSON</button>}
           {canEdit && <button onClick={handleExportSitePlanSVG} className="btn btn-secondary">Site Plan SVG</button>}
+          {canEdit && tmp.jurisdiction && <button onClick={handleCreatePermits} className="btn btn-primary">Create Permits</button>}
           {canEdit && <Link to={`/tmps/${id}/edit`} className="btn btn-primary">Edit</Link>}
           {canDelete && <button onClick={handleDelete} className="btn btn-danger">Delete</button>}
         </div>
@@ -150,6 +163,9 @@ export default function TMPDetail() {
               )}
               {tmp.start_date && <div><span className="text-gray-500">Start:</span> <span className="ml-1">{tmp.start_date}</span></div>}
               {tmp.end_date && <div><span className="text-gray-500">End:</span> <span className="ml-1">{tmp.end_date}</span></div>}
+              {tmp.jurisdiction && (
+                <div><span className="text-gray-500">Jurisdiction:</span> <span className={`badge ml-1 ${tmp.jurisdiction === 'shared' ? 'bg-blue-100 text-blue-700' : tmp.jurisdiction === 'state' ? 'bg-purple-100 text-purple-700' : tmp.jurisdiction === 'lga' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{tmp.jurisdiction.toUpperCase()}</span></div>
+              )}
             </div>
             {tmp.description && <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">{tmp.description}</p>}
             {tmp.risk_mitigations && tmp.risk_mitigations.length > 0 && (

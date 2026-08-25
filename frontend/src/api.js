@@ -90,7 +90,9 @@ const api = {
     bulk: (ids, action, status) => request('/tmps/bulk', { method: 'POST', body: JSON.stringify({ ids, action, status }) }),
     riskPreview: (params) => { const q = new URLSearchParams(params).toString(); return request(`/tmps/risk-preview?${q}`); },
     workTypes: () => request('/tmps/work-types'),
-    quickCreate: (data) => request('/tmps/quick-create', { method: 'POST', body: JSON.stringify(data) })
+    quickCreate: (data) => request('/tmps/quick-create', { method: 'POST', body: JSON.stringify(data) }),
+    getJurisdiction: (id) => request(`/tmps/${id}/jurisdiction`),
+    createPermits: (id) => request(`/tmps/${id}/create-permits`, { method: 'POST' })
   },
   documents: {
     list: (tmpId) => request(`/documents/tmp/${tmpId}`),

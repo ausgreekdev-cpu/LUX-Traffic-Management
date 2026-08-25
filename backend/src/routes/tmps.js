@@ -10,6 +10,7 @@ import { emitEvent } from '../events.js';
 import { suggestComplexity, computeRisk, riskPreviewQuery } from '../risk.js';
 import { unresolvedComplianceViolations, latestComplianceSummary } from '../compliance/ruleset.js';
 import { getWorkTypeList, createTmpFromTemplate } from '../tmp-templates.js';
+import { deriveJurisdiction, getRelevantAuthorities, getPermitPacketConfig } from '../jurisdiction.js';
 
 const router = Router();
 router.use(authenticate);
@@ -104,13 +105,24 @@ router.post('/', roleAtLeast('staff'), validate('tmp'), (req, res) => {
   const useAuto = complexity_source === 'auto' || !complexity;
   const finalComplexity = useAuto ? autoComplexity : complexity;
   const risk = computeRisk({ plan_type: plan_type || 'temporary', start_date, end_date, site });
-  db.prepare('INSERT INTO traffic_management_plans (id, project_id, site_id, title, reference, status, plan_type, complexity, complexity_source, description, start_date, end_date, work_type, authority_id, risk_consequence, risk_likelihood, risk_score, risk_band, risk_mitigations, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, project_id || null, site_id || null, title, reference, status || 'draft', plan_type || 'temporary', finalComplexity, useAuto ? 'auto' : 'manual', description || null, start_date || null, end_date || null, work_type || null, authority_id || null, risk.consequence, risk.likelihood, risk.score, risk.band, JSON.stringify(risk.mitigations), req.user.id);
+  
+  // Auto-derive jurisdiction if site exists
+  const jurisdiction = site ? deriveJurisdiction({ 
+    latitude: site.latitude, 
+    longitude: site.longitude, 
+    suburb: site.suburb, 
+    postcode: site.postcode, 
+    road_class: site.road_class,
+    authority_id
+  }) : 'unknown';
+  
+  db.prepare('INSERT INTO traffic_management_plans (id, project_id, site_id, title, reference, status, plan_type, complexity, complexity_source, description, start_date, end_date, work_type, authority_id, jurisdiction, risk_consequence, risk_likelihood, risk_score, risk_band, risk_mitigations, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, project_id || null, site_id || null, title, reference, status || 'draft', plan_type || 'temporary', finalComplexity, useAuto ? 'auto' : 'manual', description || null, start_date || null, end_date || null, work_type || null, authority_id || null, jurisdiction, risk.consequence, risk.likelihood, risk.score, risk.band, JSON.stringify(risk.mitigations), req.user.id);
   db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), id, req.user.id, 'created', 'Plan created');
   if (useAuto) {
     db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), id, req.user.id, 'complexity_changed', `Complexity auto-suggested as ${autoComplexity} (triage)`);
   }
-  emitEvent('tmp.created', { id, project_id, site_id, title, reference, status: status || 'draft', plan_type: plan_type || 'temporary', complexity: finalComplexity, complexity_source: useAuto ? 'auto' : 'manual', description, start_date, end_date, risk_score: risk.score, risk_band: risk.band, created_by: req.user.id });
-  res.status(201).json({ id, reference, title, status: status || 'draft' });
+  emitEvent('tmp.created', { id, project_id, site_id, title, reference, status: status || 'draft', plan_type: plan_type || 'temporary', complexity: finalComplexity, complexity_source: useAuto ? 'auto' : 'manual', description, start_date, end_date, risk_score: risk.score, risk_band: risk.band, created_by: req.user.id, jurisdiction });
+  res.status(201).json({ id, reference, title, status: status || 'draft', jurisdiction });
 });
 
 router.put('/:id', roleAtLeast('staff'), validate('tmp'), (req, res) => {
@@ -206,10 +218,111 @@ router.post('/bulk', roleAtLeast('staff'), (req, res) => {
     });
     tx(ids);
   } else return res.status(400).json({ error: 'Invalid action' });
-  res.json({ success: true, count: ids.length });
-});
+res.json({ success: true, count: ids.length });
+  });
 
-router.delete('/:id', roleAtLeast('manager'), (req, res) => {
+  // Create paired permits based on jurisdiction
+  router.post('/:id/create-permits', roleAtLeast('staff'), (req, res) => {
+    const tmp = db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(req.params.id);
+    if (!tmp) return res.status(404).json({ error: 'TMP not found' });
+    
+    const config = getPermitPacketConfig(tmp.jurisdiction);
+    const authorities = getRelevantAuthorities({ 
+      jurisdiction: tmp.jurisdiction, 
+      authority_id: tmp.authority_id, 
+      site_id: tmp.site_id 
+    });
+    
+    if (authorities.length === 0) {
+      return res.status(400).json({ error: 'No relevant authorities found for permit creation' });
+    }
+    
+    const results = [];
+    const tx = db.transaction(() => {
+      for (const authId of authorities) {
+        const auth = db.prepare('SELECT * FROM authorities WHERE id = ?').get(authId);
+        if (!auth) continue;
+        
+        // Check if permit already exists for this TMP + authority
+        const existing = db.prepare('SELECT id FROM permits WHERE tmp_id = ? AND authority_id = ?').get(req.params.id, authId);
+        if (existing) {
+          results.push({ authority_id: authId, authority_name: auth.name, permit_id: existing.id, status: 'exists' });
+          continue;
+        }
+        
+        const permitId = uuid();
+        const permitRef = `PER-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+        const complexity = tmp.complexity || 'standard';
+        
+        // Determine SLA from authority rules
+        const sla = db.prepare('SELECT * FROM sla_rules WHERE authority_id = ? AND complexity = ?').get(authId, complexity);
+        const assessmentDays = sla?.assessment_days || 14;
+        const publicNoticeDays = sla?.public_notice_days || 0;
+        const requiresPublicNotice = sla?.requires_public_notice ? 1 : 0;
+        
+        const submissionDate = new Date().toISOString().split('T')[0];
+        const expiryDate = new Date(Date.now() + assessmentDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
+        const isMrwa = auth.type === 'mrwa';
+        const requiresMrwa = isMrwa || config.requires_mrwa_permit;
+        const within30mSignals = tmp.jurisdiction === 'shared' || tmp.jurisdiction === 'state';
+        
+        db.prepare(`
+          INSERT INTO permits (id, tmp_id, authority_id, reference, status, complexity, submission_date, expiry_date, 
+            assessment_days, public_notice_days, requires_public_notice, requires_mrwa, is_within_30m_signals)
+          VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(permitId, req.params.id, authId, permitRef, complexity, submissionDate, expiryDate,
+          assessmentDays, publicNoticeDays, requiresPublicNotice, requiresMrwa ? 1 : 0, within30mSignals ? 1 : 0);
+        
+        // Create workflow checklist from template
+        const template = db.prepare(`
+          SELECT * FROM workflow_templates 
+          WHERE entity_type = 'permit' 
+          AND (authority_id = ? OR authority_id IS NULL)
+          AND (complexity = ? OR complexity IS NULL)
+          ORDER BY authority_id DESC NULLS LAST, is_default DESC
+          LIMIT 1
+        `).get(authId, complexity);
+        
+        if (template) {
+          const stages = db.prepare('SELECT id FROM workflow_stages WHERE template_id = ? ORDER BY sort_order').all(template.id);
+          const insert = db.prepare('INSERT INTO workflow_checklist (id, stage_id, entity_type, entity_id, is_done) VALUES (?, ?, ?, ?, 0)');
+          for (const s of stages) {
+            insert.run(uuid(), s.id, 'permit', permitId);
+          }
+        }
+        
+        results.push({ authority_id: authId, authority_name: auth.name, permit_id: permitId, reference: permitRef, status: 'created' });
+      }
+    });
+    
+    tx();
+    res.json({ success: true, permits: results, jurisdiction: tmp.jurisdiction, config });
+  });
+
+  // Get jurisdiction info for a TMP
+  router.get('/:id/jurisdiction', (req, res) => {
+    const tmp = db.prepare('SELECT id, jurisdiction, authority_id, site_id FROM traffic_management_plans WHERE id = ?').get(req.params.id);
+    if (!tmp) return res.status(404).json({ error: 'TMP not found' });
+    
+    const authorities = getRelevantAuthorities({ 
+      jurisdiction: tmp.jurisdiction, 
+      authority_id: tmp.authority_id, 
+      site_id: tmp.site_id 
+    });
+    
+    const config = getPermitPacketConfig(tmp.jurisdiction);
+    const authDetails = authorities.map(id => db.prepare('SELECT id, name, type FROM authorities WHERE id = ?').get(id)).filter(Boolean);
+    
+    res.json({
+      jurisdiction: tmp.jurisdiction,
+      config,
+      authorities: authDetails,
+      permit_packet_ready: authDetails.length > 0
+    });
+  });
+
+  router.delete('/:id', roleAtLeast('manager'), (req, res) => {
   const existing = db.prepare('SELECT id FROM traffic_management_plans WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'TMP not found' });
   const tx = db.transaction(() => {
