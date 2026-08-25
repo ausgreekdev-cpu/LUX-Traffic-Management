@@ -2,9 +2,18 @@
   command = "sh netlify-build.sh"
   publish = "frontend/dist"
   functions = "netlify/functions"
+  
+  # Enable build caching
+  cache = true
 
 [build.environment]
-  NODE_VERSION = "22"
+  NODE_VERSION = "24"
+  # Cache npm packages
+  NPM_CONFIG_CACHE = "/opt/buildhome/.npm"
+  # Skip optional deps in production
+  NPM_CONFIG_OPTIONAL = "false"
+  NPM_CONFIG_AUDIT = "false"
+  NPM_CONFIG_FUND = "false"
 
 [functions]
   node_bundler = "esbuild"
@@ -17,18 +26,22 @@
     "express",
     "helmet",
     "jsonwebtoken",
-    "multer",
     "nodemailer",
-    "pdf-parse",
     "pdfkit",
     "serverless-http",
     "uuid",
     "zod"
   ]
   included_files = ["backend/data/wa-lga-directory.json"]
+  # Enable function caching
+  node_bundler_options = { external: ["better-sqlite3"] }
 
 [functions.node]
   node_version = "24"
+
+[functions.runtime]
+  # Enable function caching for faster cold starts
+  cache = true
 
 # Missing static assets must 404, not be rewritten to index.html. Served as HTML
 # they make dynamic import() throw "Failed to fetch dynamically imported module"
@@ -41,6 +54,11 @@
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api"
+  status = 200
+
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/health"
   status = 200
 
 [[redirects]]
