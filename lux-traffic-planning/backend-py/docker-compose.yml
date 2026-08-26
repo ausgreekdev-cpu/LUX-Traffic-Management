@@ -2,19 +2,17 @@ version: '3.9'
 
 services:
   api:
-    build:
-      context: ..
-      dockerfile: backend-py/Dockerfile
+    build: .
     ports:
       - '8000:8000'
     environment:
       - DATABASE_URL=postgresql+asyncpg://tmpuser:tmppass@db:5432/tmp_dashboard
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
+    volumes:
+      - .:/app
 
   db:
     image: postgres:16-alpine
@@ -31,7 +29,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
 
 volumes:
   pgdata:

@@ -1,0 +1,4428 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Traffic Management Plan Dashboard</title>
+    <style id="themeStyles">
+      :root {
+        --primary: #1e40af;
+        --primary-light: #3b82f6;
+        --primary-dark: #1e3a8a;
+        --secondary: #64748b;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --purple: #8b5cf6;
+        --cyan: #06b6d4;
+        --bg: #f1f5f9;
+        --surface: #fff;
+        --text: #1e293b;
+        --text-secondary: #64748b;
+        --border: #e2e8f0;
+        --radius: 8px;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --sidebar-width: 250px;
+        --header-height: 64px;
+        --transition: 0.2s ease;
+        --sidebar-bg: #1e3a8a;
+        --sidebar-text: #ffffff;
+        --sidebar-nav-text: rgba(255, 255, 255, 0.75);
+        --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+        --sidebar-active-bg: rgba(255, 255, 255, 0.12);
+        --sidebar-header-border: rgba(255, 255, 255, 0.1);
+        --sidebar-sub-opacity: 0.7;
+      }
+    </style>
+    <style>
+      *,
+      :after,
+      :before {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        font-size: 16px;
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      input,
+      select,
+      textarea,
+      button {
+        font-family: inherit;
+        font-size: inherit;
+      }
+      #app {
+        display: flex;
+        min-height: 100vh;
+      }
+      .sidebar {
+        width: var(--sidebar-width);
+        background: var(--sidebar-bg);
+        color: var(--sidebar-text, #fff);
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 100;
+        transition: transform var(--transition);
+      }
+      .sidebar-header {
+        padding: 20px;
+        border-bottom: 1px solid var(--sidebar-header-border, rgba(255, 255, 255, 0.1));
+      }
+      .sidebar-header h1 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .sidebar-header span {
+        font-size: 0.75rem;
+        opacity: var(--sidebar-sub-opacity, 0.7);
+        display: block;
+        margin-top: 2px;
+      }
+      .sidebar-nav {
+        flex: 1;
+        padding: 12px 0;
+        overflow-y: auto;
+      }
+      .sidebar-nav a {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 20px;
+        color: var(--sidebar-nav-text, rgba(255, 255, 255, 0.75));
+        font-size: 0.875rem;
+        border-left: 3px solid transparent;
+        transition: all var(--transition);
+        cursor: pointer;
+      }
+      .sidebar-nav a:hover {
+        background: var(--sidebar-hover-bg, rgba(255, 255, 255, 0.08));
+        color: var(--sidebar-text, #fff);
+      }
+      .sidebar-nav a.active {
+        background: var(--sidebar-active-bg, rgba(255, 255, 255, 0.12));
+        color: var(--sidebar-text, #fff);
+        border-left-color: var(--primary-light);
+      }
+      .sidebar-nav a .nav-icon {
+        width: 20px;
+        text-align: center;
+        font-size: 1rem;
+        flex-shrink: 0;
+      }
+      .sidebar-nav a .nav-badge {
+        margin-left: auto;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 0 8px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        min-width: 22px;
+        text-align: center;
+      }
+      .sidebar-toggle {
+        display: none;
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 200;
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius);
+        cursor: pointer;
+        font-size: 1.25rem;
+        align-items: center;
+        justify-content: center;
+        box-shadow: var(--shadow);
+        padding: 0;
+      }
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 99;
+      }
+      .main-content {
+        flex: 1;
+        margin-left: var(--sidebar-width);
+        min-height: 100vh;
+      }
+      .top-header {
+        height: var(--header-height);
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        box-shadow: var(--shadow);
+      }
+      .top-header .view-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+      .top-header .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .search-wrapper {
+        position: relative;
+      }
+      .search-wrapper input {
+        padding: 8px 16px 8px 36px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        font-size: 0.875rem;
+        width: 220px;
+        background: var(--bg);
+        transition: all var(--transition);
+        outline: none;
+      }
+      .search-wrapper input:focus {
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        background: var(--surface);
+        width: 260px;
+      }
+      .search-wrapper .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        pointer-events: none;
+      }
+      .btn-icon-top {
+        background: transparent;
+        border: 1px solid var(--border);
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius);
+        cursor: pointer;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all var(--transition);
+        padding: 0;
+      }
+      .btn-icon-top:hover {
+        background: var(--bg);
+        border-color: var(--primary-light);
+      }
+      .user-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px 4px 8px;
+        background: var(--bg);
+        border-radius: 20px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        transition: all var(--transition);
+      }
+      .user-badge:hover {
+        border-color: var(--primary-light);
+        background: #e2e8f0;
+      }
+      .content-area {
+        padding: 24px 32px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border: none;
+        border-radius: var(--radius);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all var(--transition);
+        white-space: nowrap;
+        line-height: 1.4;
+      }
+      .btn-primary {
+        background: var(--primary);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: var(--primary-dark);
+      }
+      .btn-success {
+        background: var(--success);
+        color: #fff;
+      }
+      .btn-success:hover {
+        background: #059669;
+      }
+      .btn-warning {
+        background: var(--warning);
+        color: #fff;
+      }
+      .btn-warning:hover {
+        background: #d97706;
+      }
+      .btn-danger {
+        background: var(--danger);
+        color: #fff;
+      }
+      .btn-danger:hover {
+        background: #dc2626;
+      }
+      .btn-outline {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      .btn-outline:hover {
+        background: var(--bg);
+      }
+      .btn-sm {
+        padding: 4px 10px;
+        font-size: 0.8rem;
+      }
+      .btn-xs {
+        padding: 2px 8px;
+        font-size: 0.75rem;
+      }
+      .card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+      }
+      .card-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .card-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+      }
+      .card-body {
+        padding: 20px;
+      }
+      .card-body.pad0 {
+        padding: 0;
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .stat-card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 20px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--primary-light);
+      }
+      .stat-card .stat-label {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+      }
+      .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-top: 4px;
+      }
+      .stat-card:nth-child(1) {
+        border-left-color: var(--primary-light);
+      }
+      .stat-card:nth-child(2) {
+        border-left-color: var(--warning);
+      }
+      .stat-card:nth-child(3) {
+        border-left-color: var(--success);
+      }
+      .stat-card:nth-child(4) {
+        border-left-color: var(--danger);
+      }
+      .chart-container {
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 20px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        margin-bottom: 24px;
+      }
+      .chart-container h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 16px;
+      }
+      .chart-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 12px;
+        height: 160px;
+        padding-bottom: 24px;
+      }
+      .chart-bar-group {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100%;
+        justify-content: flex-end;
+      }
+      .chart-bar {
+        width: 100%;
+        max-width: 48px;
+        border-radius: 4px 4px 0 0;
+        min-height: 4px;
+        transition: height 0.4s ease;
+        position: relative;
+      }
+      .chart-bar .bar-count {
+        position: absolute;
+        top: -20px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .chart-bar-label {
+        margin-top: 6px;
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        text-align: center;
+        white-space: nowrap;
+      }
+      .table-container {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+      th {
+        text-align: left;
+        padding: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 2px solid var(--border);
+        white-space: nowrap;
+      }
+      td {
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+      tr:hover td {
+        background: #f8fafc;
+      }
+      .table-actions {
+        display: flex;
+        gap: 4px;
+        flex-wrap: nowrap;
+        align-items: center;
+      }
+      .priority-badge,
+      .status-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      .empty-state {
+        text-align: center;
+        padding: 48px 20px;
+        color: var(--text-secondary);
+      }
+      .empty-state .empty-icon {
+        font-size: 2.5rem;
+        margin-bottom: 12px;
+      }
+      .empty-state p {
+        font-size: 0.95rem;
+      }
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 500;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .modal-overlay.open {
+        display: flex;
+      }
+      .modal {
+        background: var(--surface);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+        width: 100%;
+        max-width: 760px;
+        max-height: 90vh;
+        overflow-y: auto;
+        animation: modalIn 0.2s ease;
+      }
+      @keyframes modalIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      .modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .modal-header h2 {
+        font-size: 1.15rem;
+        font-weight: 600;
+      }
+      .modal-close {
+        background: 0;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        color: var(--text-secondary);
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+      }
+      .modal-close:hover {
+        background: var(--bg);
+        color: var(--text);
+      }
+      .modal-body {
+        padding: 24px;
+      }
+      .modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .form-group.full-width {
+        grid-column: 1/-1;
+      }
+      .form-group label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+      .form-group input,
+      .form-group select,
+      .form-group textarea {
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.875rem;
+        transition: border-color var(--transition);
+        outline: none;
+        background: var(--surface);
+      }
+      .form-group input:focus,
+      .form-group select:focus,
+      .form-group textarea:focus {
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+      }
+      .form-group textarea {
+        resize: vertical;
+        min-height: 80px;
+      }
+      .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .detail-item .detail-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        font-weight: 600;
+      }
+      .detail-item .detail-value {
+        font-size: 0.9rem;
+        margin-top: 2px;
+      }
+      .detail-item.full-width {
+        grid-column: 1/-1;
+      }
+      .calendar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+      .calendar-header h2 {
+        font-size: 1.15rem;
+        font-weight: 600;
+      }
+      .calendar-nav {
+        display: flex;
+        gap: 8px;
+      }
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background: var(--border);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .calendar-day-header {
+        background: var(--bg);
+        padding: 10px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+      .calendar-day {
+        background: var(--surface);
+        min-height: 90px;
+        padding: 6px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: background var(--transition);
+      }
+      .calendar-day:hover {
+        background: #f8fafc;
+      }
+      .calendar-day.other-month {
+        background: #fafafa;
+        color: var(--text-secondary);
+      }
+      .calendar-day.today {
+        background: #eff6ff;
+      }
+      .calendar-day .day-number {
+        font-weight: 600;
+        font-size: 0.8rem;
+        margin-bottom: 4px;
+      }
+      .calendar-day .cal-event {
+        color: #fff;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.65rem;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+      }
+      .calendar-day .cal-more {
+        font-size: 0.65rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .login-overlay {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: linear-gradient(135deg, var(--primary-dark), var(--primary-light));
+        align-items: center;
+        justify-content: center;
+      }
+      .login-overlay.hidden {
+        display: none;
+      }
+      .login-card {
+        background: var(--surface);
+        border-radius: 12px;
+        padding: 40px;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        animation: modalIn 0.3s ease;
+      }
+      .login-card h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 4px;
+      }
+      .login-card .subtitle {
+        text-align: center;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        margin-bottom: 24px;
+      }
+      .login-card .form-group {
+        margin-bottom: 16px;
+      }
+      .login-card .form-group label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        display: block;
+        margin-bottom: 4px;
+      }
+      .login-card .form-group input,
+      .login-card .form-group select {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 0.9rem;
+        outline: none;
+        transition: border-color var(--transition);
+      }
+      .login-card .form-group input:focus,
+      .login-card .form-group select:focus {
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+      }
+      .login-card .btn {
+        width: 100%;
+        padding: 12px;
+        font-size: 1rem;
+        justify-content: center;
+        margin-top: 8px;
+      }
+      .login-card .role-desc {
+        margin-top: 16px;
+        padding: 12px;
+        background: var(--bg);
+        border-radius: 8px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+      .login-card .role-desc strong {
+        color: var(--text);
+        display: block;
+        margin-bottom: 4px;
+      }
+      .login-card #loginBanner {
+        overflow: hidden;
+        border-radius: 12px 12px 0 0;
+      }
+      .settings-tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 0;
+        flex-wrap: wrap;
+      }
+      .settings-tab {
+        padding: 10px 20px;
+        border: none;
+        background: 0;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        color: var(--text-secondary);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all var(--transition);
+        white-space: nowrap;
+      }
+      .settings-tab:hover {
+        color: var(--text);
+      }
+      .settings-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+      }
+      .settings-section {
+        display: none;
+      }
+      .settings-section.open {
+        display: block;
+      }
+      .setting-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 8px;
+        background: var(--surface);
+      }
+      .setting-row .drag-handle {
+        cursor: grab;
+        color: var(--text-secondary);
+        font-size: 1rem;
+        user-select: none;
+        flex-shrink: 0;
+      }
+      .setting-row .setting-label {
+        flex: 1;
+        font-size: 0.9rem;
+        min-width: 0;
+      }
+      .setting-row .setting-label input,
+      .setting-row .setting-label .s-inline {
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 0.85rem;
+        width: 100%;
+        max-width: 220px;
+      }
+      .setting-row .setting-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-shrink: 0;
+      }
+      .setting-row .color-swatch {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 2px solid var(--border);
+        flex-shrink: 0;
+        cursor: pointer;
+      }
+      .drag-over {
+        border: 2px dashed var(--primary-light) !important;
+        background: var(--primary-light) !important;
+        opacity: 0.6;
+      }
+      .dragging {
+        opacity: 0.4;
+      }
+      .setting-row .move-btn {
+        cursor: pointer;
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        padding: 0;
+        line-height: 1;
+      }
+      .setting-row .move-btn:hover {
+        background: var(--bg);
+        color: var(--text);
+      }
+      .toggle-switch {
+        position: relative;
+        width: 40px;
+        height: 22px;
+        flex-shrink: 0;
+      }
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .toggle-slider {
+        position: absolute;
+        inset: 0;
+        cursor: pointer;
+        background: #cbd5e1;
+        border-radius: 22px;
+        transition: var(--transition);
+      }
+      .toggle-slider::before {
+        content: '';
+        position: absolute;
+        left: 3px;
+        bottom: 3px;
+        width: 16px;
+        height: 16px;
+        background: #fff;
+        border-radius: 50%;
+        transition: var(--transition);
+      }
+      .toggle-switch input:checked + .toggle-slider {
+        background: var(--primary);
+      }
+      .toggle-switch input:checked + .toggle-slider::before {
+        transform: translateX(18px);
+      }
+      .settings-hint {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 16px;
+      }
+      .color-input-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .color-input-group input[type='color'] {
+        width: 40px;
+        height: 40px;
+        border: 2px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+        padding: 2px;
+        background: var(--surface);
+      }
+      .color-input-group input[type='text'] {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.85rem;
+        outline: none;
+        font-family: monospace;
+      }
+      .color-input-group input[type='text']:focus {
+        border-color: var(--primary-light);
+      }
+      @media (max-width: 1024px) {
+        .form-grid,
+        .detail-grid {
+          grid-template-columns: 1fr;
+        }
+        .stats-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 768px) {
+        .sidebar {
+          transform: translateX(-100%);
+        }
+        .sidebar.open {
+          transform: translateX(0);
+        }
+        .sidebar-overlay.open {
+          display: block;
+        }
+        .sidebar-toggle {
+          display: flex;
+        }
+        .main-content {
+          margin-left: 0;
+        }
+        .top-header {
+          padding: 0 16px;
+          gap: 8px;
+          flex-wrap: wrap;
+          height: auto;
+          padding: 12px 16px;
+        }
+        .top-header .view-title {
+          font-size: 1rem;
+        }
+        .search-wrapper input {
+          width: 140px;
+        }
+        .search-wrapper input:focus {
+          width: 180px;
+        }
+        .content-area {
+          padding: 16px;
+        }
+        .stats-grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        .stat-card {
+          padding: 14px;
+        }
+        .stat-card .stat-value {
+          font-size: 1.4rem;
+        }
+        .chart-bars {
+          height: 120px;
+        }
+        .calendar-day {
+          min-height: 60px;
+          font-size: 0.7rem;
+        }
+        .calendar-day .cal-event {
+          font-size: 0.6rem;
+          padding: 1px 4px;
+        }
+        .modal {
+          max-width: 100%;
+          margin: 10px;
+        }
+        .header-actions .btn span {
+          display: none;
+        }
+        .setting-row {
+          flex-wrap: wrap;
+        }
+        .setting-row .setting-label input {
+          max-width: 100%;
+        }
+        .login-card {
+          margin: 16px;
+          padding: 24px;
+        }
+        .settings-tab {
+          padding: 8px 12px;
+          font-size: 0.8rem;
+        }
+      }
+      .row-density-compact td {
+        padding: 6px 12px !important;
+        font-size: 0.8rem !important;
+      }
+      .row-density-compact th {
+        padding: 8px 12px !important;
+        font-size: 0.7rem !important;
+      }
+      .row-density-compact .btn-xs {
+        padding: 1px 6px;
+        font-size: 0.7rem;
+      }
+      .row-density-comfortable td {
+        padding: 12px;
+        font-size: 0.85rem;
+      }
+      @media (max-width: 480px) {
+        .stats-grid {
+          grid-template-columns: 1fr;
+        }
+        .search-wrapper input {
+          width: 100%;
+        }
+        .search-wrapper input:focus {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="login-overlay" id="loginOverlay">
+      <div class="login-card">
+        <div
+          id="loginBanner"
+          style="
+            display: none;
+            margin: -40px -40px 20px;
+            border-radius: 12px 12px 0 0;
+            overflow: hidden;
+            max-height: 160px;
+          "
+        >
+          <img id="loginBannerImg" style="width: 100%; height: auto; display: block" />
+        </div>
+        <div id="loginLogoWrap" style="text-align: center; margin-bottom: 12px">
+          <img id="loginLogoImg" style="max-height: 60px; display: none; margin: 0 auto" />
+        </div>
+        <h1 id="loginTitle">Traffic Planning</h1>
+        <p class="subtitle" id="loginSubtitle">TMP Management System</p>
+        <form id="loginForm" autocomplete="off">
+          <div class="form-group">
+            <label for="loginName">Username</label><input type="text" id="loginName" required autofocus />
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label><input type="password" id="loginPassword" required />
+          </div>
+          <button type="submit" class="btn btn-primary">Sign In</button>
+        </form>
+        <div class="role-desc" id="roleDesc">Enter your credentials to sign in.</div>
+      </div>
+    </div>
+
+    <div id="app">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header" id="sidebarHeader">
+          <div id="sidebarLogo"></div>
+          <h1 id="sidebarTitle">Traffic Planning</h1>
+          <span id="sidebarUser">TMP Management System</span>
+        </div>
+        <nav class="sidebar-nav" id="sidebarNav"></nav>
+      </aside>
+      <main class="main-content">
+        <header class="top-header">
+          <h2 class="view-title" id="viewTitle">Dashboard</h2>
+          <div class="header-actions">
+            <div class="search-wrapper">
+              <span class="search-icon">🔍</span
+              ><input type="text" id="globalSearch" placeholder="Search..." autocomplete="off" />
+            </div>
+            <div class="user-badge" id="userBadge" title="Click to switch user">
+              <span id="userBadgeText">User</span
+              ><span style="font-size: 0.75rem; color: var(--text-secondary)">▼</span>
+            </div>
+            <button class="btn-icon-top" id="adminBtn" title="Admin Settings">⚙️</button>
+            <button class="btn btn-primary" id="newRequestBtn">+ <span>New Request</span></button>
+          </div>
+        </header>
+        <div class="content-area" id="contentArea"></div>
+      </main>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal" id="modal">
+        <div class="modal-header">
+          <h2 id="modalTitle">Title</h2>
+          <button class="modal-close" id="modalClose">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer" id="modalFooter"></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        'use strict';
+        const STORAGE_KEY = 'tmp_dashboard_data',
+          SETTINGS_KEY = 'tmp_dashboard_settings',
+          USER_KEY = 'tmp_current_user',
+          AUDIT_KEY = 'tmp_dashboard_audit',
+          TOKEN_KEY = 'tmp_auth_token';
+        const API_BASE = window.location.origin + ':3001';
+        let apiAvailable = false;
+        async function apiFetch(method, path, body) {
+          const token = localStorage.getItem(TOKEN_KEY);
+          const opts = { method, headers: {} };
+          if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+          if (body !== undefined) {
+            opts.headers['Content-Type'] = 'application/json';
+            opts.body = JSON.stringify(body);
+          }
+          try {
+            const res = await fetch(API_BASE + path, opts);
+            if (res.status === 401) {
+              localStorage.removeItem(TOKEN_KEY);
+              state.currentUser = null;
+              persistUser();
+              showLogin();
+              return null;
+            }
+            if (!res.ok) {
+              const e = await res.json().catch(() => ({}));
+              throw new Error(e.error || 'API error ' + res.status);
+            }
+            return await res.json();
+          } catch (err) {
+            if (method === 'GET') return null;
+            throw err;
+          }
+        }
+        function apiGet(path) {
+          return apiFetch('GET', path);
+        }
+        function apiPost(path, body) {
+          return apiFetch('POST', path, body);
+        }
+        function apiPut(path, body) {
+          return apiFetch('PUT', path, body);
+        }
+        function apiDelete(path) {
+          return apiFetch('DELETE', path);
+        }
+        const PRIORITIES = ['low', 'medium', 'high'];
+        const ROLES = {
+          admin: {
+            label: 'Admin',
+            canEdit: true,
+            canDelete: true,
+            canManageSettings: true,
+            canAdvance: true,
+            desc: 'Full access — manage all TMPs, settings, themes, and configuration.',
+          },
+          planner: {
+            label: 'Planner',
+            canEdit: true,
+            canDelete: true,
+            canManageSettings: false,
+            canAdvance: true,
+            desc: 'Create and edit TMPs, move through workflow.',
+          },
+          inspector: {
+            label: 'Inspector',
+            canEdit: false,
+            canDelete: false,
+            canManageSettings: false,
+            canAdvance: true,
+            desc: 'View TMPs and advance status. Cannot create or edit.',
+          },
+          viewer: {
+            label: 'Viewer',
+            canEdit: false,
+            canDelete: false,
+            canManageSettings: false,
+            canAdvance: false,
+            desc: 'Read-only access. View all TMPs, dashboard, and calendar.',
+          },
+        };
+        const DEFAULT_STATUSES = [
+          { id: 'new', label: 'New', bg: '#dbeafe', color: '#1e40af', enabled: true },
+          { id: 'in-progress', label: 'In Progress', bg: '#fef3c7', color: '#92400e', enabled: true },
+          { id: 'permits-lga', label: 'Permits / LGA', bg: '#ede9fe', color: '#5b21b6', enabled: true },
+          { id: 'approvals', label: 'Approvals', bg: '#cffafe', color: '#0e7490', enabled: true },
+          { id: 'completed', label: 'Completed', bg: '#d1fae5', color: '#065f46', enabled: true },
+        ];
+        const DEFAULT_PRIORITIES = [
+          { id: 'low', label: 'Low', bg: '#d1fae5', color: '#065f46' },
+          { id: 'medium', label: 'Medium', bg: '#fef3c7', color: '#92400e' },
+          { id: 'high', label: 'High', bg: '#fee2e2', color: '#991b1b' },
+        ];
+        const DEFAULT_FORM_FIELDS = [
+          { key: 'tmpNumber', label: 'TMP Number', type: 'text', required: false, enabled: true, gridClass: '' },
+          { key: 'projectName', label: 'Project Name', type: 'text', required: true, enabled: true, gridClass: '' },
+          { key: 'requestDate', label: 'Request Date', type: 'date', required: true, enabled: true, gridClass: '' },
+          { key: 'clientName', label: 'Client Name', type: 'text', required: true, enabled: true, gridClass: '' },
+          {
+            key: 'location',
+            label: 'Location / Site',
+            type: 'text',
+            required: true,
+            enabled: true,
+            gridClass: 'full-width',
+          },
+          { key: 'dateOfWorks', label: 'Date of Works', type: 'date', required: true, enabled: true, gridClass: '' },
+          { key: 'assignedTo', label: 'Assigned To', type: 'text', required: false, enabled: true, gridClass: '' },
+          { key: 'priority', label: 'Priority', type: 'select', required: false, enabled: true, gridClass: '' },
+          {
+            key: 'details',
+            label: 'Details / Scope of Work',
+            type: 'textarea',
+            required: false,
+            enabled: true,
+            gridClass: 'full-width',
+          },
+        ];
+        const DEFAULT_MENU_ITEMS = [
+          { id: 'dashboard', label: 'Dashboard', icon: '📊', enabled: true, badge: false },
+          { id: 'new', label: 'New Requests', icon: '📥', enabled: true, badge: true },
+          { id: 'in-progress', label: 'In Progress', icon: '🔄', enabled: true, badge: true },
+          { id: 'permits-lga', label: 'Permits / LGA', icon: '📋', enabled: true, badge: true },
+          { id: 'approvals', label: 'Approvals', icon: '✅', enabled: true, badge: true },
+          { id: 'completed', label: 'Completed', icon: '✔️', enabled: true, badge: true },
+          { id: 'calendar', label: 'Calendar', icon: '📅', enabled: true, badge: false },
+        ];
+        const DEFAULT_CONTENT = {
+          appName: 'Traffic Planning',
+          appTagline: 'TMP Management System',
+          viewTitles: {
+            dashboard: 'Dashboard',
+            new: 'New TMP Requests',
+            'in-progress': 'TMPs In Progress',
+            'permits-lga': 'TMP Permits / LGA',
+            approvals: 'TMP Approvals',
+            completed: 'Completed TMPs',
+            calendar: 'Calendar View',
+            settings: 'Admin Settings',
+          },
+          placeholders: { search: 'Search...', tmpNumber: 'Auto-generated', assignedTo: 'Team member name' },
+          labels: { newRequest: 'New Request', adminSettings: 'Admin Settings' },
+        };
+        const DEFAULT_USERS = [
+          { username: 'admin', password: 'admin', role: 'admin' },
+          { username: 'planner', password: 'planner', role: 'planner' },
+          { username: 'inspector', password: 'inspector', role: 'inspector' },
+          { username: 'viewer', password: 'viewer', role: 'viewer' },
+        ];
+        const DEFAULT_STATUS_RULES = {};
+        ['new', 'in-progress', 'permits-lga', 'approvals', 'completed'].forEach((s, i, a) => {
+          if (i < a.length - 1) DEFAULT_STATUS_RULES[s] = { canAdvanceRoles: ['admin', 'planner', 'inspector'] };
+        });
+        const DEFAULT_DEFAULT_VALUES = {};
+        const DEFAULT_DASHBOARD_WIDGETS = {
+          statActiveTMPs: true,
+          statPendingApprovals: true,
+          statUpcomingWorks: true,
+          statHighPriority: true,
+          chartStatusDistribution: true,
+        };
+        const DEFAULT_ROW_DENSITY = 'comfortable';
+        const DEFAULT_AUTOMATIONS = [];
+        const DEFAULT_CLIENTS = [
+          {
+            id: 'client-1',
+            name: 'City of Sydney Council',
+            type: 'government',
+            contact: 'planning@cityofsydney.nsw.gov.au',
+            phone: '02 9265 9333',
+          },
+          {
+            id: 'client-2',
+            name: 'Transport NSW',
+            type: 'government',
+            contact: 'tmp@transport.nsw.gov.au',
+            phone: '02 8202 2200',
+          },
+          {
+            id: 'client-3',
+            name: 'Roads & Maritime Services',
+            type: 'government',
+            contact: 'permits@rms.nsw.gov.au',
+            phone: '13 22 13',
+          },
+          {
+            id: 'client-4',
+            name: 'Sydney Water',
+            type: 'government',
+            contact: 'development@sydneywater.com.au',
+            phone: '13 20 92',
+          },
+          {
+            id: 'client-5',
+            name: 'Ausgrid',
+            type: 'government',
+            contact: 'wayleave@ausgrid.com.au',
+            phone: '13 13 65',
+          },
+          {
+            id: 'client-6',
+            name: 'WestConnex Delivery Authority',
+            type: 'government',
+            contact: 'tmp@westconnex.com.au',
+            phone: '02 8265 4500',
+          },
+          {
+            id: 'client-7',
+            name: 'Boral Construction',
+            type: 'private',
+            contact: 'projects@boral.com.au',
+            phone: '02 9033 4300',
+          },
+          {
+            id: 'client-8',
+            name: 'Lendlease Engineering',
+            type: 'private',
+            contact: 'tmp@lendlease.com',
+            phone: '02 9230 7111',
+          },
+          {
+            id: 'client-9',
+            name: 'John Holland Group',
+            type: 'private',
+            contact: 'traffic@johnholland.com.au',
+            phone: '03 8652 7777',
+          },
+          {
+            id: 'client-10',
+            name: 'CPB Contractors',
+            type: 'private',
+            contact: 'tmp@cpbcon.com.au',
+            phone: '02 9462 3000',
+          },
+          {
+            id: 'client-11',
+            name: 'Downer Group',
+            type: 'private',
+            contact: 'traffic@downergroup.com',
+            phone: '02 9462 3000',
+          },
+          {
+            id: 'client-12',
+            name: 'Fulton Hogan Industries',
+            type: 'private',
+            contact: 'tmp@fultonhogan.com.au',
+            phone: '02 9797 8600',
+          },
+        ];
+        const DEFAULT_KEYBOARD_SHORTCUTS = {
+          newRequest: 'ctrl+n',
+          globalSearch: 'ctrl+f',
+          exportJSON: 'ctrl+e',
+          dashboard: 'ctrl+1',
+          calendar: 'ctrl+2',
+          adminSettings: 'ctrl+,',
+          help: '?',
+        };
+        const DEFAULT_THEME = {
+          primary: '#1e40af',
+          primaryLight: '#3b82f6',
+          primaryDark: '#1e3a8a',
+          sidebarBg: '#1e3a8a',
+          bg: '#f1f5f9',
+          surface: '#ffffff',
+          text: '#1e293b',
+          textSecondary: '#64748b',
+          border: '#e2e8f0',
+          success: '#10b981',
+          warning: '#f59e0b',
+          danger: '#ef4444',
+          purple: '#8b5cf6',
+          cyan: '#06b6d4',
+          radius: '8px',
+          font: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif",
+          sidebarText: '#ffffff',
+          sidebarNavText: 'rgba(255,255,255,.75)',
+          sidebarHoverBg: 'rgba(255,255,255,.08)',
+          sidebarActiveBg: 'rgba(255,255,255,.12)',
+          sidebarHeaderBorder: 'rgba(255,255,255,.1)',
+          sidebarSubOpacity: '0.7',
+          logo: '',
+          banner: '',
+          favicon: '',
+          sidebarBgImg: '',
+        };
+        const DEFAULT_TABLE_COLUMNS = {};
+        ['new', 'in-progress', 'permits-lga', 'approvals', 'completed'].forEach((s) => {
+          DEFAULT_TABLE_COLUMNS[s] = [
+            { key: 'tmpNumber', label: 'TMP#', enabled: true },
+            { key: 'projectName', label: 'Project', enabled: true },
+            { key: 'clientName', label: 'Client', enabled: true },
+            { key: 'location', label: 'Location', enabled: true },
+            { key: 'dateOfWorks', label: 'Date of Works', enabled: true },
+            { key: 'assignedTo', label: 'Assigned To', enabled: true },
+            { key: 'priority', label: 'Priority', enabled: true },
+            { key: 'actions', label: 'Actions', enabled: true },
+          ];
+        });
+
+        let state = {
+          tmps: [],
+          auditLog: [],
+          currentView: 'dashboard',
+          searchQuery: '',
+          calendarDate: new Date(),
+          currentUser: null,
+          settings: {
+            menuItems: JSON.parse(JSON.stringify(DEFAULT_MENU_ITEMS)),
+            tableColumns: JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS)),
+            formFields: JSON.parse(JSON.stringify(DEFAULT_FORM_FIELDS)),
+            customFields: [],
+            statuses: JSON.parse(JSON.stringify(DEFAULT_STATUSES)),
+            priorities: JSON.parse(JSON.stringify(DEFAULT_PRIORITIES)),
+            content: JSON.parse(JSON.stringify(DEFAULT_CONTENT)),
+            theme: JSON.parse(JSON.stringify(DEFAULT_THEME)),
+          },
+        };
+        let editingId = null,
+          viewingId = null,
+          settingsTab = 'general';
+
+        // ===== UTILITY =====
+        function uid() {
+          return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        }
+        function formatDate(s) {
+          if (!s) return '\u2014';
+          const d = new Date(s + 'T00:00:00');
+          return d.toLocaleDateString('en-AU', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+        function formatTimestamp(i) {
+          if (!i) return '\u2014';
+          const d = new Date(i);
+          return d.toLocaleDateString('en-AU', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        }
+        function todayStr() {
+          return new Date().toISOString().slice(0, 10);
+        }
+        function nowISO() {
+          return new Date().toISOString();
+        }
+        function daysInMonth(y, m) {
+          return new Date(y, m + 1, 0).getDate();
+        }
+        function monthName(y, m) {
+          return new Date(y, m).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+        }
+        function getDayOfWeek(y, m, d) {
+          return new Date(y, m, d).getDay();
+        }
+        function escHtml(s) {
+          if (typeof s !== 'string') return s;
+          const d = document.createElement('div');
+          d.textContent = s;
+          return d.innerHTML;
+        }
+        function getStatusLabel(id) {
+          const s = (state.settings.statuses || DEFAULT_STATUSES).find((x) => x.id === id);
+          return s ? s.label : id;
+        }
+        function getStatusStyle(id) {
+          const s = (state.settings.statuses || DEFAULT_STATUSES).find((x) => x.id === id);
+          return s ? `background:${s.bg};color:${s.color}` : '';
+        }
+        function getClientType(name) {
+          if (!name || !state.settings.clients) return '';
+          const c = state.settings.clients.find((x) => x.name === name);
+          return c ? c.type : '';
+        }
+        function renderStatusWithScheduled(tmp) {
+          let html = `<span class="status-badge" style="${getStatusStyle(tmp.status)}">${escHtml(getStatusLabel(tmp.status))}</span>`;
+          if (tmp.scheduledAdvance && tmp.scheduledAdvance.scheduledDate) {
+            html += `<span style="display:block;font-size:.7rem;color:var(--warning);margin-top:2px">⏳ ${formatDate(tmp.scheduledAdvance.scheduledDate)}</span>`;
+          }
+          return html;
+        }
+        function getPriorityStyle(id) {
+          const p = (state.settings.priorities || DEFAULT_PRIORITIES).find((x) => x.id === id);
+          return p ? `background:${p.bg};color:${p.color}` : '';
+        }
+        function getPriorityLabel(id) {
+          const p = (state.settings.priorities || DEFAULT_PRIORITIES).find((x) => x.id === id);
+          return p ? p.label : id;
+        }
+        function getContent(key) {
+          const keys = key.split('.');
+          let o = state.settings.content;
+          for (const k of keys) {
+            if (o && o[k] !== undefined) o = o[k];
+            else return key;
+          }
+          return o;
+        }
+        function appName() {
+          return getContent('appName');
+        }
+        function appTagline() {
+          return getContent('appTagline');
+        }
+
+        // ===== FORM FIELDS HELPERS =====
+        function getEnabledFormFields() {
+          return state.settings.formFields.filter((f) => f.enabled).concat(state.settings.customFields || []);
+        }
+        function getAllFormFields() {
+          return state.settings.formFields.concat(state.settings.customFields || []);
+        }
+        function getFormFieldsForEdit() {
+          return getEnabledFormFields();
+        }
+
+        // ===== PERMISSIONS =====
+        function userRole() {
+          return state.currentUser ? state.currentUser.role : 'viewer';
+        }
+        function canEdit() {
+          return ROLES[userRole()] && ROLES[userRole()].canEdit;
+        }
+        function canDelete() {
+          return ROLES[userRole()] && ROLES[userRole()].canDelete;
+        }
+        function canManageSettings() {
+          return ROLES[userRole()] && ROLES[userRole()].canManageSettings;
+        }
+        function updateAdminBtn() {
+          const btn = document.getElementById('adminBtn');
+          if (btn) btn.style.display = canManageSettings() ? 'flex' : 'none';
+        }
+        function updateNewBtn() {
+          const btn = document.getElementById('newRequestBtn');
+          if (btn) btn.style.display = canEdit() ? 'inline-flex' : 'none';
+        }
+        function canAdvance() {
+          return ROLES[userRole()] && ROLES[userRole()].canAdvance;
+        }
+        function canAdvanceStatus(statusId) {
+          if (!canAdvance()) return false;
+          const rules = state.settings.statusRules || {};
+          const rule = rules[statusId];
+          if (rule && rule.canAdvanceRoles && rule.canAdvanceRoles.length)
+            return rule.canAdvanceRoles.includes(userRole());
+          return true;
+        }
+
+        // ===== BRAND IMAGES =====
+        function applyBrandImages() {
+          const t = state.settings.theme;
+          // Sidebar logo
+          const sl = document.getElementById('sidebarLogo');
+          if (t.logo) {
+            let img = sl.querySelector('img');
+            if (!img) {
+              img = document.createElement('img');
+              sl.appendChild(img);
+            }
+            img.src = t.logo;
+            img.style.cssText = 'max-height:42px;max-width:100%;display:block;margin-bottom:8px;object-fit:contain';
+          } else {
+            sl.innerHTML = '';
+          }
+          // Login logo
+          const ll = document.getElementById('loginLogoImg');
+          if (t.logo) {
+            ll.src = t.logo;
+            ll.style.display = 'block';
+          } else {
+            ll.src = '';
+            ll.style.display = 'none';
+          }
+          // Login banner
+          const lb = document.getElementById('loginBanner'),
+            lbi = document.getElementById('loginBannerImg');
+          if (t.banner) {
+            lbi.src = t.banner;
+            lb.style.display = 'block';
+          } else {
+            lb.style.display = 'none';
+          }
+          // Favicon
+          const fk = 'favicon';
+          if (t[fk]) {
+            let fel = document.querySelector('link[rel="icon"]');
+            if (!fel) {
+              fel = document.createElement('link');
+              fel.rel = 'icon';
+              document.head.appendChild(fel);
+            }
+            fel.href = t[fk];
+          }
+          // Sidebar background image
+          if (t.sidebarBgImg) {
+            document.getElementById('sidebar').style.backgroundImage = 'url("' + t.sidebarBgImg + '")';
+            document.getElementById('sidebar').style.backgroundSize = 'cover';
+            document.getElementById('sidebar').style.backgroundPosition = 'center';
+          } else {
+            document.getElementById('sidebar').style.backgroundImage = '';
+          }
+        }
+
+        // ===== THEME ENGINE =====
+        function applyTheme(theme) {
+          if (!theme) return;
+          const root = document.documentElement;
+          const map = {
+            primary: '--primary',
+            primaryLight: '--primary-light',
+            primaryDark: '--primary-dark',
+            bg: '--bg',
+            surface: '--surface',
+            text: '--text',
+            textSecondary: '--text-secondary',
+            border: '--border',
+            radius: '--radius',
+            sidebarBg: '--sidebar-bg',
+            sidebarText: '--sidebar-text',
+            sidebarNavText: '--sidebar-nav-text',
+            sidebarHoverBg: '--sidebar-hover-bg',
+            sidebarActiveBg: '--sidebar-active-bg',
+            sidebarHeaderBorder: '--sidebar-header-border',
+            sidebarSubOpacity: '--sidebar-sub-opacity',
+            success: '--success',
+            warning: '--warning',
+            danger: '--danger',
+            purple: '--purple',
+            cyan: '--cyan',
+          };
+          Object.keys(map).forEach((k) => {
+            if (theme[k] !== undefined) root.style.setProperty(map[k], theme[k]);
+          });
+          if (theme.font) document.body.style.fontFamily = theme.font;
+          // Update favicon
+          if (theme.favicon) {
+            const el =
+              document.querySelector('link[rel="icon"]') ||
+              (() => {
+                const l = document.createElement('link');
+                l.rel = 'icon';
+                document.head.appendChild(l);
+                return l;
+              })();
+            el.href = theme.favicon;
+          }
+        }
+
+        // ===== LOCALSTORAGE =====
+        async function loadData() {
+          try {
+            const r = localStorage.getItem(STORAGE_KEY);
+            if (r) {
+              const p = JSON.parse(r);
+              if (Array.isArray(p) && p.every((v) => v && typeof v === 'object' && v.id)) {
+                state.tmps = p;
+                return;
+              }
+            }
+          } catch (_) {}
+          try {
+            const serverData = await apiGet('/api/tmps');
+            if (serverData && Array.isArray(serverData)) {
+              state.tmps = serverData;
+              apiAvailable = true;
+              persist();
+              return;
+            }
+          } catch (_) {}
+          state.tmps = getMockData();
+          persist();
+        }
+        function persist() {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tmps));
+          } catch (_) {}
+        }
+        async function loadSettings() {
+          const serverData = await apiGet('/api/settings');
+          if (serverData && serverData.menuItems) {
+            state.settings = serverData;
+            if (!state.settings.users) state.settings.users = JSON.parse(JSON.stringify(DEFAULT_USERS));
+            if (!state.settings.statusRules)
+              state.settings.statusRules = JSON.parse(JSON.stringify(DEFAULT_STATUS_RULES));
+            if (!state.settings.defaultValues) state.settings.defaultValues = {};
+            if (!state.settings.dashboardWidgets)
+              state.settings.dashboardWidgets = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS));
+            if (!state.settings.rowDensity) state.settings.rowDensity = 'comfortable';
+            if (!state.settings.keyboardShortcuts)
+              state.settings.keyboardShortcuts = JSON.parse(JSON.stringify(DEFAULT_KEYBOARD_SHORTCUTS));
+            if (!state.settings.automations) state.settings.automations = [];
+            if (!state.settings.clients) state.settings.clients = JSON.parse(JSON.stringify(DEFAULT_CLIENTS));
+            if (state.settings.customFields)
+              state.settings.customFields = state.settings.customFields.filter(
+                (f) => !['type', 'lga'].includes((f.label || '').toLowerCase().trim())
+              );
+            applyTheme(state.settings.theme);
+            applyBrandImages();
+            apiAvailable = true;
+            persistSettings();
+            return;
+          }
+          try {
+            const r = localStorage.getItem(SETTINGS_KEY);
+            if (r) {
+              const p = JSON.parse(r);
+              if (
+                p &&
+                p.menuItems &&
+                Array.isArray(p.menuItems) &&
+                p.statuses &&
+                Array.isArray(p.statuses) &&
+                p.priorities &&
+                Array.isArray(p.priorities) &&
+                p.content &&
+                p.theme
+              ) {
+                state.settings = p;
+                if (!state.settings.users) state.settings.users = JSON.parse(JSON.stringify(DEFAULT_USERS));
+                if (!state.settings.statusRules)
+                  state.settings.statusRules = JSON.parse(JSON.stringify(DEFAULT_STATUS_RULES));
+                if (!state.settings.defaultValues) state.settings.defaultValues = {};
+                if (!state.settings.dashboardWidgets)
+                  state.settings.dashboardWidgets = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS));
+                if (!state.settings.rowDensity) state.settings.rowDensity = 'comfortable';
+                if (!state.settings.keyboardShortcuts)
+                  state.settings.keyboardShortcuts = JSON.parse(JSON.stringify(DEFAULT_KEYBOARD_SHORTCUTS));
+                if (!state.settings.automations) state.settings.automations = [];
+                if (!state.settings.clients) state.settings.clients = JSON.parse(JSON.stringify(DEFAULT_CLIENTS));
+                if (state.settings.customFields)
+                  state.settings.customFields = state.settings.customFields.filter(
+                    (f) => !['type', 'lga'].includes((f.label || '').toLowerCase().trim())
+                  );
+                applyTheme(p.theme);
+                applyBrandImages();
+                return;
+              }
+            }
+          } catch (_) {}
+          state.settings = {
+            menuItems: JSON.parse(JSON.stringify(DEFAULT_MENU_ITEMS)),
+            tableColumns: JSON.parse(JSON.stringify(DEFAULT_TABLE_COLUMNS)),
+            formFields: JSON.parse(JSON.stringify(DEFAULT_FORM_FIELDS)),
+            customFields: [],
+            statuses: JSON.parse(JSON.stringify(DEFAULT_STATUSES)),
+            priorities: JSON.parse(JSON.stringify(DEFAULT_PRIORITIES)),
+            content: JSON.parse(JSON.stringify(DEFAULT_CONTENT)),
+            theme: JSON.parse(JSON.stringify(DEFAULT_THEME)),
+            users: JSON.parse(JSON.stringify(DEFAULT_USERS)),
+            statusRules: JSON.parse(JSON.stringify(DEFAULT_STATUS_RULES)),
+            defaultValues: JSON.parse(JSON.stringify(DEFAULT_DEFAULT_VALUES)),
+            dashboardWidgets: JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS)),
+            rowDensity: JSON.parse(JSON.stringify(DEFAULT_ROW_DENSITY)),
+            keyboardShortcuts: JSON.parse(JSON.stringify(DEFAULT_KEYBOARD_SHORTCUTS)),
+            automations: [],
+            clients: JSON.parse(JSON.stringify(DEFAULT_CLIENTS)),
+          };
+          persistSettings();
+        }
+        function persistSettings() {
+          try {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+          } catch (_) {}
+          applyTheme(state.settings.theme);
+          applyBrandImages();
+          syncSettings(state.settings);
+        }
+        function loadUser() {
+          try {
+            const r = localStorage.getItem(USER_KEY);
+            if (r) {
+              const p = JSON.parse(r);
+              if (p && p.role && p.username && ROLES[p.role]) {
+                state.currentUser = p;
+                return;
+              }
+            }
+          } catch (_) {}
+          state.currentUser = null;
+        }
+        function persistUser() {
+          if (state.currentUser) {
+            try {
+              localStorage.setItem(USER_KEY, JSON.stringify(state.currentUser));
+            } catch (_) {}
+          } else {
+            try {
+              localStorage.removeItem(USER_KEY);
+            } catch (_) {}
+          }
+        }
+        async function loadAuditLog() {
+          try {
+            const serverData = await apiGet('/api/audit');
+            if (serverData && Array.isArray(serverData)) {
+              state.auditLog = serverData;
+              persistAuditLog();
+              return;
+            }
+          } catch (_) {}
+          try {
+            const r = localStorage.getItem(AUDIT_KEY);
+            if (r) {
+              const p = JSON.parse(r);
+              if (Array.isArray(p) && p.every((v) => v && typeof v === 'object' && v.id)) {
+                state.auditLog = p;
+                return;
+              }
+            }
+          } catch (_) {}
+          state.auditLog = [];
+        }
+        function persistAuditLog() {
+          try {
+            localStorage.setItem(AUDIT_KEY, JSON.stringify(state.auditLog));
+          } catch (_) {}
+        }
+        function addAuditLog(action, tmpId, tmpNumber, details) {
+          const entry = {
+            id: uid(),
+            action: action,
+            tmpId: tmpId || '',
+            tmpNumber: tmpNumber || '',
+            username: state.currentUser ? state.currentUser.username : 'system',
+            timestamp: nowISO(),
+            details: details || '',
+          };
+          state.auditLog.push(entry);
+          persistAuditLog();
+          if (apiAvailable) apiPost('/api/audit', entry).catch(() => {});
+        }
+
+        // ===== EXPORT / IMPORT / BACKUP =====
+        function downloadFile(content, filename, mime) {
+          const blob = new Blob([content], { type: mime });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(a.href);
+        }
+        async function exportJSON() {
+          if (apiAvailable) {
+            try {
+              const d = await apiGet('/api/export/json');
+              if (d && Array.isArray(d)) {
+                downloadFile(JSON.stringify(d, null, 2), 'TMPs_export_' + todayStr() + '.json', 'application/json');
+                return;
+              }
+            } catch (_) {}
+          }
+          const data = getFilteredTmps();
+          downloadFile(JSON.stringify(data, null, 2), 'TMPs_export_' + todayStr() + '.json', 'application/json');
+        }
+        async function exportCSV() {
+          if (apiAvailable) {
+            try {
+              const tkn = localStorage.getItem(TOKEN_KEY);
+              const r = await fetch(API_BASE + '/api/export/csv', { headers: { Authorization: 'Bearer ' + tkn } });
+              const c = await r.text();
+              if (c) {
+                downloadFile(c, 'TMPs_export_' + todayStr() + '.csv', 'text/csv');
+                return;
+              }
+            } catch (_) {}
+          }
+          const data = getFilteredTmps();
+          const f = [
+            'tmpNumber',
+            'projectName',
+            'requestDate',
+            'clientName',
+            'location',
+            'dateOfWorks',
+            'details',
+            'assignedTo',
+            'priority',
+            'status',
+          ];
+          const h = f.join(',');
+          const r = data.map((t) => f.map((f) => '"' + (t[f] || '').replace(/"/g, '""') + '"').join(','));
+          downloadFile([h, ...r].join('\n'), 'TMPs_export_' + todayStr() + '.csv', 'text/csv');
+        }
+        function importJSON(jsonStr) {
+          let data;
+          try {
+            data = JSON.parse(jsonStr);
+          } catch (e) {
+            alert('Invalid JSON file.');
+            return;
+          }
+          if (!Array.isArray(data)) {
+            alert('JSON must contain an array of TMP objects.');
+            return;
+          }
+          if (apiAvailable) {
+            apiPost('/api/import', data)
+              .then((r) => {
+                alert('Imported ' + (r.imported || 0) + ' TMP(s).');
+                render();
+              })
+              .catch(() => {
+                localImport(data);
+              });
+            return;
+          }
+          localImport(data);
+        }
+        function localImport(data) {
+          let c = 0;
+          data.forEach((item) => {
+            if (item.projectName || item.clientName || item.location) {
+              createTmp(item);
+              c++;
+            }
+          });
+          alert('Imported ' + c + ' TMP(s).');
+          render();
+        }
+        async function backupAll() {
+          if (apiAvailable) {
+            try {
+              const b = await apiGet('/api/backup');
+              if (b) {
+                downloadFile(JSON.stringify(b, null, 2), 'TMP_Backup_' + todayStr() + '.json', 'application/json');
+                return;
+              }
+            } catch (_) {}
+          }
+          const b = { date: nowISO(), data: state.tmps, settings: state.settings, auditLog: state.auditLog };
+          downloadFile(JSON.stringify(b, null, 2), 'TMP_Backup_' + todayStr() + '.json', 'application/json');
+        }
+        function restoreAll(jsonStr) {
+          let data;
+          try {
+            data = JSON.parse(jsonStr);
+          } catch (e) {
+            alert('Invalid backup file.');
+            return;
+          }
+          if (!data || !data.data || !Array.isArray(data.data) || !data.settings || !data.settings.menuItems) {
+            alert('Invalid backup format.');
+            return;
+          }
+          if (!confirm('This will replace ALL current data and settings. Are you sure?')) return;
+          if (apiAvailable) {
+            apiPost('/api/backup/restore', data)
+              .then(() => {
+                location.reload();
+              })
+              .catch(() => {
+                localRestore(data);
+              });
+            return;
+          }
+          localRestore(data);
+        }
+        function localRestore(data) {
+          state.tmps = data.data;
+          state.settings = data.settings;
+          state.auditLog = data.auditLog || [];
+          persist();
+          persistSettings();
+          persistAuditLog();
+          applyTheme(state.settings.theme);
+          applyBrandImages();
+          alert('Backup restored successfully.');
+          render();
+        }
+        async function bulkSample() {
+          if (apiAvailable) {
+            const r = await apiPost('/api/bulk-sample');
+            alert('Created ' + (r.created || 0) + ' sample TMPs.');
+            navigate(state.currentView);
+            return;
+          }
+          const td = todayStr(),
+            d = (o) => {
+              const dt = new Date(td + 'T00:00:00');
+              dt.setDate(dt.getDate() + o);
+              return dt.toISOString().slice(0, 10);
+            };
+          [
+            [
+              'TMP-2024-006',
+              'King Street Pedestrian Crossing',
+              d(2),
+              'City Council',
+              'King Street, Newtown',
+              d(15),
+              'Pedestrian crossing installation.',
+              'James Wilson',
+              'high',
+              'new',
+            ],
+            [
+              'TMP-2024-007',
+              'Harbour Bridge Maintenance',
+              d(-7),
+              'Transport NSW',
+              'Sydney Harbour Bridge',
+              d(30),
+              'Routine maintenance works.',
+              'Maria Garcia',
+              'medium',
+              'in-progress',
+            ],
+            [
+              'TMP-2024-008',
+              'Oxford Street Lighting',
+              d(-14),
+              'City of Sydney',
+              'Oxford Street, Paddington',
+              d(22),
+              'Street light upgrade.',
+              'Alex Kim',
+              'low',
+              'permits-lga',
+            ],
+          ].forEach((r) => {
+            createTmp({
+              tmpNumber: r[0],
+              projectName: r[1],
+              requestDate: r[2],
+              clientName: r[3],
+              location: r[4],
+              dateOfWorks: r[5],
+              details: r[6],
+              assignedTo: r[7],
+              priority: r[8],
+              status: r[9],
+            });
+          });
+          alert('3 sample TMPs created.');
+          navigate(state.currentView);
+        }
+
+        function getMockData() {
+          const td = todayStr(),
+            d = (o) => {
+              const dt = new Date(td + 'T00:00:00');
+              dt.setDate(dt.getDate() + o);
+              return dt.toISOString().slice(0, 10);
+            };
+          return [
+            {
+              id: 'mock-1',
+              tmpNumber: 'TMP-2024-001',
+              projectName: 'Main Street Utility Works',
+              requestDate: d(-14),
+              clientName: 'City Water Authority',
+              location: '123 Main Street, Sydney CBD',
+              dateOfWorks: d(5),
+              details: 'Installation of new water main requiring lane closures.',
+              assignedTo: 'Sarah Chen',
+              priority: 'high',
+              status: 'new',
+              lastUpdated: d(-10) + 'T09:30:00Z',
+              customFields: {},
+            },
+            {
+              id: 'mock-2',
+              tmpNumber: 'TMP-2024-002',
+              projectName: 'Highway Bridge Inspection',
+              requestDate: d(-21),
+              clientName: 'Transport NSW',
+              location: 'Warringah Expressway, North Sydney',
+              dateOfWorks: d(12),
+              details: 'Routine structural inspection of bridge #4.',
+              assignedTo: 'Michael Torres',
+              priority: 'medium',
+              status: 'in-progress',
+              lastUpdated: d(-5) + 'T14:15:00Z',
+              customFields: {},
+            },
+            {
+              id: 'mock-3',
+              tmpNumber: 'TMP-2024-003',
+              projectName: 'Road Resurfacing Program',
+              requestDate: d(-30),
+              clientName: 'City of Sydney Council',
+              location: 'Elizabeth Street, Surry Hills',
+              dateOfWorks: d(18),
+              details: 'Asphalt resurfacing. Night works only.',
+              assignedTo: 'Emily Watson',
+              priority: 'high',
+              status: 'permits-lga',
+              lastUpdated: d(-8) + 'T11:00:00Z',
+              customFields: {},
+            },
+            {
+              id: 'mock-4',
+              tmpNumber: 'TMP-2024-004',
+              projectName: 'Traffic Signal Upgrade',
+              requestDate: d(-45),
+              clientName: 'Roads & Maritime Services',
+              location: 'Pacific Highway & Berry Street',
+              dateOfWorks: d(25),
+              details: 'Upgrade of traffic signal controllers.',
+              assignedTo: 'David Park',
+              priority: 'medium',
+              status: 'approvals',
+              lastUpdated: d(-3) + 'T16:45:00Z',
+              customFields: {},
+            },
+            {
+              id: 'mock-5',
+              tmpNumber: 'TMP-2024-005',
+              projectName: 'Sidewalk Construction',
+              requestDate: d(-60),
+              clientName: 'Parramatta City Council',
+              location: 'Church Street, Parramatta',
+              dateOfWorks: d(-10),
+              details: 'New footpath construction.',
+              assignedTo: 'Sarah Chen',
+              priority: 'low',
+              status: 'completed',
+              lastUpdated: d(-15) + 'T10:00:00Z',
+              customFields: {},
+            },
+          ];
+        }
+
+        // ===== FILTERED DATA =====
+        function getFilteredTmps() {
+          let l = state.tmps;
+          const q = state.searchQuery.toLowerCase().trim();
+          if (q)
+            l = l.filter(
+              (t) =>
+                (t.clientName || '').toLowerCase().includes(q) ||
+                (t.location || '').toLowerCase().includes(q) ||
+                (t.tmpNumber || '').toLowerCase().includes(q) ||
+                (t.projectName || '').toLowerCase().includes(q) ||
+                (t.assignedTo || '').toLowerCase().includes(q)
+            );
+          return l;
+        }
+        function getTmpsByStatus(s) {
+          return getFilteredTmps().filter((t) => t.status === s);
+        }
+        function getCountByStatus(s) {
+          return state.tmps.filter((t) => t.status === s).length;
+        }
+        function getUpcomingWorks(days) {
+          const td = todayStr(),
+            lim = new Date(td + 'T00:00:00');
+          lim.setDate(lim.getDate() + days);
+          const ls = lim.toISOString().slice(0, 10);
+          return state.tmps.filter(
+            (t) => t.dateOfWorks && t.dateOfWorks >= td && t.dateOfWorks <= ls && t.status !== 'completed'
+          );
+        }
+        function getActiveStatuses() {
+          return (state.settings.statuses || DEFAULT_STATUSES).filter((s) => s.enabled);
+        }
+
+        // ===== CRUD =====
+        function syncCreate(tmp) {
+          if (!apiAvailable) return;
+          apiPost('/api/tmps', { ...tmp, id: undefined })
+            .then((r) => {
+              if (r && r.id) tmp.id = r.id;
+            })
+            .catch(() => {});
+        }
+        function syncUpdate(id, data) {
+          if (!apiAvailable) return;
+          apiPut('/api/tmps/' + id, data).catch(() => {});
+        }
+        function syncDelete(id) {
+          if (!apiAvailable) return;
+          apiDelete('/api/tmps/' + id).catch(() => {});
+        }
+        function syncAdvance(id) {
+          if (!apiAvailable) return;
+          apiPut('/api/tmps/' + id + '/advance').catch(() => {});
+        }
+        function syncSettings(data) {
+          if (!apiAvailable) return;
+          apiPut('/api/settings', data).catch(() => {});
+        }
+        function createTmp(data) {
+          const year = new Date().getFullYear(),
+            prefix = 'TMP-' + year + '-';
+          const existing = state.tmps
+            .filter((t) => t.tmpNumber && t.tmpNumber.startsWith(prefix))
+            .map((t) => parseInt(t.tmpNumber.slice(prefix.length), 10))
+            .filter((n) => !isNaN(n));
+          const nextNum = existing.length ? Math.max(...existing) + 1 : 1;
+          const tmp = {
+            id: uid(),
+            tmpNumber: data.tmpNumber || prefix + String(nextNum).padStart(3, '0'),
+            projectName: data.projectName || '',
+            requestDate: data.requestDate || todayStr(),
+            clientName: data.clientName || '',
+            location: data.location || '',
+            dateOfWorks: data.dateOfWorks || '',
+            details: data.details || '',
+            assignedTo: data.assignedTo || '',
+            priority: data.priority || 'medium',
+            status: data.status || 'new',
+            lastUpdated: nowISO(),
+            customFields: data.customFields || {},
+          };
+          state.tmps.push(tmp);
+          persist();
+          addAuditLog('create', tmp.id, tmp.tmpNumber, 'Created by ' + state.currentUser.username);
+          syncCreate(tmp);
+          return tmp;
+        }
+        function updateTmp(id, data) {
+          const idx = state.tmps.findIndex((t) => t.id === id);
+          if (idx === -1) return null;
+          const old = state.tmps[idx];
+          state.tmps[idx] = { ...old, ...data, lastUpdated: nowISO() };
+          persist();
+          addAuditLog('update', id, old.tmpNumber, 'Updated by ' + state.currentUser.username);
+          syncUpdate(id, data);
+          return state.tmps[idx];
+        }
+        function deleteTmp(id) {
+          const t = state.tmps.find((x) => x.id === id);
+          state.tmps = state.tmps.filter((x) => x.id !== id);
+          persist();
+          if (t) {
+            addAuditLog('delete', id, t.tmpNumber, 'Deleted by ' + state.currentUser.username);
+            syncDelete(id);
+          }
+        }
+        function advanceStatus(id, skipSchedule) {
+          const t = state.tmps.find((x) => x.id === id);
+          if (!t) return;
+          const statuses = getActiveStatuses();
+          const idx = statuses.findIndex((s) => s.id === t.status);
+          if (idx === -1 || idx >= statuses.length - 1) return;
+          // Check automation rules for scheduling
+          if (!skipSchedule) {
+            const rules = state.settings.automations || [];
+            const rule = rules.find((r) => r.enabled !== false && r.fromStatus === t.status && r.delayDays > 0);
+            if (rule) {
+              const schedDate = new Date();
+              schedDate.setDate(schedDate.getDate() + rule.delayDays);
+              t.scheduledAdvance = {
+                toStatus: statuses[idx + 1].id,
+                scheduledDate: schedDate.toISOString().slice(0, 10),
+              };
+              t.lastUpdated = nowISO();
+              persist();
+              addAuditLog(
+                'schedule',
+                id,
+                t.tmpNumber,
+                'Scheduled advance to "' +
+                  getStatusLabel(t.scheduledAdvance.toStatus) +
+                  '" in ' +
+                  rule.delayDays +
+                  ' day(s) by ' +
+                  state.currentUser.username
+              );
+              return;
+            }
+          }
+          t.scheduledAdvance = null;
+          const fromS = t.status,
+            toS = statuses[idx + 1].id;
+          t.status = toS;
+          t.lastUpdated = nowISO();
+          persist();
+          addAuditLog(
+            'advance',
+            id,
+            t.tmpNumber,
+            'Advanced from "' +
+              getStatusLabel(fromS) +
+              '" to "' +
+              getStatusLabel(toS) +
+              '" by ' +
+              state.currentUser.username
+          );
+          syncAdvance(id);
+        }
+        function processScheduledAdvances() {
+          const rules = state.settings.automations || [];
+          const today = todayStr();
+          let changed = false;
+          state.tmps.forEach((t) => {
+            if (!t.scheduledAdvance || !t.scheduledAdvance.scheduledDate) return;
+            if (t.scheduledAdvance.scheduledDate <= today) {
+              const toStatus = t.scheduledAdvance.toStatus;
+              const fromS = t.status;
+              t.status = toStatus;
+              t.scheduledAdvance = null;
+              t.lastUpdated = nowISO();
+              addAuditLog(
+                'auto-advance',
+                t.id,
+                t.tmpNumber,
+                'Auto-advanced from "' +
+                  getStatusLabel(fromS) +
+                  '" to "' +
+                  getStatusLabel(toStatus) +
+                  '" (scheduled delay elapsed)'
+              );
+              changed = true;
+            }
+          });
+          if (changed) {
+            persist();
+            render();
+          }
+        }
+
+        // ===== LOGIN =====
+        function showLogin() {
+          document.getElementById('loginOverlay').classList.remove('hidden');
+          applyBrandImages();
+        }
+        function hideLogin() {
+          document.getElementById('loginOverlay').classList.add('hidden');
+        }
+        function handleLogin(name, role) {
+          state.currentUser = { username: name, role: role };
+          persistUser();
+          hideLogin();
+          document.getElementById('sidebarUser').textContent = 'Logged in as ' + name;
+          document.getElementById('userBadgeText').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+          applyBrandImages();
+          if (state.currentView === 'settings' && !canManageSettings()) state.currentView = 'dashboard';
+          renderSidebar();
+          render();
+        }
+        function handleLogout() {
+          state.currentUser = null;
+          persistUser();
+          showLogin();
+          document.getElementById('loginName').value = '';
+          document.getElementById('loginPassword').value = '';
+        }
+
+        // ===== ROUTER =====
+        function navigate(view) {
+          if (view === 'settings' && !canManageSettings()) view = 'dashboard';
+          state.currentView = view;
+          renderSidebar();
+          document.getElementById('viewTitle').textContent = getContent('viewTitles.' + view) || view;
+          render();
+        }
+
+        // ===== SIDEBAR =====
+        function renderSidebar() {
+          const nav = document.getElementById('sidebarNav');
+          let items = getEnabledMenuItems();
+          if (canManageSettings())
+            items = [...items, { id: 'settings', label: 'Admin Settings', icon: '⚙️', enabled: true, badge: false }];
+          nav.innerHTML = items
+            .map((m) => {
+              const badge = m.badge ? `<span class="nav-badge">${getCountByStatus(m.id) || 0}</span>` : '';
+              return `<a data-view="${m.id}" class="${state.currentView === m.id ? 'active' : ''}"><span class="nav-icon">${m.icon}</span>${escHtml(m.label)}${badge}</a>`;
+            })
+            .join('');
+        }
+        function getEnabledMenuItems() {
+          return state.settings.menuItems.filter((m) => m.enabled);
+        }
+
+        // ===== RENDER =====
+        function render() {
+          processScheduledAdvances();
+          updateBadges();
+          updateAdminBtn();
+          updateNewBtn();
+          const area = document.getElementById('contentArea');
+          switch (state.currentView) {
+            case 'dashboard':
+              area.innerHTML = renderDashboard();
+              break;
+            case 'settings':
+              area.innerHTML = renderSettings();
+              break;
+            case 'calendar':
+              area.innerHTML = renderCalendar();
+              break;
+            default:
+              area.innerHTML = renderTable(state.currentView);
+          }
+          // Update brand
+          document.getElementById('sidebarTitle').textContent = appName();
+          document.getElementById('loginTitle').textContent = appName();
+          document.getElementById('loginSubtitle').textContent = appTagline();
+          document.getElementById('globalSearch').placeholder = getContent('placeholders.search');
+        }
+        function updateBadges() {
+          document.querySelectorAll('.sidebar-nav a').forEach((el) => {
+            const b = el.querySelector('.nav-badge');
+            if (b) b.textContent = getCountByStatus(el.dataset.view) || 0;
+          });
+        }
+
+        // ===== DASHBOARD =====
+        function renderDashboard() {
+          const w = state.settings.dashboardWidgets || DEFAULT_DASHBOARD_WIDGETS;
+          const ta = state.tmps.filter((t) => t.status !== 'completed').length,
+            pa = getCountByStatus('approvals'),
+            up = getUpcomingWorks(7);
+          const hp = state.tmps.filter((t) => t.status !== 'completed' && t.priority === 'high').length;
+          const dist = {};
+          getActiveStatuses().forEach((s) => {
+            dist[s.id] = getCountByStatus(s.id);
+          });
+          const mx = Math.max(...Object.values(dist), 1);
+          const bars = getActiveStatuses()
+            .map(
+              (s) =>
+                `<div class="chart-bar-group"><div class="chart-bar" style="height:${Math.max(((dist[s.id] || 0) / mx) * 100, 4)}%;background:${s.color}"><span class="bar-count">${dist[s.id] || 0}</span></div><span class="chart-bar-label">${escHtml(s.label)}</span></div>`
+            )
+            .join('');
+          const recent = [...state.tmps].sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated)).slice(0, 5);
+          const rows = recent.length
+            ? recent
+                .map(
+                  (t) =>
+                    `<tr><td><strong>${escHtml(t.tmpNumber)}</strong></td><td>${escHtml(t.projectName)}</td><td>${escHtml(t.clientName)}</td><td><span class="status-badge" style="${getPriorityStyle(t.priority)}">${escHtml(getPriorityLabel(t.priority))}</span></td><td>${renderStatusWithScheduled(t)}</td><td>${formatTimestamp(t.lastUpdated)}</td></tr>`
+                )
+                .join('')
+            : '<tr><td colspan="6" class="empty-state"><p>No records yet.</p></td></tr>';
+          let stats = '';
+          if (w.statActiveTMPs !== false)
+            stats += `<div class="stat-card"><div class="stat-label">Active TMPs</div><div class="stat-value">${ta}</div></div>`;
+          if (w.statPendingApprovals !== false)
+            stats += `<div class="stat-card"><div class="stat-label">Pending Approvals</div><div class="stat-value">${pa}</div></div>`;
+          if (w.statUpcomingWorks !== false)
+            stats += `<div class="stat-card"><div class="stat-label">Upcoming Works (7d)</div><div class="stat-value">${up.length}</div></div>`;
+          if (w.statHighPriority !== false)
+            stats += `<div class="stat-card"><div class="stat-label">High Priority</div><div class="stat-value">${hp}</div></div>`;
+          const chart =
+            w.chartStatusDistribution !== false
+              ? `<div class="chart-container"><h3>TMP Status Distribution</h3><div class="chart-bars">${bars}</div></div>`
+              : '';
+          return `<div class="stats-grid">${stats}</div>${chart}<div class="card"><div class="card-header"><h3>Recent Activity</h3></div><div class="card-body pad0"><div class="table-container"><table><thead><tr><th>TMP#</th><th>Project</th><th>Client</th><th>Priority</th><th>Status</th><th>Last Updated</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`;
+        }
+
+        // ===== TABLE =====
+        function getDensityClass() {
+          const d = state.settings.rowDensity || 'comfortable';
+          return d === 'compact' ? 'row-density-compact' : 'row-density-comfortable';
+        }
+        function renderTable(status) {
+          const items = getTmpsByStatus(status),
+            sl = getStatusLabel(status),
+            cols = getEnabledColumns(status);
+          const activeStatuses = getActiveStatuses();
+          const curIdx = activeStatuses.findIndex((s) => s.id === status);
+          const headers = cols.map((c) => `<th>${escHtml(c.label)}</th>`).join('');
+          const rows = items.length
+            ? items
+                .map((t) => {
+                  const cells = cols
+                    .map((c) => {
+                      if (c.key === 'actions') {
+                        const ed = canEdit()
+                          ? `<button class="btn btn-sm btn-outline" data-action="edit" data-id="${t.id}">✏️</button>`
+                          : '';
+                        const del = canDelete()
+                          ? `<button class="btn btn-sm btn-danger" data-action="delete" data-id="${t.id}">🗑</button>`
+                          : '';
+                        let adv = '';
+                        if (canAdvanceStatus(status) && curIdx >= 0 && curIdx < activeStatuses.length - 1) {
+                          const nextLabel = activeStatuses[curIdx + 1].label;
+                          adv = `<button class="btn btn-sm btn-primary" data-action="advance" data-id="${t.id}">→ ${escHtml(nextLabel)}</button>`;
+                        }
+                        return `<td><div class="table-actions"><button class="btn btn-sm btn-outline" data-action="view" data-id="${t.id}">👁</button>${ed}${del}${adv}</div></td>`;
+                      }
+                      let val = t[c.key] || '\u2014';
+                      if (c.key === 'priority')
+                        val = `<span class="status-badge" style="${getPriorityStyle(t.priority)}">${escHtml(getPriorityLabel(t.priority))}</span>`;
+                      else if (c.key === 'dateOfWorks') val = formatDate(t.dateOfWorks);
+                      else val = escHtml(val);
+                      return `<td>${val}</td>`;
+                    })
+                    .join('');
+                  return `<tr>${cells}</tr>`;
+                })
+                .join('')
+            : '';
+          const empty = !items.length
+            ? `<div class="empty-state"><div class="empty-icon">📋</div><p>No TMPs in <strong>${escHtml(sl)}</strong>.</p></div>`
+            : '';
+          const dc = getDensityClass();
+          return `<div class="card"><div class="card-header"><h3>${escHtml(sl)} (${items.length})</h3>${canEdit() ? '<button class="btn btn-primary btn-sm" data-action="new-request">+ ' + escHtml(getContent('labels.newRequest')) + '</button>' : ''}</div><div class="card-body pad0">${empty || `<div class="table-container ${dc}"><table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`}</div></div>`;
+        }
+        function getEnabledColumns(status) {
+          const c = state.settings.tableColumns[status] || DEFAULT_TABLE_COLUMNS[status] || [];
+          return c.filter((x) => x.enabled);
+        }
+
+        // ===== CALENDAR =====
+        function renderCalendar() {
+          const y = state.calendarDate.getFullYear(),
+            m = state.calendarDate.getMonth(),
+            td = todayStr();
+          const fd = getDayOfWeek(y, m, 1),
+            tdy = daysInMonth(y, m),
+            pmd = daysInMonth(y, m - 1 < 0 ? y - 1 : y, m - 1 < 0 ? 11 : m - 1);
+          const dh = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+            .map((d) => `<div class="calendar-day-header">${d}</div>`)
+            .join('');
+          const cells = [];
+          for (let i = 0; i < fd; i++)
+            cells.push(
+              `<div class="calendar-day other-month"><span class="day-number">${pmd - fd + 1 + i}</span></div>`
+            );
+          const ebd = {};
+          state.tmps.forEach((t) => {
+            if (!t.dateOfWorks) return;
+            const d = new Date(t.dateOfWorks + 'T00:00:00');
+            if (d.getFullYear() === y && d.getMonth() === m) {
+              if (!ebd[d.getDate()]) ebd[d.getDate()] = [];
+              ebd[d.getDate()].push(t);
+            }
+          });
+          for (let d = 1; d <= tdy; d++) {
+            const ds = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+            const ev = ebd[d] || [],
+              sh = ev.slice(0, 2),
+              mr = ev.length - 2;
+            const el = sh
+              .map(
+                (e) =>
+                  `<div class="cal-event" style="background:${(state.settings.priorities || DEFAULT_PRIORITIES).find((p) => p.id === e.priority)?.color || 'var(--primary-light)'}" data-action="view" data-id="${e.id}">${escHtml(e.tmpNumber)}</div>`
+              )
+              .join('');
+            cells.push(
+              `<div class="calendar-day ${ds === td ? 'today' : ''}"><div class="day-number">${d}</div>${el}${mr > 0 ? `<div class="cal-more" style="color:var(--primary)">+${mr} more</div>` : ''}</div>`
+            );
+          }
+          const tc = fd + tdy,
+            rem = (7 - (tc % 7)) % 7;
+          for (let i = 1; i <= rem; i++)
+            cells.push(`<div class="calendar-day other-month"><span class="day-number">${i}</span></div>`);
+          return `<div class="card"><div class="card-header"><h3>Calendar — Works Schedule</h3></div><div class="card-body"><div class="calendar-header"><button class="btn btn-sm btn-outline" data-action="cal-prev">← Previous</button><h2>${monthName(y, m)}</h2><div class="calendar-nav"><button class="btn btn-sm btn-outline" data-action="cal-today">Today</button><button class="btn btn-sm btn-outline" data-action="cal-next">Next →</button></div></div><div class="calendar-grid">${dh}${cells.join('')}</div></div></div>`;
+        }
+
+        // ===== ADMIN SETTINGS =====
+        const SETTINGS_TABS = [
+          { id: 'general', label: 'General' },
+          { id: 'menu', label: 'Menu' },
+          { id: 'statuses', label: 'Statuses' },
+          { id: 'priorities', label: 'Priorities' },
+          { id: 'content', label: 'Content' },
+          { id: 'theme', label: 'Theme' },
+          { id: 'columns', label: 'Columns' },
+          { id: 'forms', label: 'Form Fields' },
+          { id: 'customfields', label: 'Custom Fields' },
+          { id: 'users', label: 'Users' },
+          { id: 'transitions', label: 'Transitions' },
+          { id: 'defaults', label: 'Defaults' },
+          { id: 'widgets', label: 'Widgets' },
+          { id: 'density', label: 'Density' },
+          { id: 'shortcuts', label: 'Shortcuts' },
+          { id: 'automations', label: 'Automations' },
+          { id: 'clients', label: 'Clients' },
+          { id: 'exportimport', label: 'Export/Import' },
+          { id: 'backup', label: 'Backup' },
+          { id: 'auditlog', label: 'Audit Log' },
+        ];
+        function renderSettings() {
+          const th = SETTINGS_TABS.map(
+            (t) =>
+              `<button class="settings-tab ${settingsTab === t.id ? 'active' : ''}" data-stab="${t.id}">${escHtml(t.label)}</button>`
+          ).join('');
+          const sections = {};
+          SETTINGS_TABS.forEach((t) => {
+            sections[t.id] = t.id;
+          });
+          return `<div class="card"><div class="card-header"><h3>Admin Settings Console</h3></div><div class="card-body"><div class="settings-tabs">${th}</div>
+    <div class="settings-section ${settingsTab === 'general' ? 'open' : ''}">${renderGeneral()}</div>
+    <div class="settings-section ${settingsTab === 'menu' ? 'open' : ''}">${renderMenu()}</div>
+    <div class="settings-section ${settingsTab === 'statuses' ? 'open' : ''}">${renderStatuses()}</div>
+    <div class="settings-section ${settingsTab === 'priorities' ? 'open' : ''}">${renderPriorities()}</div>
+    <div class="settings-section ${settingsTab === 'content' ? 'open' : ''}">${renderContent()}</div>
+    <div class="settings-section ${settingsTab === 'theme' ? 'open' : ''}">${renderTheme()}</div>
+    <div class="settings-section ${settingsTab === 'columns' ? 'open' : ''}">${renderColumns()}</div>
+    <div class="settings-section ${settingsTab === 'forms' ? 'open' : ''}">${renderForms()}</div>
+    <div class="settings-section ${settingsTab === 'customfields' ? 'open' : ''}">${renderCustomFields()}</div>
+    <div class="settings-section ${settingsTab === 'users' ? 'open' : ''}">${renderUsers()}</div>
+    <div class="settings-section ${settingsTab === 'transitions' ? 'open' : ''}">${renderTransitions()}</div>
+    <div class="settings-section ${settingsTab === 'defaults' ? 'open' : ''}">${renderDefaults()}</div>
+    <div class="settings-section ${settingsTab === 'widgets' ? 'open' : ''}">${renderWidgets()}</div>
+    <div class="settings-section ${settingsTab === 'density' ? 'open' : ''}">${renderDensity()}</div>
+    <div class="settings-section ${settingsTab === 'shortcuts' ? 'open' : ''}">${renderShortcuts()}</div>
+    <div class="settings-section ${settingsTab === 'automations' ? 'open' : ''}">${renderAutomations()}</div>
+    <div class="settings-section ${settingsTab === 'clients' ? 'open' : ''}">${renderClients()}</div>
+    <div class="settings-section ${settingsTab === 'exportimport' ? 'open' : ''}">${renderExportImport()}</div>
+    <div class="settings-section ${settingsTab === 'backup' ? 'open' : ''}">${renderBackup()}</div>
+    <div class="settings-section ${settingsTab === 'auditlog' ? 'open' : ''}">${renderAuditLog()}</div>
+  </div></div>`;
+        }
+
+        function renderGeneral() {
+          const c = state.settings.content;
+          return `<p class="settings-hint">Configure your app name, branding, and login screen text.</p>
+    <div class="setting-row"><div class="setting-label">App Name</div><div class="setting-actions"><input class="s-inline" id="s-appName" value="${escHtml(c.appName)}" style="width:240px"></div></div>
+    <div class="setting-row"><div class="setting-label">Tagline</div><div class="setting-actions"><input class="s-inline" id="s-appTagline" value="${escHtml(c.appTagline)}" style="width:300px"></div></div>`;
+        }
+
+        function renderMenu() {
+          const items = state.settings.menuItems;
+          return `<p class="settings-hint">Toggle visibility, rename, reorder (drag ☰ or use arrows), and delete menu items. Built-in items use their view ID for routing.</p>
+    <div style="margin-bottom:12px"><button class="btn btn-sm btn-outline" data-action="add-menu-item">+ Add Menu Item</button></div>
+    <div id="menuSortable">${items
+      .map(
+        (m, i) => `
+      <div class="setting-row" draggable="true" data-idx="${i}" data-drag-idx="${i}">
+        <span class="drag-handle" draggable="false">☰</span>
+        <button class="move-btn" data-action="move-menu-up" data-idx="${i}" title="Move up" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button class="move-btn" data-action="move-menu-down" data-idx="${i}" title="Move down" ${i === items.length - 1 ? 'disabled' : ''}>▼</button>
+        <div class="setting-label" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <input class="s-inline s-menu-label" value="${escHtml(m.label)}" data-idx="${i}" placeholder="Label" style="width:140px">
+          <input class="s-inline s-menu-icon" value="${escHtml(m.icon)}" data-idx="${i}" placeholder="Icon" style="width:40px">
+          <span style="font-size:.75rem;color:var(--text-secondary);font-family:monospace">${escHtml(m.id)}</span>
+        </div>
+        <div class="setting-actions">
+          <label class="toggle-switch"><input type="checkbox" class="s-menu-toggle" data-idx="${i}" ${m.enabled ? 'checked' : ''}><span class="toggle-slider"></span></label>
+          <button class="btn btn-sm btn-danger" data-action="del-menu-item" data-idx="${i}">🗑</button>
+        </div>
+      </div>`
+      )
+      .join('')}</div>`;
+        }
+
+        function renderStatuses() {
+          const items = state.settings.statuses || DEFAULT_STATUSES;
+          return `<p class="settings-hint">Manage TMP workflow statuses. Rename, recolor, add, or remove statuses. Changes apply everywhere.</p>
+    <div style="margin-bottom:12px"><button class="btn btn-sm btn-outline" data-action="add-status">+ Add Status</button></div>
+    ${items
+      .map(
+        (s, i) => `
+      <div class="setting-row" data-sidx="${i}">
+        <span class="drag-handle">☰</span>
+        <div class="setting-label" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input class="s-inline s-status-label" value="${escHtml(s.label)}" data-sidx="${i}" placeholder="Label" style="width:160px">
+          <div class="color-input-group"><input type="color" class="s-status-bg" data-sidx="${i}" value="${s.bg || '#dbeafe'}"><input type="text" class="s-status-color" value="${s.color || '#1e40af'}" data-sidx="${i}" placeholder="Text color" style="width:100px;font-family:monospace;font-size:.8rem"></div>
+          <span class="status-badge" style="background:${s.bg};color:${s.color}" id="statusPreview${i}">${escHtml(s.label)}</span>
+        </div>
+        <div class="setting-actions">
+          <label class="toggle-switch"><input type="checkbox" class="s-status-toggle" data-sidx="${i}" ${s.enabled !== false ? 'checked' : ''}><span class="toggle-slider"></span></label>
+          <button class="btn btn-sm btn-danger" data-action="del-status" data-sidx="${i}">🗑</button>
+        </div>
+      </div>`
+      )
+      .join('')}`;
+        }
+
+        function renderPriorities() {
+          const items = state.settings.priorities || DEFAULT_PRIORITIES;
+          return `<p class="settings-hint">Manage priority levels (Low, Medium, High). Rename, recolor, or add custom priorities.</p>
+    <div style="margin-bottom:12px"><button class="btn btn-sm btn-outline" data-action="add-priority">+ Add Priority</button></div>
+    ${items
+      .map(
+        (p, i) => `
+      <div class="setting-row" data-pidx="${i}">
+        <span class="drag-handle">☰</span>
+        <div class="setting-label" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input class="s-inline s-priority-label" value="${escHtml(p.label)}" data-pidx="${i}" placeholder="Label" style="width:160px">
+          <div class="color-input-group"><input type="color" class="s-priority-bg" data-pidx="${i}" value="${p.bg || '#d1fae5'}"><input type="text" class="s-priority-color" value="${p.color || '#065f46'}" data-pidx="${i}" placeholder="Text color" style="width:100px;font-family:monospace;font-size:.8rem"></div>
+          <span class="status-badge" style="background:${p.bg};color:${p.color}" id="priorityPreview${i}">${escHtml(p.label)}</span>
+        </div>
+        <div class="setting-actions"><button class="btn btn-sm btn-danger" data-action="del-priority" data-pidx="${i}">🗑</button></div>
+      </div>`
+      )
+      .join('')}`;
+        }
+
+        function renderContent() {
+          const c = state.settings.content;
+          const views = Object.keys(c.viewTitles || {})
+            .map(
+              (k) =>
+                `<div class="setting-row"><div class="setting-label">${escHtml(k)} Title</div><div class="setting-actions"><input class="s-inline s-content-title" data-view="${k}" value="${escHtml(c.viewTitles[k])}" style="width:280px"></div></div>`
+            )
+            .join('');
+          return `<p class="settings-hint">Edit all text labels used throughout the application.</p>
+    <h4 style="font-size:.9rem;font-weight:600;margin:12px 0 8px">View Titles</h4>${views}
+    <h4 style="font-size:.9rem;font-weight:600;margin:12px 0 8px">Placeholders</h4>
+    <div class="setting-row"><div class="setting-label">Search placeholder</div><div class="setting-actions"><input class="s-inline s-content-ph" data-key="search" value="${escHtml(c.placeholders?.search || '')}" style="width:240px"></div></div>
+    <div class="setting-row"><div class="setting-label">TMP Number placeholder</div><div class="setting-actions"><input class="s-inline s-content-ph" data-key="tmpNumber" value="${escHtml(c.placeholders?.tmpNumber || '')}" style="width:240px"></div></div>
+    <div class="setting-row"><div class="setting-label">Assigned To placeholder</div><div class="setting-actions"><input class="s-inline s-content-ph" data-key="assignedTo" value="${escHtml(c.placeholders?.assignedTo || '')}" style="width:240px"></div></div>
+    <h4 style="font-size:.9rem;font-weight:600;margin:12px 0 8px">Labels</h4>
+    <div class="setting-row"><div class="setting-label">New Request button</div><div class="setting-actions"><input class="s-inline s-content-label" data-key="newRequest" value="${escHtml(c.labels?.newRequest || '')}" style="width:240px"></div></div>
+    <div class="setting-row"><div class="setting-label">Admin Settings button</div><div class="setting-actions"><input class="s-inline s-content-label" data-key="adminSettings" value="${escHtml(c.labels?.adminSettings || '')}" style="width:240px"></div></div>`;
+        }
+
+        function renderTheme() {
+          const t = state.settings.theme;
+          const systemColors = [
+            { key: 'primary', label: 'Primary' },
+            { key: 'primaryLight', label: 'Primary Light' },
+            { key: 'primaryDark', label: 'Primary Dark' },
+            { key: 'bg', label: 'Page BG' },
+            { key: 'surface', label: 'Card BG' },
+            { key: 'text', label: 'Text' },
+            { key: 'textSecondary', label: 'Text Secondary' },
+            { key: 'border', label: 'Border' },
+            { key: 'success', label: 'Success' },
+            { key: 'warning', label: 'Warning' },
+            { key: 'danger', label: 'Danger' },
+            { key: 'purple', label: 'Purple' },
+            { key: 'cyan', label: 'Cyan' },
+          ];
+          const sidebarColors = [
+            { key: 'sidebarBg', label: 'Sidebar BG' },
+            { key: 'sidebarText', label: 'Sidebar Text' },
+            { key: 'sidebarNavText', label: 'Nav Text' },
+            { key: 'sidebarHoverBg', label: 'Hover BG' },
+            { key: 'sidebarActiveBg', label: 'Active BG' },
+            { key: 'sidebarHeaderBorder', label: 'Header Border' },
+          ];
+          const colorRow = (c) =>
+            `<div class="setting-row"><div class="setting-label">${c.label}</div><div class="setting-actions"><div class="color-input-group"><input type="color" class="s-theme-color" data-key="${c.key}" value="${t[c.key] || ''}"><input type="text" class="s-theme-hex" data-key="${c.key}" value="${t[c.key] || ''}" style="width:120px"></div></div></div>`;
+          const sidebarBgImgPreview = t.sidebarBgImg
+            ? `<div style="margin-top:8px"><img src="${escHtml(t.sidebarBgImg)}" style="max-height:60px;width:100%;object-fit:cover;border:1px solid var(--border);border-radius:4px"><br><button class="btn btn-xs btn-outline" data-action="remove-sidebar-bg" style="margin-top:4px">Remove Image</button></div>`
+            : '<span style="color:var(--text-secondary);font-size:.85rem">No background image</span>';
+
+          // Logo/banner previews
+          const logoPreview = t.logo
+            ? `<div><img src="${escHtml(t.logo)}" style="max-height:60px;border:1px solid var(--border);border-radius:4px;padding:4px;background:#fff"><br><button class="btn btn-xs btn-outline" data-action="remove-logo" style="margin-top:4px">Remove Logo</button></div>`
+            : '<span style="color:var(--text-secondary);font-size:.85rem">No logo</span>';
+          const bannerPreview = t.banner
+            ? `<div><img src="${escHtml(t.banner)}" style="max-height:80px;width:100%;object-fit:cover;border:1px solid var(--border);border-radius:4px"><br><button class="btn btn-xs btn-outline" data-action="remove-banner" style="margin-top:4px">Remove Banner</button></div>`
+            : '<span style="color:var(--text-secondary);font-size:.85rem">No banner</span>';
+
+          return `<p class="settings-hint">Customize colors, images, and appearance. Images persist across sessions.</p>
+
+    <h4 style="font-size:.9rem;font-weight:600;margin:0 0 12px">System Colors</h4>
+    ${systemColors.map(colorRow).join('')}
+    <div class="setting-row"><div class="setting-label">Border Radius</div><div class="setting-actions"><input class="s-inline s-theme-radius" value="${t.radius || '8px'}" style="width:100px"></div></div>
+    <div class="setting-row"><div class="setting-label">Font Family</div><div class="setting-actions"><input class="s-inline s-theme-font" value="${escHtml(t.font || '')}" style="width:400px"></div></div>
+
+    <h4 style="font-size:.9rem;font-weight:600;margin:20px 0 12px">🎨 Sidebar Colors</h4>
+    ${sidebarColors.map(colorRow).join('')}
+    <div class="setting-row"><div class="setting-label">Subtitle Opacity</div><div class="setting-actions"><input type="range" class="s-theme-range" data-key="sidebarSubOpacity" min="0" max="1" step="0.05" value="${t.sidebarSubOpacity || '0.7'}" style="width:120px"><span class="s-range-val" style="margin-left:8px;font-size:.85rem;color:var(--text-secondary)">${t.sidebarSubOpacity || '0.7'}</span></div></div>
+
+    <h4 style="font-size:.9rem;font-weight:600;margin:20px 0 12px">🖼️ Brand Images</h4>
+    <div class="setting-row" style="flex-wrap:wrap">
+      <div class="setting-label" style="width:100%;margin-bottom:8px"><strong>Logo</strong> (sidebar header + login screen)</div>
+      <div style="width:100%">${logoPreview}</div>
+      <div style="margin-top:8px"><input type="file" class="s-image-upload" data-imgkey="logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"></div>
+    </div>
+    <div class="setting-row" style="flex-wrap:wrap">
+      <div class="setting-label" style="width:100%;margin-bottom:8px"><strong>Banner</strong> (login screen top)</div>
+      <div style="width:100%">${bannerPreview}</div>
+      <div style="margin-top:8px"><input type="file" class="s-image-upload" data-imgkey="banner" accept="image/png,image/jpeg,image/webp"></div>
+    </div>
+    <div class="setting-row" style="flex-wrap:wrap">
+      <div class="setting-label" style="width:100%;margin-bottom:8px"><strong>Sidebar Background Image</strong> (tiles behind sidebar content)</div>
+      <div style="width:100%">${sidebarBgImgPreview}</div>
+      <div style="margin-top:8px"><input type="file" class="s-image-upload" data-imgkey="sidebarBgImg" accept="image/png,image/jpeg,image/webp"></div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn btn-sm btn-outline" data-action="reset-theme">Reset to Default Theme</button>
+    </div>`;
+        }
+
+        function renderColumns() {
+          const cur = state.settings._colStatus || 'new';
+          const sel = (state.settings.statuses || DEFAULT_STATUSES)
+            .map((s) => `<option value="${s.id}" ${s.id === cur ? 'selected' : ''}>${escHtml(s.label)}</option>`)
+            .join('');
+          const cols = state.settings.tableColumns[cur] || [];
+          return `<p class="settings-hint">Toggle column visibility per status view. Actions is always visible.</p>
+    <div style="margin-bottom:16px"><label style="font-size:.85rem;font-weight:600;color:var(--text-secondary)">View: </label>
+    <select class="s-col-view-select" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-size:.85rem">${sel}</select></div>
+    ${cols.map((c, i) => `<div class="setting-row"><span class="drag-handle" style="opacity:${c.key === 'actions' ? '.3' : '1'}">☰</span><div class="setting-label">${escHtml(c.label)} <span style="color:var(--text-secondary);font-size:.8rem">(${c.key})</span></div><div class="setting-actions"><label class="toggle-switch"><input type="checkbox" class="s-col-toggle" data-status="${cur}" data-colidx="${i}" ${c.enabled ? 'checked' : ''} ${c.key === 'actions' ? 'disabled' : ''}><span class="toggle-slider"></span></label></div></div>`).join('')}`;
+        }
+
+        function renderForms() {
+          const fields = state.settings.formFields;
+          return `<p class="settings-hint">Toggle visibility and required status of system form fields.</p>${fields
+            .map(
+              (f, i) =>
+                `<div class="setting-row"><span class="drag-handle">☰</span><div class="setting-label">${escHtml(f.label)} <span style="color:var(--text-secondary);font-size:.8rem">(${f.key})</span></div><div class="setting-actions"><label style="font-size:.8rem;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="s-field-required" data-fldidx="${i}" ${f.required ? 'checked' : ''}> Required</label><label class="toggle-switch"><input type="checkbox" class="s-field-toggle" data-fldidx="${i}" ${f.enabled ? 'checked' : ''}><span class="toggle-slider"></span></label></div></div>`
+            )
+            .join('')}`;
+        }
+
+        function renderCustomFields() {
+          const fields = state.settings.customFields || [];
+          const palette = ['text', 'number', 'date', 'select', 'textarea', 'checkbox']
+            .map(
+              (t) => `<span class="palette-item" data-palette="${t}">+ ${t.charAt(0).toUpperCase() + t.slice(1)}</span>`
+            )
+            .join('');
+          const list = fields.length
+            ? fields
+                .map(
+                  (f, i) => `
+    <div class="setting-row" data-cfi="${i}">
+      <span class="drag-handle">☰</span>
+      <div class="setting-label"><strong>${escHtml(f.label)}</strong> <span style="font-size:.75rem;color:var(--text-secondary);background:var(--bg);padding:1px 6px;border-radius:4px;text-transform:uppercase">${f.type}</span>${f.required ? ' <span style="color:var(--danger)">*</span>' : ''}</div>
+      <div class="setting-actions">
+        <label class="toggle-switch"><input type="checkbox" class="s-cfield-toggle" data-cfi="${i}" ${f.enabled !== false ? 'checked' : ''}><span class="toggle-slider"></span></label>
+        <button class="btn btn-sm btn-outline" data-action="edit-cfield" data-cfi="${i}">✏️</button>
+        <button class="btn btn-sm btn-danger" data-action="del-cfield" data-cfi="${i}">🗑</button>
+      </div>
+    </div>`
+                )
+                .join('')
+            : '<p style="color:var(--text-secondary);text-align:center;padding:20px">No custom fields yet.</p>';
+
+          const ef =
+            state.settings._editingCF !== undefined
+              ? state.settings.customFields[state.settings._editingCF] || {
+                  label: '',
+                  type: 'text',
+                  required: false,
+                  options: '',
+                  gridClass: '',
+                }
+              : { label: '', type: 'text', required: false, options: '', gridClass: '' };
+          const editForm = `<div class="custom-field-form" id="customFieldForm" style="background:var(--bg);border-radius:var(--radius);padding:20px;margin-bottom:16px;border:1px solid var(--border)">
+    <h4 style="margin-bottom:12px;font-size:.95rem">${state.settings._editingCF !== undefined ? 'Edit' : 'Add'} Custom Field</h4>
+    <div class="form-grid" style="max-width:600px">
+      <div class="form-group"><label>Field Label</label><input type="text" id="cf_label" value="${escHtml(ef.label)}" placeholder="e.g. Traffic Control Type"></div>
+      <div class="form-group"><label>Field Type</label><select id="cf_type">${['text', 'number', 'date', 'select', 'textarea', 'checkbox'].map((t) => `<option value="${t}" ${ef.type === t ? 'selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select></div>
+      <div class="form-group full-width" id="cf_options_group" style="display:${ef.type === 'select' ? 'flex' : 'none'}"><label>Options (comma-separated)</label><input type="text" id="cf_options" value="${Array.isArray(ef.options) ? escHtml(ef.options.join(', ')) : escHtml(ef.options || '')}"></div>
+      <div class="form-group"><label>Grid Width</label><select id="cf_grid"><option value="" ${!ef.gridClass ? 'selected' : ''}>Half (1/2)</option><option value="full-width" ${ef.gridClass === 'full-width' ? 'selected' : ''}>Full width</option></select></div>
+      <div class="form-group"><label style="flex-direction:row;gap:8px;cursor:pointer"><input type="checkbox" id="cf_required" ${ef.required ? 'checked' : ''}> Required</label></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" id="cf_save">${state.settings._editingCF !== undefined ? 'Update' : 'Add'} Field</button>
+      <button class="btn btn-outline btn-sm" id="cf_cancel">Cancel</button>
+    </div>
+  </div>`;
+
+          return `<p class="settings-hint">Add custom fields to the TMP form. Click a field type below to start.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding:16px;background:var(--bg);border-radius:var(--radius);border:2px dashed var(--border)">${palette}</div>
+    ${editForm}
+    <div id="customFieldsList">${list}</div>`;
+        }
+
+        // ===== NEW SETTINGS RENDERERS =====
+        function renderUsers() {
+          const users = state.settings.users || DEFAULT_USERS;
+          const ef =
+            state.settings._editingUser !== undefined
+              ? state.settings.users[state.settings._editingUser] || { username: '', password: '', role: 'viewer' }
+              : { username: '', password: '', role: 'viewer' };
+          const editForm =
+            state.settings._editingUser !== undefined
+              ? `<div style="background:var(--bg);border-radius:var(--radius);padding:20px;margin-bottom:16px;border:1px solid var(--border)">
+    <h4 style="margin-bottom:12px;font-size:.95rem">Edit User</h4>
+    <div class="form-grid" style="max-width:500px">
+      <div class="form-group"><label>Username</label><input type="text" id="eu_username" value="${escHtml(ef.username)}"></div>
+      <div class="form-group"><label>Password</label><input type="text" id="eu_password" value="${escHtml(ef.password)}" placeholder="Leave empty to keep current"></div>
+      <div class="form-group"><label>Role</label><select id="eu_role">${Object.keys(ROLES)
+        .map(
+          (r) => '<option value="' + r + '" ' + (ef.role === r ? 'selected' : '') + '>' + ROLES[r].label + '</option>'
+        )
+        .join('')}</select></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" id="eu_save">Update User</button>
+      <button class="btn btn-outline btn-sm" id="eu_cancel">Cancel</button>
+    </div>
+  </div>`
+              : '';
+          return `<p class="settings-hint">Manage user accounts. Default accounts: admin/admin, planner/planner, inspector/inspector, viewer/viewer.</p>
+    <div style="margin-bottom:12px"><button class="btn btn-sm btn-outline" data-action="add-user">+ Add User</button></div>
+    ${editForm}
+    ${users
+      .map(
+        (u, i) => `
+      <div class="setting-row">
+        <span class="drag-handle">👤</span>
+        <div class="setting-label"><strong>${escHtml(u.username)}</strong> <span style="font-size:.8rem;color:var(--text-secondary)">(${ROLES[u.role] ? ROLES[u.role].label : u.role})</span></div>
+        <div class="setting-actions">
+          <button class="btn btn-sm btn-outline" data-action="edit-user" data-uidx="${i}">✏️</button>
+          <button class="btn btn-sm btn-danger" data-action="del-user" data-uidx="${i}" ${users.length <= 1 ? 'disabled' : ''}>🗑</button>
+        </div>
+      </div>`
+      )
+      .join('')}`;
+        }
+        function renderTransitions() {
+          const statuses = getActiveStatuses();
+          const rules = state.settings.statusRules || {};
+          const allRoles = Object.keys(ROLES);
+          return `<p class="settings-hint">Control which roles can advance TMPs from each status. Check the roles allowed to advance from each status.</p>
+    ${statuses
+      .map((s, i) => {
+        if (i >= statuses.length - 1) return '';
+        const rule = rules[s.id] || { canAdvanceRoles: ['admin', 'planner', 'inspector'] };
+        const checks = allRoles
+          .map(
+            (r) =>
+              '<label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:.85rem;cursor:pointer"><input type="checkbox" class="s-transition-role" data-status="' +
+              s.id +
+              '" data-role="' +
+              r +
+              '" ' +
+              (rule.canAdvanceRoles.includes(r) ? 'checked' : '') +
+              '> ' +
+              ROLES[r].label +
+              '</label>'
+          )
+          .join('');
+        return `<div class="setting-row" style="flex-wrap:wrap"><div class="setting-label" style="width:100%;margin-bottom:8px;font-weight:600">From: <span class="status-badge" style="${getStatusStyle(s.id)}">${escHtml(s.label)}</span> → ${escHtml(statuses[i + 1].label)}</div><div style="width:100%">${checks}</div></div>`;
+      })
+      .join('')}`;
+        }
+        function renderDefaults() {
+          const fields = getAllFormFields();
+          const dv = state.settings.defaultValues || {};
+          return `<p class="settings-hint">Set default values that pre-fill when creating a new TMP request.</p>
+    ${fields
+      .map((f) => {
+        if (f.type === 'checkbox') {
+          const checked = dv[f.key] === 'true' || dv[f.key] === true ? 'checked' : '';
+          return `<div class="setting-row"><div class="setting-label">${escHtml(f.label)}</div><div class="setting-actions"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" class="s-default-check" data-dkey="${f.key}" ${checked}> Pre-checked</label></div></div>`;
+        }
+        const val = f.key.startsWith('custom_') ? dv[f.key] || '' : dv[f.key] || '';
+        return `<div class="setting-row"><div class="setting-label">${escHtml(f.label)}</div><div class="setting-actions"><input class="s-inline s-default-val" data-dkey="${f.key}" value="${escHtml(val)}" style="width:200px" placeholder="${f.type === 'select' ? 'Option value (e.g. medium)' : ''}"></div></div>`;
+      })
+      .join('')}`;
+        }
+        function renderWidgets() {
+          const w = state.settings.dashboardWidgets || DEFAULT_DASHBOARD_WIDGETS;
+          return `<p class="settings-hint">Toggle dashboard widgets on or off.</p>
+    <div class="setting-row"><div class="setting-label">Active TMPs Stat</div><div class="setting-actions"><label class="toggle-switch"><input type="checkbox" class="s-widget-toggle" data-wkey="statActiveTMPs" ${w.statActiveTMPs !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div></div>
+    <div class="setting-row"><div class="setting-label">Pending Approvals Stat</div><div class="setting-actions"><label class="toggle-switch"><input type="checkbox" class="s-widget-toggle" data-wkey="statPendingApprovals" ${w.statPendingApprovals !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div></div>
+    <div class="setting-row"><div class="setting-label">Upcoming Works Stat</div><div class="setting-actions"><label class="toggle-switch"><input type="checkbox" class="s-widget-toggle" data-wkey="statUpcomingWorks" ${w.statUpcomingWorks !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div></div>
+    <div class="setting-row"><div class="setting-label">High Priority Stat</div><div class="setting-actions"><label class="toggle-switch"><input type="checkbox" class="s-widget-toggle" data-wkey="statHighPriority" ${w.statHighPriority !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div></div>
+    <div class="setting-row"><div class="setting-label">Status Distribution Chart</div><div class="setting-actions"><label class="toggle-switch"><input type="checkbox" class="s-widget-toggle" data-wkey="chartStatusDistribution" ${w.chartStatusDistribution !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div></div>`;
+        }
+        function renderDensity() {
+          const d = state.settings.rowDensity || 'comfortable';
+          return `<p class="settings-hint">Choose table row density.</p>
+    <div class="setting-row"><div class="setting-label"><strong>Compact</strong> — tighter rows for more data</div><div class="setting-actions"><input type="radio" name="s-density" class="s-density-radio" value="compact" ${d === 'compact' ? 'checked' : ''}></div></div>
+    <div class="setting-row"><div class="setting-label"><strong>Comfortable</strong> — standard row spacing</div><div class="setting-actions"><input type="radio" name="s-density" class="s-density-radio" value="comfortable" ${d === 'comfortable' ? 'checked' : ''}></div></div>`;
+        }
+        function renderShortcuts() {
+          const sc = state.settings.keyboardShortcuts || DEFAULT_KEYBOARD_SHORTCUTS;
+          return `<p class="settings-hint">Configure keyboard shortcuts. Use standard key notation (e.g. ctrl+n, ctrl+shift+e).</p>
+    ${Object.keys(DEFAULT_KEYBOARD_SHORTCUTS)
+      .map((k) => {
+        const labels = {
+          newRequest: 'New Request',
+          globalSearch: 'Global Search',
+          exportJSON: 'Export JSON',
+          dashboard: 'Navigate: Dashboard',
+          calendar: 'Navigate: Calendar',
+          adminSettings: 'Admin Settings',
+          help: 'Help / Shortcuts',
+        };
+        return `<div class="setting-row"><div class="setting-label">${labels[k] || k}</div><div class="setting-actions"><input class="s-inline s-shortcut-input" data-sckey="${k}" value="${escHtml(sc[k] || '')}" style="width:160px;font-family:monospace;text-align:center"></div></div>`;
+      })
+      .join('')}
+    <p class="settings-hint" style="margin-top:12px">Press <strong>${escHtml(sc.help || '?')}</strong> at any time to view available shortcuts.</p>`;
+        }
+        function renderAutomations() {
+          const a = state.settings.automations || [];
+          const statuses = getActiveStatuses();
+          const statusOpts = statuses
+            .map((s, i) => (i < statuses.length - 1 ? `<option value="${s.id}">${escHtml(s.label)}</option>` : ''))
+            .join('');
+          const ef =
+            state.settings._editingAuto !== undefined
+              ? state.settings.automations[state.settings._editingAuto] || {
+                  fromStatus: '',
+                  toStatus: '',
+                  delayDays: 1,
+                  enabled: true,
+                }
+              : { fromStatus: '', toStatus: '', delayDays: 1, enabled: true };
+          const editForm =
+            state.settings._editingAuto !== undefined
+              ? `<div style="background:var(--bg);border-radius:var(--radius);padding:20px;margin-bottom:16px;border:1px solid var(--border)">
+    <h4 style="margin-bottom:12px;font-size:.95rem">Edit Automation Rule</h4>
+    <div class="form-grid" style="max-width:500px">
+      <div class="form-group"><label>From Status</label><select id="ea_from">${statuses.map((s, i) => (i < statuses.length - 1 ? '<option value="' + s.id + '" ' + (ef.fromStatus === s.id ? 'selected' : '') + '>' + escHtml(s.label) + '</option>' : '')).join('')}</select></div>
+      <div class="form-group"><label>To Status</label><select id="ea_to">${statuses.map((s, i) => (i > 0 ? '<option value="' + s.id + '" ' + (ef.toStatus === s.id ? 'selected' : '') + '>' + escHtml(s.label) + '</option>' : '')).join('')}</select></div>
+      <div class="form-group"><label>Delay (days)</label><input type="number" id="ea_days" value="${ef.delayDays || 1}" min="1" max="365"></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" id="ea_save">Update Rule</button>
+      <button class="btn btn-outline btn-sm" id="ea_cancel">Cancel</button>
+    </div>
+  </div>`
+              : '';
+          return `<p class="settings-hint">Auto-advance rules: when a TMP reaches a status, automatically advance it after N days.</p>
+    <div style="margin-bottom:12px"><button class="btn btn-sm btn-outline" data-action="add-auto">+ Add Automation Rule</button></div>
+    ${editForm}
+    ${
+      a.length
+        ? a
+            .map(
+              (r, i) => `
+      <div class="setting-row">
+        <span class="drag-handle">🤖</span>
+        <div class="setting-label"><strong>${getStatusLabel(r.fromStatus)} → ${getStatusLabel(r.toStatus)}</strong> <span style="font-size:.8rem;color:var(--text-secondary)">${r.delayDays} day${r.delayDays !== 1 ? 's' : ''} delay</span></div>
+        <div class="setting-actions">
+          <label class="toggle-switch"><input type="checkbox" class="s-auto-toggle" data-aidx="${i}" ${r.enabled !== false ? 'checked' : ''}><span class="toggle-slider"></span></label>
+          <button class="btn btn-sm btn-outline" data-action="edit-auto" data-aidx="${i}">✏️</button>
+          <button class="btn btn-sm btn-danger" data-action="del-auto" data-aidx="${i}">🗑</button>
+        </div>
+      </div>`
+            )
+            .join('')
+        : '<p style="text-align:center;padding:20px;color:var(--text-secondary)">No automation rules yet. Add one to auto-advance TMPs after a delay.</p>'
+    }`;
+        }
+        function renderClients() {
+          const clients = state.settings.clients || DEFAULT_CLIENTS;
+          const ef =
+            state.settings._editingClient !== undefined
+              ? state.settings.clients[state.settings._editingClient] || {
+                  name: '',
+                  type: 'government',
+                  contact: '',
+                  phone: '',
+                }
+              : { name: '', type: 'government', contact: '', phone: '' };
+          const editForm =
+            state.settings._editingClient !== undefined
+              ? `<div style="background:var(--bg);border-radius:var(--radius);padding:20px;margin-bottom:16px;border:1px solid var(--border)">
+    <h4 style="margin-bottom:12px;font-size:.95rem">Edit Client</h4>
+    <div class="form-grid" style="max-width:500px">
+      <div class="form-group"><label>Client Name</label><input type="text" id="ec_name" value="${escHtml(ef.name)}"></div>
+      <div class="form-group"><label>Type</label><select id="ec_type"><option value="government" ${ef.type === 'government' ? 'selected' : ''}>Government</option><option value="private" ${ef.type === 'private' ? 'selected' : ''}>Private</option></select></div>
+      <div class="form-group"><label>Contact Email</label><input type="email" id="ec_contact" value="${escHtml(ef.contact || '')}"></div>
+      <div class="form-group"><label>Phone</label><input type="text" id="ec_phone" value="${escHtml(ef.phone || '')}"></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" id="ec_save">Update Client</button>
+      <button class="btn btn-outline btn-sm" id="ec_cancel">Cancel</button>
+    </div>
+  </div>`
+              : '';
+          const gov = clients.filter((c) => c.type === 'government');
+          const prv = clients.filter((c) => c.type === 'private');
+          const renderList = (list, label) =>
+            list
+              .map((c, i) => {
+                const idx = state.settings.clients.indexOf(c);
+                return `<div class="setting-row"><span class="drag-handle">🏢</span><div class="setting-label"><strong>${escHtml(c.name)}</strong> <span style="font-size:.75rem;text-transform:uppercase;padding:1px 6px;border-radius:4px;background:${c.type === 'government' ? 'var(--primary)' : 'var(--purple)'};color:#fff;margin-left:6px">${c.type}</span></div><div class="setting-actions"><button class="btn btn-sm btn-outline" data-action="edit-client" data-cidx="${idx}">✏️</button><button class="btn btn-sm btn-danger" data-action="del-client" data-cidx="${idx}">🗑</button></div></div>`;
+              })
+              .join('');
+          return `<p class="settings-hint">Manage client database. Clients appear in the TMP form dropdown, categorized by Government / Private.</p>
+    <div style="margin-bottom:12px"><button class="btn btn-sm btn-outline" data-action="add-client">+ Add Client</button></div>
+    ${editForm}
+    ${gov.length ? `<h4 style="font-size:.9rem;font-weight:600;margin:12px 0 8px">🏛️ Government (${gov.length})</h4>${renderList(gov, 'Government')}` : ''}
+    ${prv.length ? `<h4 style="font-size:.9rem;font-weight:600;margin:12px 0 8px">🏢 Private (${prv.length})</h4>${renderList(prv, 'Private')}` : ''}
+    ${!clients.length ? '<p style="text-align:center;padding:20px;color:var(--text-secondary)">No clients yet.</p>' : ''}`;
+        }
+
+        function renderExportImport() {
+          return `<p class="settings-hint">Export TMP data as JSON or CSV, or import from a JSON file.</p>
+    <div class="setting-row" style="flex-wrap:wrap">
+      <div class="setting-label" style="font-weight:600">Export All TMPs as JSON</div>
+      <div class="setting-actions"><button class="btn btn-sm btn-outline" data-action="export-json">⬇ Download JSON</button></div>
+    </div>
+    <div class="setting-row" style="flex-wrap:wrap">
+      <div class="setting-label" style="font-weight:600">Export All TMPs as CSV</div>
+      <div class="setting-actions"><button class="btn btn-sm btn-outline" data-action="export-csv">⬇ Download CSV</button></div>
+    </div>
+    <div class="setting-row" style="flex-wrap:wrap">
+      <div class="setting-label" style="font-weight:600">Import TMPs from JSON</div>
+      <div style="margin-top:4px"><input type="file" class="s-import-json" accept=".json"></div>
+    </div>
+    <div class="setting-row" style="flex-wrap:wrap">
+      <div class="setting-label" style="font-weight:600">Bulk Create Sample</div>
+      <div class="setting-actions"><button class="btn btn-sm btn-outline" data-action="bulk-sample">📥 Load 3 Sample TMPs</button></div>
+    </div>`;
+        }
+        function renderBackup() {
+          return `<p class="settings-hint">Backup all application data (TMPs, settings, audit log) to a JSON file, or restore from a previous backup.</p>
+    <div class="setting-row" style="flex-wrap:wrap">
+      <div class="setting-label" style="font-weight:600">Download Full Backup</div>
+      <div class="setting-actions"><button class="btn btn-sm btn-primary" data-action="backup-download">💾 Download Backup</button></div>
+    </div>
+    <div class="setting-row" style="flex-wrap:wrap">
+      <div class="setting-label" style="font-weight:600">Restore from Backup</div>
+      <div style="margin-top:4px"><input type="file" class="s-backup-restore" accept=".json"></div>
+    </div>
+    <p class="settings-hint" style="color:var(--warning)">⚠️ Restoring will replace ALL current data and settings. A confirmation prompt will appear.</p>`;
+        }
+        function renderAuditLog() {
+          const logs = state.auditLog || [];
+          const rows = logs.length
+            ? logs
+                .slice()
+                .reverse()
+                .slice(0, 200)
+                .map(
+                  (l) => `
+    <tr>
+      <td>${formatTimestamp(l.timestamp)}</td>
+      <td><span class="status-badge" style="background:${l.action === 'create' ? 'var(--success)' : l.action === 'update' ? 'var(--primary)' : l.action === 'delete' ? 'var(--danger)' : l.action === 'advance' ? 'var(--warning)' : 'var(--secondary)'};color:#fff;padding:2px 8px;font-size:.7rem">${l.action}</span></td>
+      <td>${escHtml(l.username)}</td>
+      <td>${escHtml(l.tmpNumber || '-')}</td>
+      <td style="font-size:.8rem;color:var(--text-secondary);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(l.details || '')}</td>
+    </tr>`
+                )
+                .join('')
+            : '<tr><td colspan="5" class="empty-state"><p>No audit log entries yet.</p></td></tr>';
+          return `<p class="settings-hint">Audit trail of all TMP actions. Showing last 200 entries (most recent first).</p>
+    <div style="margin-bottom:12px"><button class="btn btn-sm btn-outline" data-action="clear-audit">🗑 Clear Audit Log</button></div>
+    <div class="table-container" style="max-height:400px;overflow-y:auto">
+    <table><thead><tr><th>Timestamp</th><th>Action</th><th>User</th><th>TMP</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        }
+
+        // ===== KEYBOARD SHORTCUT HELP =====
+        function showShortcutHelp(items) {
+          document.getElementById('modalTitle').textContent = 'Keyboard Shortcuts';
+          document.getElementById('modalBody').innerHTML =
+            '<div class="table-container"><table><thead><tr><th style="width:180px">Shortcut</th><th>Action</th></tr></thead><tbody>' +
+            items +
+            '</tbody></table></div>';
+          document.getElementById('modalFooter').innerHTML =
+            '<button class="btn btn-outline" id="modalCancel">Close</button>';
+          document.getElementById('modalOverlay').classList.add('open');
+        }
+
+        // ===== MODAL FORM =====
+        function openFormModal(tmp) {
+          if (!canEdit()) return;
+          editingId = tmp ? tmp.id : null;
+          const isEdit = !!editingId,
+            isAdmin = userRole() === 'admin';
+          document.getElementById('modalTitle').textContent = isEdit ? 'Edit TMP Request' : 'New TMP Request';
+          let d = tmp || {
+            tmpNumber: '',
+            projectName: '',
+            requestDate: todayStr(),
+            clientName: '',
+            location: '',
+            dateOfWorks: '',
+            details: '',
+            assignedTo: '',
+            priority: 'medium',
+            status: 'new',
+            customFields: {},
+          };
+          if (!tmp) {
+            const dv = state.settings.defaultValues || {};
+            Object.keys(dv).forEach((k) => {
+              if (dv[k] !== '' && dv[k] !== undefined && dv[k] !== null) {
+                if (k.startsWith('custom_')) {
+                  if (!d.customFields) d.customFields = {};
+                  d.customFields[k] = dv[k];
+                } else {
+                  d[k] = dv[k];
+                }
+              }
+            });
+          }
+          const fields = getFormFieldsForEdit();
+          const formHtml = fields
+            .map((f) => {
+              const val = f.key.startsWith('custom_')
+                ? (d.customFields && d.customFields[f.key]) || ''
+                : d[f.key] || '';
+              const id = 'f_' + f.key,
+                req = f.required ? 'required' : '',
+                gc = f.gridClass || '';
+              let input = '';
+              if (f.type === 'select') {
+                const opts =
+                  f.options && Array.isArray(f.options)
+                    ? f.options
+                        .map(
+                          (o) => `<option value="${escHtml(o)}" ${val === o ? 'selected' : ''}>${escHtml(o)}</option>`
+                        )
+                        .join('')
+                    : (state.settings.priorities || DEFAULT_PRIORITIES)
+                        .map(
+                          (p) =>
+                            `<option value="${p.id}" ${val === p.id ? 'selected' : ''}>${escHtml(p.label)}</option>`
+                        )
+                        .join('');
+                input = `<select id="${id}">${opts}</select>`;
+              } else if (f.type === 'textarea') {
+                input = `<textarea id="${id}" ${req}>${escHtml(val)}</textarea>`;
+              } else if (f.type === 'date') {
+                input = `<input type="date" id="${id}" value="${escHtml(val)}" ${req}>`;
+              } else if (f.type === 'checkbox') {
+                input = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 0"><input type="checkbox" id="${id}" ${val ? 'checked' : ''}> ${escHtml(f.label)}</label>`;
+              } else if (f.key === 'clientName' && state.settings.clients && state.settings.clients.length) {
+                const clients = state.settings.clients;
+                const gov = clients.filter((c) => c.type === 'government'),
+                  prv = clients.filter((c) => c.type === 'private');
+                const opts = (g) =>
+                  g
+                    .map(
+                      (c) =>
+                        `<option value="${escHtml(c.name)}" ${val === c.name ? 'selected' : ''} style="${c.type === 'government' ? 'color:var(--primary)' : 'color:var(--purple)'}">🏛️ ${escHtml(c.name)}</option>`
+                    )
+                    .join('');
+                const govOpts = gov.length ? `<optgroup label="🏛️ Government">${opts(gov)}</optgroup>` : '';
+                const prvOpts = prv.length ? `<optgroup label="🏢 Private">${opts(prv)}</optgroup>` : '';
+                input = `<select id="${id}"><option value="">-- Select Client --</option>${govOpts}${prvOpts}</select>`;
+              } else {
+                const ph =
+                  f.key === 'tmpNumber'
+                    ? getContent('placeholders.tmpNumber')
+                    : f.key === 'assignedTo'
+                      ? getContent('placeholders.assignedTo')
+                      : '';
+                input = `<input type="${f.type || 'text'}" id="${id}" value="${escHtml(val)}" ${req} placeholder="${ph}">`;
+              }
+              if (f.type === 'checkbox') return input;
+              return `<div class="form-group ${gc}"><label for="${id}">${escHtml(f.label)}${f.required ? '<span style="color:var(--danger)">*</span>' : ''}</label>${input}</div>`;
+            })
+            .join('');
+          const statusField =
+            isEdit && isAdmin
+              ? `<div class="form-group"><label for="f_status">Status</label><select id="f_status">${(state.settings.statuses || DEFAULT_STATUSES).map((s) => `<option value="${s.id}" ${d.status === s.id ? 'selected' : ''}>${escHtml(s.label)}</option>`).join('')}</select></div>`
+              : '';
+          const updatedInfo = isEdit
+            ? `<div class="form-group full-width"><p style="font-size:.8rem;color:var(--text-secondary)">Last updated: ${formatTimestamp(tmp.lastUpdated)}</p></div>`
+            : '';
+          document.getElementById('modalBody').innerHTML =
+            `<form id="tmpForm" autocomplete="off"><div class="form-grid">${formHtml}${statusField}${updatedInfo}</div></form>`;
+          document.getElementById('modalFooter').innerHTML =
+            `<button class="btn btn-outline" id="modalCancel">Cancel</button><button class="btn btn-primary" id="modalSave">${isEdit ? 'Update' : 'Create'} TMP</button>`;
+          document.getElementById('modalOverlay').classList.add('open');
+        }
+
+        function handleFormSubmit() {
+          if (!canEdit()) return;
+          const fields = getFormFieldsForEdit(),
+            data = {};
+          let valid = true;
+          const isAdmin = userRole() === 'admin';
+          fields.forEach((f) => {
+            const el = document.getElementById('f_' + f.key);
+            if (!el) return;
+            if (f.type === 'checkbox') {
+              data[f.key] = el.checked;
+              return;
+            }
+            const val = el.value.trim();
+            data[f.key] = val;
+            if (f.required && !val) valid = false;
+          });
+          const statusEl = document.getElementById('f_status');
+          if (statusEl) data.status = statusEl.value;
+          const customFields = {};
+          Object.keys(data).forEach((k) => {
+            if (k.startsWith('custom_')) {
+              customFields[k] = data[k];
+              delete data[k];
+            }
+          });
+          data.customFields = customFields;
+          if (
+            !isAdmin &&
+            (!valid ||
+              !data.projectName ||
+              !data.clientName ||
+              !data.location ||
+              !data.requestDate ||
+              !data.dateOfWorks)
+          ) {
+            alert('Please fill in all required fields.');
+            return;
+          }
+          if (editingId) updateTmp(editingId, data);
+          else createTmp(data);
+          closeModal();
+          render();
+        }
+
+        function openDetailModal(id) {
+          const t = state.tmps.find((x) => x.id === id);
+          if (!t) return;
+          viewingId = id;
+          document.getElementById('modalTitle').textContent = 'TMP Details — ' + t.tmpNumber;
+          const fields = [
+            { label: 'TMP Number', value: t.tmpNumber },
+            { label: 'Project Name', value: t.projectName },
+            { label: 'Request Date', value: formatDate(t.requestDate) },
+            {
+              label: 'Client',
+              value:
+                t.clientName +
+                (getClientType(t.clientName)
+                  ? ' <span style="font-size:.7rem;text-transform:uppercase;padding:1px 6px;border-radius:4px;background:' +
+                    (getClientType(t.clientName) === 'government' ? 'var(--primary)' : 'var(--purple)') +
+                    ';color:#fff;margin-left:4px">' +
+                    getClientType(t.clientName) +
+                    '</span>'
+                  : ''),
+            },
+            { label: 'Location', value: t.location, full: true },
+            { label: 'Date of Works', value: formatDate(t.dateOfWorks) },
+            { label: 'Assigned To', value: t.assignedTo || '\u2014' },
+            {
+              label: 'Priority',
+              value: `<span class="status-badge" style="${getPriorityStyle(t.priority)}">${escHtml(getPriorityLabel(t.priority))}</span>`,
+            },
+            { label: 'Status', value: renderStatusWithScheduled(t) },
+            { label: 'Details', value: t.details || '\u2014', full: true },
+            { label: 'Last Updated', value: formatTimestamp(t.lastUpdated), full: true },
+          ];
+          if (t.customFields) {
+            (state.settings.customFields || []).forEach((f) => {
+              const v = t.customFields[f.key];
+              if (v !== undefined && v !== '' && f.enabled !== false)
+                fields.push({
+                  label: f.label,
+                  value: f.type === 'checkbox' ? (v ? 'Yes' : 'No') : escHtml(String(v)),
+                  full: false,
+                });
+            });
+          }
+          const items = fields
+            .map(
+              (f) =>
+                `<div class="detail-item ${f.full ? 'full-width' : ''}"><div class="detail-label">${f.label}</div><div class="detail-value">${f.value}</div></div>`
+            )
+            .join('');
+          document.getElementById('modalBody').innerHTML = `<div class="detail-grid">${items}</div>`;
+          const btns = [`<button class="btn btn-outline" id="modalCancel">Close</button>`];
+          if (canEdit())
+            btns.push(`<button class="btn btn-outline" data-action="edit" data-id="${t.id}">✏️ Edit</button>`);
+          const activeStatuses = getActiveStatuses(),
+            curIdx = activeStatuses.findIndex((s) => s.id === t.status);
+          if (canAdvanceStatus(t.status) && curIdx >= 0 && curIdx < activeStatuses.length - 1)
+            btns.push(
+              `<button class="btn btn-primary" data-action="advance" data-id="${t.id}">→ Move to ${escHtml(activeStatuses[curIdx + 1].label)}</button>`
+            );
+          document.getElementById('modalFooter').innerHTML = btns.join('');
+          document.getElementById('modalOverlay').classList.add('open');
+        }
+
+        function closeModal() {
+          document.getElementById('modalOverlay').classList.remove('open');
+          editingId = null;
+          viewingId = null;
+        }
+
+        // ===== EVENTS =====
+        function setupEvents() {
+          document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const n = document.getElementById('loginName').value.trim(),
+              pw = document.getElementById('loginPassword').value;
+            if (!n || !pw) return;
+            document.getElementById('roleDesc').innerHTML = 'Signing in...';
+            try {
+              const res = await apiPost('/api/auth/login', { username: n, password: pw });
+              if (res && res.token) {
+                localStorage.setItem(TOKEN_KEY, res.token);
+                apiAvailable = true;
+                handleLogin(res.user.username, res.user.role);
+                return;
+              }
+            } catch (_) {}
+            const users = state.settings.users || DEFAULT_USERS;
+            const user = users.find((u) => u.username === n && u.password === pw);
+            if (user) {
+              apiAvailable = false;
+              handleLogin(user.username, user.role);
+            } else {
+              document.getElementById('roleDesc').innerHTML =
+                '<strong style="color:var(--danger)">Invalid username or password.</strong>';
+            }
+          });
+          document.getElementById('userBadge').addEventListener('click', handleLogout);
+          document.getElementById('sidebarNav').addEventListener('click', (e) => {
+            const l = e.target.closest('[data-view]');
+            if (l) {
+              navigate(l.dataset.view);
+              closeSidebar();
+            }
+          });
+          function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('open');
+          }
+          document.getElementById('sidebarToggle').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
+          });
+          document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+          let searchTimer;
+          document.getElementById('globalSearch').addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+              state.searchQuery = document.getElementById('globalSearch').value;
+              render();
+            }, 250);
+          });
+          document.getElementById('newRequestBtn').addEventListener('click', () => {
+            if (canEdit()) openFormModal(null);
+          });
+          document.getElementById('adminBtn').addEventListener('click', () => {
+            if (!canManageSettings()) return;
+            if (state.currentView === 'settings') navigate('dashboard');
+            else navigate('settings');
+          });
+          document.getElementById('modalClose').addEventListener('click', closeModal);
+          document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('modalOverlay')) closeModal();
+          });
+
+          document.addEventListener('click', (e) => {
+            const t = e.target.closest('[data-action]');
+            if (!t) return;
+            const a = t.dataset.action,
+              id = t.dataset.id,
+              idx = t.dataset.idx,
+              sidx = t.dataset.sidx,
+              pidx = t.dataset.pidx,
+              cfi = t.dataset.cfi,
+              uidx = t.dataset.uidx,
+              aidx = t.dataset.aidx,
+              cidx = t.dataset.cidx;
+            switch (a) {
+              case 'new-request':
+                if (canEdit()) openFormModal(null);
+                break;
+              case 'view':
+                openDetailModal(id);
+                break;
+              case 'edit':
+                if (!canEdit()) break;
+                closeModal();
+                const et = state.tmps.find((x) => x.id === id);
+                if (et) openFormModal(et);
+                break;
+              case 'delete':
+                if (!canDelete()) break;
+                if (confirm('Delete this TMP?')) {
+                  deleteTmp(id);
+                  render();
+                }
+                break;
+              case 'advance':
+                {
+                  if (!canAdvance()) break;
+                  const rec = state.tmps.find((x) => x.id === id);
+                  if (rec && !canAdvanceStatus(rec.status)) {
+                    alert('Your role does not have permission to advance from this status.');
+                    break;
+                  }
+                  if (rec) {
+                    const as = getActiveStatuses(),
+                      ci = as.findIndex((s) => s.id === rec.status);
+                    if (
+                      ci >= 0 &&
+                      ci < as.length - 1 &&
+                      confirm('Move "' + rec.tmpNumber + '" to "' + as[ci + 1].label + '"?')
+                    ) {
+                      advanceStatus(id);
+                      render();
+                      if (document.getElementById('modalOverlay').classList.contains('open') && viewingId === id)
+                        openDetailModal(id);
+                    }
+                  }
+                }
+                break;
+              case 'cal-prev':
+                state.calendarDate.setMonth(state.calendarDate.getMonth() - 1);
+                render();
+                break;
+              case 'cal-next':
+                state.calendarDate.setMonth(state.calendarDate.getMonth() + 1);
+                render();
+                break;
+              case 'cal-today':
+                state.calendarDate = new Date();
+                render();
+                break;
+              // Settings: add menu item
+              case 'add-menu-item': {
+                state.settings.menuItems.push({
+                  id: 'custom-' + Date.now(),
+                  label: 'New Item',
+                  icon: '📄',
+                  enabled: true,
+                  badge: false,
+                });
+                persistSettings();
+                render();
+                break;
+              }
+              case 'del-menu-item':
+                {
+                  const i = parseInt(idx, 10);
+                  if (!isNaN(i) && confirm('Delete this menu item?')) {
+                    state.settings.menuItems.splice(i, 1);
+                    persistSettings();
+                    render();
+                  }
+                }
+                break;
+              case 'move-menu-up':
+                {
+                  const i = parseInt(idx, 10);
+                  if (!isNaN(i) && i > 0) {
+                    const item = state.settings.menuItems.splice(i, 1)[0];
+                    state.settings.menuItems.splice(i - 1, 0, item);
+                    persistSettings();
+                    render();
+                  }
+                }
+                break;
+              case 'move-menu-down':
+                {
+                  const i = parseInt(idx, 10);
+                  if (!isNaN(i) && i < state.settings.menuItems.length - 1) {
+                    const item = state.settings.menuItems.splice(i, 1)[0];
+                    state.settings.menuItems.splice(i + 1, 0, item);
+                    persistSettings();
+                    render();
+                  }
+                }
+                break;
+              // Settings: add status
+              case 'add-status': {
+                const sid = 'status-' + Date.now();
+                state.settings.statuses.push({
+                  id: sid,
+                  label: 'New Status',
+                  bg: '#dbeafe',
+                  color: '#1e40af',
+                  enabled: true,
+                });
+                persistSettings();
+                render();
+                break;
+              }
+              case 'del-status':
+                {
+                  const i = parseInt(sidx, 10);
+                  if (!isNaN(i) && confirm('Delete this status?')) {
+                    state.settings.statuses.splice(i, 1);
+                    persistSettings();
+                    render();
+                  }
+                }
+                break;
+              // Settings: add priority
+              case 'add-priority': {
+                state.settings.priorities.push({
+                  id: 'pri-' + Date.now(),
+                  label: 'New Priority',
+                  bg: '#e2e8f0',
+                  color: '#475569',
+                });
+                persistSettings();
+                render();
+                break;
+              }
+              case 'del-priority':
+                {
+                  const i = parseInt(pidx, 10);
+                  if (!isNaN(i) && confirm('Delete this priority?')) {
+                    state.settings.priorities.splice(i, 1);
+                    persistSettings();
+                    render();
+                  }
+                }
+                break;
+              // Settings: custom fields
+              case 'edit-cfield':
+                {
+                  const i = parseInt(cfi, 10);
+                  if (!isNaN(i) && state.settings.customFields[i]) {
+                    state.settings._editingCF = i;
+                    render();
+                  }
+                }
+                break;
+              case 'del-cfield':
+                {
+                  const i = parseInt(cfi, 10);
+                  if (!isNaN(i) && confirm('Delete this custom field?')) {
+                    state.settings.customFields.splice(i, 1);
+                    state.settings._editingCF = undefined;
+                    persistSettings();
+                    render();
+                  }
+                }
+                break;
+              // Theme reset
+              case 'reset-theme': {
+                if (confirm('Reset theme to defaults?')) {
+                  state.settings.theme = JSON.parse(JSON.stringify(DEFAULT_THEME));
+                  applyTheme(state.settings.theme);
+                  applyBrandImages();
+                  persistSettings();
+                  render();
+                }
+                break;
+              }
+              case 'remove-logo': {
+                state.settings.theme.logo = '';
+                applyBrandImages();
+                persistSettings();
+                render();
+                break;
+              }
+              case 'remove-banner': {
+                state.settings.theme.banner = '';
+                applyBrandImages();
+                persistSettings();
+                render();
+                break;
+              }
+              case 'remove-favicon': {
+                state.settings.theme.favicon = '';
+                applyBrandImages();
+                persistSettings();
+                render();
+                break;
+              }
+              case 'remove-sidebar-bg': {
+                state.settings.theme.sidebarBgImg = '';
+                applyBrandImages();
+                persistSettings();
+                render();
+                break;
+              }
+              // Users
+              case 'add-user': {
+                const users = state.settings.users;
+                users.push({ username: 'newuser', password: 'password', role: 'viewer' });
+                persistSettings();
+                render();
+                break;
+              }
+              case 'edit-user': {
+                const i = parseInt(uidx, 10);
+                if (!isNaN(i) && state.settings.users[i]) {
+                  state.settings._editingUser = i;
+                  render();
+                }
+                break;
+              }
+              case 'del-user': {
+                const i = parseInt(uidx, 10);
+                if (
+                  !isNaN(i) &&
+                  state.settings.users.length > 1 &&
+                  confirm('Delete user "' + state.settings.users[i].username + '"?')
+                ) {
+                  state.settings.users.splice(i, 1);
+                  state.settings._editingUser = undefined;
+                  persistSettings();
+                  render();
+                }
+                break;
+              }
+              // Export / Import / Backup
+              case 'export-json':
+                exportJSON();
+                break;
+              case 'export-csv':
+                exportCSV();
+                break;
+              case 'backup-download':
+                backupAll();
+                break;
+              case 'clear-audit': {
+                if (confirm('Clear all audit log entries?')) {
+                  state.auditLog = [];
+                  persistAuditLog();
+                  render();
+                }
+                break;
+              }
+              case 'bulk-sample':
+                bulkSample();
+                break;
+              // Automations
+              case 'add-auto': {
+                state.settings.automations.push({
+                  fromStatus: (getActiveStatuses()[0] || {}).id,
+                  toStatus: (getActiveStatuses()[1] || {}).id,
+                  delayDays: 3,
+                  enabled: true,
+                });
+                state.settings._editingAuto = state.settings.automations.length - 1;
+                persistSettings();
+                render();
+                break;
+              }
+              case 'edit-auto': {
+                const i = parseInt(aidx, 10);
+                if (!isNaN(i) && state.settings.automations[i]) {
+                  state.settings._editingAuto = i;
+                  render();
+                }
+                break;
+              }
+              case 'del-auto': {
+                const i = parseInt(aidx, 10);
+                if (!isNaN(i) && confirm('Delete this automation rule?')) {
+                  state.settings.automations.splice(i, 1);
+                  state.settings._editingAuto = undefined;
+                  persistSettings();
+                  render();
+                }
+                break;
+              }
+              // Clients
+              case 'add-client': {
+                state.settings.clients.push({
+                  id: 'client-' + Date.now(),
+                  name: 'New Client',
+                  type: 'private',
+                  contact: '',
+                  phone: '',
+                });
+                state.settings._editingClient = state.settings.clients.length - 1;
+                persistSettings();
+                render();
+                break;
+              }
+              case 'edit-client': {
+                const i = parseInt(cidx, 10);
+                if (!isNaN(i) && state.settings.clients[i]) {
+                  state.settings._editingClient = i;
+                  render();
+                }
+                break;
+              }
+              case 'del-client': {
+                const i = parseInt(cidx, 10);
+                if (!isNaN(i) && confirm('Delete this client?')) {
+                  state.settings.clients.splice(i, 1);
+                  state.settings._editingClient = undefined;
+                  persistSettings();
+                  render();
+                }
+                break;
+              }
+            }
+          });
+
+          // Settings tab switching
+          document.getElementById('contentArea').addEventListener('click', (e) => {
+            const tab = e.target.closest('[data-stab]');
+            if (tab) {
+              settingsTab = tab.dataset.stab;
+              render();
+            }
+          });
+
+          // Settings changes (delegated)
+          document.getElementById('contentArea').addEventListener('change', (e) => {
+            const el = e.target;
+            // General
+            if (el.id === 's-appName') {
+              state.settings.content.appName = el.value;
+              persistSettings();
+              render();
+              return;
+            }
+            if (el.id === 's-appTagline') {
+              state.settings.content.appTagline = el.value;
+              persistSettings();
+              render();
+              return;
+            }
+            // Menu
+            if (el.classList.contains('s-menu-label')) {
+              const i = parseInt(el.dataset.idx, 10);
+              if (!isNaN(i)) {
+                state.settings.menuItems[i].label = el.value;
+                persistSettings();
+                renderSidebar();
+              }
+            }
+            if (el.classList.contains('s-menu-icon')) {
+              const i = parseInt(el.dataset.idx, 10);
+              if (!isNaN(i)) {
+                state.settings.menuItems[i].icon = el.value;
+                persistSettings();
+                renderSidebar();
+              }
+            }
+            if (el.classList.contains('s-menu-toggle')) {
+              const i = parseInt(el.dataset.idx, 10);
+              if (!isNaN(i)) {
+                state.settings.menuItems[i].enabled = el.checked;
+                persistSettings();
+                renderSidebar();
+                render();
+              }
+            }
+            // Statuses
+            if (el.classList.contains('s-status-label')) {
+              const i = parseInt(el.dataset.sidx, 10);
+              if (!isNaN(i)) {
+                state.settings.statuses[i].label = el.value;
+                persistSettings();
+                document.getElementById('statusPreview' + i).textContent = el.value;
+                render();
+              }
+            }
+            if (el.classList.contains('s-status-bg')) {
+              const i = parseInt(el.dataset.sidx, 10);
+              if (!isNaN(i)) {
+                state.settings.statuses[i].bg = el.value;
+                persistSettings();
+                document.getElementById('statusPreview' + i).style.background = el.value;
+              }
+            }
+            if (el.classList.contains('s-status-color')) {
+              const i = parseInt(el.dataset.sidx, 10);
+              if (!isNaN(i)) {
+                state.settings.statuses[i].color = el.value;
+                persistSettings();
+                document.getElementById('statusPreview' + i).style.color = el.value;
+              }
+            }
+            if (el.classList.contains('s-status-toggle')) {
+              const i = parseInt(el.dataset.sidx, 10);
+              if (!isNaN(i)) {
+                state.settings.statuses[i].enabled = el.checked;
+                persistSettings();
+                render();
+              }
+            }
+            // Priorities
+            if (el.classList.contains('s-priority-label')) {
+              const i = parseInt(el.dataset.pidx, 10);
+              if (!isNaN(i)) {
+                state.settings.priorities[i].label = el.value;
+                persistSettings();
+                document.getElementById('priorityPreview' + i).textContent = el.value;
+              }
+            }
+            if (el.classList.contains('s-priority-bg')) {
+              const i = parseInt(el.dataset.pidx, 10);
+              if (!isNaN(i)) {
+                state.settings.priorities[i].bg = el.value;
+                persistSettings();
+                document.getElementById('priorityPreview' + i).style.background = el.value;
+              }
+            }
+            if (el.classList.contains('s-priority-color')) {
+              const i = parseInt(el.dataset.pidx, 10);
+              if (!isNaN(i)) {
+                state.settings.priorities[i].color = el.value;
+                persistSettings();
+                document.getElementById('priorityPreview' + i).style.color = el.value;
+              }
+            }
+            // Content
+            if (el.classList.contains('s-content-title')) {
+              const v = el.dataset.view;
+              if (v) {
+                state.settings.content.viewTitles[v] = el.value;
+                persistSettings();
+                document.getElementById('viewTitle').textContent = getContent('viewTitles.' + state.currentView);
+              }
+            }
+            if (el.classList.contains('s-content-ph')) {
+              const k = el.dataset.key;
+              if (k) {
+                if (!state.settings.content.placeholders) state.settings.content.placeholders = {};
+                state.settings.content.placeholders[k] = el.value;
+                persistSettings();
+                document.getElementById('globalSearch').placeholder = getContent('placeholders.search');
+              }
+            }
+            if (el.classList.contains('s-content-label')) {
+              const k = el.dataset.key;
+              if (k) {
+                if (!state.settings.content.labels) state.settings.content.labels = {};
+                state.settings.content.labels[k] = el.value;
+                persistSettings();
+              }
+            }
+            // Theme
+            if (el.classList.contains('s-theme-color')) {
+              const k = el.dataset.key;
+              if (k) {
+                state.settings.theme[k] = el.value;
+                applyTheme(state.settings.theme);
+                persistSettings();
+              }
+            }
+            if (el.classList.contains('s-theme-hex')) {
+              const k = el.dataset.key;
+              if (k && el.value.match(/^#[0-9a-f]{6}$/i)) {
+                state.settings.theme[k] = el.value;
+                const colorInput = document.querySelector(`.s-theme-color[data-key="${k}"]`);
+                if (colorInput) colorInput.value = el.value;
+                applyTheme(state.settings.theme);
+                persistSettings();
+              }
+            }
+            if (el.classList.contains('s-theme-radius')) {
+              state.settings.theme.radius = el.value;
+              applyTheme(state.settings.theme);
+              persistSettings();
+            }
+            if (el.classList.contains('s-theme-font')) {
+              state.settings.theme.font = el.value;
+              applyTheme(state.settings.theme);
+              persistSettings();
+            }
+            if (el.classList.contains('s-theme-range')) {
+              const k = el.dataset.key;
+              if (k) {
+                state.settings.theme[k] = el.value;
+                const sv = el.parentElement.querySelector('.s-range-val');
+                if (sv) sv.textContent = el.value;
+                applyTheme(state.settings.theme);
+                persistSettings();
+              }
+            }
+            // Image upload
+            if (el.classList.contains('s-image-upload') && el.files && el.files[0]) {
+              const imgKey = el.dataset.imgkey;
+              if (imgKey) {
+                const reader = new FileReader();
+                reader.onload = function (ev) {
+                  state.settings.theme[imgKey] = ev.target.result;
+                  applyTheme(state.settings.theme);
+                  applyBrandImages();
+                  persistSettings();
+                  render();
+                };
+                reader.readAsDataURL(el.files[0]);
+              }
+            }
+            // Columns
+            if (el.classList.contains('s-col-view-select')) {
+              state.settings._colStatus = el.value;
+              render();
+            }
+            if (el.classList.contains('s-col-toggle')) {
+              const s = el.dataset.status,
+                i = parseInt(el.dataset.colidx, 10);
+              if (s && !isNaN(i) && state.settings.tableColumns[s] && state.settings.tableColumns[s][i]) {
+                state.settings.tableColumns[s][i].enabled = el.checked;
+                persistSettings();
+              }
+            }
+            // Forms
+            if (el.classList.contains('s-field-required')) {
+              const i = parseInt(el.dataset.fldidx, 10);
+              if (!isNaN(i) && state.settings.formFields[i]) {
+                state.settings.formFields[i].required = el.checked;
+                persistSettings();
+              }
+            }
+            if (el.classList.contains('s-field-toggle')) {
+              const i = parseInt(el.dataset.fldidx, 10);
+              if (!isNaN(i) && state.settings.formFields[i]) {
+                state.settings.formFields[i].enabled = el.checked;
+                persistSettings();
+              }
+            }
+            if (el.classList.contains('s-cfield-toggle')) {
+              const i = parseInt(el.dataset.cfi, 10);
+              if (!isNaN(i) && state.settings.customFields[i]) {
+                state.settings.customFields[i].enabled = el.checked;
+                persistSettings();
+              }
+            }
+            if (el.id === 'cf_type') {
+              const og = document.getElementById('cf_options_group');
+              if (og) og.style.display = el.value === 'select' ? 'flex' : 'none';
+            }
+            // Transitions
+            if (el.classList.contains('s-transition-role')) {
+              const status = el.dataset.status,
+                role = el.dataset.role;
+              if (status && role) {
+                if (!state.settings.statusRules) state.settings.statusRules = {};
+                if (!state.settings.statusRules[status])
+                  state.settings.statusRules[status] = { canAdvanceRoles: ['admin', 'planner', 'inspector'] };
+                const rule = state.settings.statusRules[status];
+                if (el.checked) {
+                  if (!rule.canAdvanceRoles.includes(role)) rule.canAdvanceRoles.push(role);
+                } else {
+                  rule.canAdvanceRoles = rule.canAdvanceRoles.filter((r) => r !== role);
+                }
+                persistSettings();
+              }
+            }
+            // Defaults
+            if (el.classList.contains('s-default-val')) {
+              const k = el.dataset.dkey;
+              if (k) {
+                if (!state.settings.defaultValues) state.settings.defaultValues = {};
+                state.settings.defaultValues[k] = el.value;
+                persistSettings();
+              }
+            }
+            if (el.classList.contains('s-default-check')) {
+              const k = el.dataset.dkey;
+              if (k) {
+                if (!state.settings.defaultValues) state.settings.defaultValues = {};
+                state.settings.defaultValues[k] = el.checked ? 'true' : '';
+                persistSettings();
+              }
+            }
+            // Widgets
+            if (el.classList.contains('s-widget-toggle')) {
+              const k = el.dataset.wkey;
+              if (k) {
+                if (!state.settings.dashboardWidgets) state.settings.dashboardWidgets = {};
+                state.settings.dashboardWidgets[k] = el.checked;
+                persistSettings();
+              }
+            }
+            // Density
+            if (el.classList.contains('s-density-radio') && el.checked) {
+              state.settings.rowDensity = el.value;
+              persistSettings();
+              render();
+            }
+            // Shortcuts
+            if (el.classList.contains('s-shortcut-input')) {
+              const k = el.dataset.sckey;
+              if (k) {
+                if (!state.settings.keyboardShortcuts) state.settings.keyboardShortcuts = {};
+                state.settings.keyboardShortcuts[k] = el.value;
+                persistSettings();
+              }
+            }
+            if (el.classList.contains('s-auto-toggle')) {
+              const i = parseInt(el.dataset.aidx, 10);
+              if (!isNaN(i) && state.settings.automations[i]) {
+                state.settings.automations[i].enabled = el.checked;
+                persistSettings();
+              }
+            }
+            // Import JSON file
+            if (el.classList.contains('s-import-json') && el.files && el.files[0]) {
+              const reader = new FileReader();
+              reader.onload = function (ev) {
+                importJSON(ev.target.result);
+                el.value = '';
+              };
+              reader.readAsText(el.files[0]);
+            }
+            // Restore backup file
+            if (el.classList.contains('s-backup-restore') && el.files && el.files[0]) {
+              const reader = new FileReader();
+              reader.onload = function (ev) {
+                restoreAll(ev.target.result);
+                el.value = '';
+              };
+              reader.readAsText(el.files[0]);
+            }
+          });
+
+          // Custom field save/cancel + palette
+          document.getElementById('contentArea').addEventListener('click', (e) => {
+            if (e.target.id === 'cf_save') {
+              const label = document.getElementById('cf_label').value.trim(),
+                type = document.getElementById('cf_type').value,
+                rawOptions = document.getElementById('cf_options') ? document.getElementById('cf_options').value : '',
+                gridClass = document.getElementById('cf_grid') ? document.getElementById('cf_grid').value : '',
+                required = document.getElementById('cf_required')
+                  ? document.getElementById('cf_required').checked
+                  : false;
+              if (!label) {
+                alert('Field label required.');
+                return;
+              }
+              const options =
+                type === 'select'
+                  ? rawOptions
+                      .split(',')
+                      .map((o) => o.trim())
+                      .filter(Boolean)
+                  : undefined;
+              const key =
+                'custom_' +
+                label
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, '_')
+                  .replace(/^_|_$/g, '');
+              const field = { key, label, type, required, options, gridClass, enabled: true };
+              if (state.settings._editingCF !== undefined) {
+                const orig = state.settings.customFields[state.settings._editingCF];
+                field.key = orig.key;
+                state.settings.customFields[state.settings._editingCF] = field;
+              } else {
+                state.settings.customFields.push(field);
+              }
+              state.settings._editingCF = undefined;
+              persistSettings();
+              render();
+            }
+            if (e.target.id === 'cf_cancel') {
+              state.settings._editingCF = undefined;
+              render();
+            }
+            const palette = e.target.closest('[data-palette]');
+            if (palette) {
+              state.settings._editingCF = undefined;
+              render();
+              setTimeout(() => {
+                const te = document.getElementById('cf_type'),
+                  og = document.getElementById('cf_options_group');
+                if (te) {
+                  te.value = palette.dataset.palette;
+                  if (og) og.style.display = palette.dataset.palette === 'select' ? 'flex' : 'none';
+                }
+              }, 50);
+            }
+            // User edit save/cancel
+            if (e.target.id === 'eu_save') {
+              const i = state.settings._editingUser;
+              if (i === undefined || !state.settings.users[i]) return;
+              const username = document.getElementById('eu_username').value.trim(),
+                password = document.getElementById('eu_password').value,
+                role = document.getElementById('eu_role').value;
+              if (!username) {
+                alert('Username required.');
+                return;
+              }
+              if (password) state.settings.users[i].password = password;
+              state.settings.users[i].username = username;
+              state.settings.users[i].role = role;
+              state.settings._editingUser = undefined;
+              persistSettings();
+              render();
+            }
+            if (e.target.id === 'eu_cancel') {
+              state.settings._editingUser = undefined;
+              render();
+            }
+            // Automation save/cancel
+            if (e.target.id === 'ea_save') {
+              const i = state.settings._editingAuto;
+              if (i === undefined || !state.settings.automations[i]) return;
+              state.settings.automations[i].fromStatus = document.getElementById('ea_from').value;
+              state.settings.automations[i].toStatus = document.getElementById('ea_to').value;
+              state.settings.automations[i].delayDays = parseInt(document.getElementById('ea_days').value, 10) || 1;
+              state.settings._editingAuto = undefined;
+              persistSettings();
+              render();
+            }
+            if (e.target.id === 'ea_cancel') {
+              state.settings._editingAuto = undefined;
+              render();
+            }
+            // Client save/cancel
+            if (e.target.id === 'ec_save') {
+              const i = state.settings._editingClient;
+              if (i === undefined || !state.settings.clients[i]) return;
+              const name = document.getElementById('ec_name').value.trim();
+              if (!name) {
+                alert('Client name required.');
+                return;
+              }
+              state.settings.clients[i].name = name;
+              state.settings.clients[i].type = document.getElementById('ec_type').value;
+              state.settings.clients[i].contact = document.getElementById('ec_contact').value.trim();
+              state.settings.clients[i].phone = document.getElementById('ec_phone').value.trim();
+              state.settings._editingClient = undefined;
+              persistSettings();
+              render();
+            }
+            if (e.target.id === 'ec_cancel') {
+              state.settings._editingClient = undefined;
+              render();
+            }
+          });
+
+          document.getElementById('modalFooter').addEventListener('click', (e) => {
+            const el = e.target.closest('button,[data-action]');
+            if (!el) return;
+            if (el.id === 'modalCancel') {
+              closeModal();
+              e.stopPropagation();
+              return;
+            }
+            if (el.id === 'modalSave') {
+              handleFormSubmit();
+              e.stopPropagation();
+              return;
+            }
+            const act = el.dataset.action;
+            if (act === 'edit') {
+              if (!canEdit()) return;
+              const t = state.tmps.find((x) => x.id === el.dataset.id);
+              if (t) {
+                closeModal();
+                openFormModal(t);
+              }
+              e.stopPropagation();
+            }
+            if (act === 'advance') {
+              if (!canAdvance()) return;
+              const rec = state.tmps.find((x) => x.id === el.dataset.id);
+              if (rec && !canAdvanceStatus(rec.status)) {
+                alert('Your role does not have permission to advance from this status.');
+                e.stopPropagation();
+                return;
+              }
+              if (rec) {
+                const as = getActiveStatuses(),
+                  ci = as.findIndex((s) => s.id === rec.status);
+                if (
+                  ci >= 0 &&
+                  ci < as.length - 1 &&
+                  confirm('Move "' + rec.tmpNumber + '" to "' + as[ci + 1].label + '"?')
+                ) {
+                  advanceStatus(el.dataset.id);
+                  render();
+                  if (viewingId === el.dataset.id) openDetailModal(el.dataset.id);
+                  else closeModal();
+                }
+              }
+              e.stopPropagation();
+            }
+          });
+
+          // Drag-and-drop reordering for menu items
+          document.getElementById('contentArea').addEventListener('dragstart', (e) => {
+            const row = e.target.closest('.setting-row[draggable]');
+            if (row) {
+              row.classList.add('dragging');
+              e.dataTransfer.setData('text/plain', row.dataset.idx);
+            }
+          });
+          document.getElementById('contentArea').addEventListener('dragover', (e) => {
+            const row = e.target.closest('.setting-row[draggable]');
+            if (row) {
+              e.preventDefault();
+              row.classList.add('drag-over');
+            }
+          });
+          document.getElementById('contentArea').addEventListener('dragleave', (e) => {
+            const row = e.target.closest('.setting-row[draggable]');
+            if (row) row.classList.remove('drag-over');
+          });
+          document.getElementById('contentArea').addEventListener('drop', (e) => {
+            e.preventDefault();
+            const target = e.target.closest('.setting-row[draggable]');
+            if (!target) return;
+            target.classList.remove('drag-over');
+            const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10),
+              toIdx = parseInt(target.dataset.idx, 10);
+            if (!isNaN(fromIdx) && !isNaN(toIdx) && fromIdx !== toIdx) {
+              const items = state.settings.menuItems;
+              const item = items.splice(fromIdx, 1)[0];
+              items.splice(toIdx, 0, item);
+              persistSettings();
+              render();
+            }
+          });
+          document.getElementById('contentArea').addEventListener('dragend', (e) => {
+            document
+              .querySelectorAll('.setting-row.dragging,.setting-row.drag-over')
+              .forEach((el) => el.classList.remove('dragging', 'drag-over'));
+          });
+
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+          });
+
+          // Keyboard shortcuts
+          document.addEventListener('keydown', (e) => {
+            const sc = state.settings.keyboardShortcuts || DEFAULT_KEYBOARD_SHORTCUTS;
+            const combo =
+              (e.ctrlKey ? 'ctrl+' : '') +
+              (e.shiftKey ? 'shift+' : '') +
+              (e.altKey ? 'alt+' : '') +
+              e.key.toLowerCase();
+            // Help shortcut
+            if (
+              e.key === sc.help ||
+              (e.key === '?' && !e.ctrlKey && !e.altKey && !e.metaKey) ||
+              (e.key === '/' && e.ctrlKey)
+            ) {
+              e.preventDefault();
+              const helpItems = Object.keys(DEFAULT_KEYBOARD_SHORTCUTS)
+                .map((k) => {
+                  const labels = {
+                    newRequest: 'New TMP Request',
+                    globalSearch: 'Global Search',
+                    exportJSON: 'Export JSON to file',
+                    dashboard: 'Go to Dashboard',
+                    calendar: 'Go to Calendar',
+                    adminSettings: 'Open Admin Settings',
+                    help: 'Show this help',
+                  };
+                  return (
+                    '<tr><td style="font-family:monospace;font-weight:600">' +
+                    escHtml(sc[k] || DEFAULT_KEYBOARD_SHORTCUTS[k]) +
+                    '</td><td>' +
+                    labels[k] +
+                    '</td></tr>'
+                  );
+                })
+                .join('');
+              showShortcutHelp(helpItems);
+              return;
+            }
+            // Check each shortcut
+            Object.keys(sc).forEach((k) => {
+              if (k === 'help') return;
+              const s = sc[k] || DEFAULT_KEYBOARD_SHORTCUTS[k];
+              if (combo === s.toLowerCase()) {
+                e.preventDefault();
+                switch (k) {
+                  case 'newRequest':
+                    if (canEdit()) openFormModal(null);
+                    break;
+                  case 'globalSearch':
+                    document.getElementById('globalSearch').focus();
+                    break;
+                  case 'exportJSON':
+                    exportJSON();
+                    break;
+                  case 'dashboard':
+                    navigate('dashboard');
+                    break;
+                  case 'calendar':
+                    navigate('calendar');
+                    break;
+                  case 'adminSettings':
+                    if (canManageSettings()) {
+                      if (state.currentView === 'settings') navigate('dashboard');
+                      else navigate('settings');
+                    }
+                    break;
+                }
+              }
+            });
+          });
+        }
+
+        async function init() {
+          await Promise.all([loadData(), loadSettings(), loadAuditLog()]);
+          loadUser();
+          const origNavigate = navigate;
+          const hashMap = {
+            '#dashboard': 'dashboard',
+            '#new': 'new',
+            '#in-progress': 'in-progress',
+            '#permits-lga': 'permits-lga',
+            '#approvals': 'approvals',
+            '#completed': 'completed',
+            '#calendar': 'calendar',
+            '#settings': 'settings',
+          };
+          const reverseMap = {
+            dashboard: '#dashboard',
+            new: '#new',
+            'in-progress': '#in-progress',
+            'permits-lga': '#permits-lga',
+            approvals: '#approvals',
+            completed: '#completed',
+            calendar: '#calendar',
+            settings: '#settings',
+          };
+          navigate = function (v) {
+            if (v === 'settings' && !canManageSettings()) v = 'dashboard';
+            const h = reverseMap[v];
+            if (h && window.location.hash !== h) history.pushState(null, '', h);
+            origNavigate(v);
+          };
+          window.addEventListener('hashchange', () => {
+            const v = hashMap[window.location.hash] || 'dashboard';
+            origNavigate(v);
+          });
+          setupEvents();
+          if (state.currentUser) {
+            hideLogin();
+            document.getElementById('sidebarUser').textContent = 'Logged in as ' + state.currentUser.username;
+            document.getElementById('userBadgeText').textContent =
+              state.currentUser.role.charAt(0).toUpperCase() + state.currentUser.role.slice(1);
+            navigate(hashMap[window.location.hash] || 'dashboard');
+          } else {
+            showLogin();
+            navigate('dashboard');
+          }
+        }
+        document.addEventListener('DOMContentLoaded', init);
+      })();
+    </script>
+  </body>
+</html>

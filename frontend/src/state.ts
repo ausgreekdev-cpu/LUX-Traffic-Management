@@ -1,13 +1,61 @@
+// @ts-nocheck
 import { STORAGE_KEY, SETTINGS_KEY, USER_KEY, AUDIT_KEY, TOKEN_KEY } from './utils.js';
 import { apiGet, apiPost, isApiAvailable, setApiAvailable } from './api.js';
+import type {
+  Role,
+  Status,
+  Priority,
+  FormField,
+  MenuItem,
+  Content,
+  User,
+  Theme,
+  StatusRule,
+  Automation,
+  Client,
+  TMP,
+  AuditLogEntry,
+  Settings,
+} from './types.js';
 
-export const PRIORITIES = ['low', 'medium', 'high'];
+export const PRIORITIES = ['low', 'medium', 'high'] as const;
 
-export const ROLES = {
-  admin: { label: 'Admin', canEdit: true, canDelete: true, canManageSettings: true, canAdvance: true, desc: 'Full access \u2014 manage all TMPs, settings, themes, and configuration.' },
-  planner: { label: 'Planner', canEdit: true, canDelete: true, canManageSettings: false, canAdvance: true, desc: 'Create and edit TMPs, move through workflow.' },
-  inspector: { label: 'Inspector', canEdit: false, canDelete: false, canManageSettings: false, canAdvance: true, desc: 'View TMPs and advance status. Cannot create or edit.' },
-  viewer: { label: 'Viewer', canEdit: false, canDelete: false, canManageSettings: false, canAdvance: false, desc: 'Read-only access. View all TMPs, dashboard, and calendar.' },
+export const ROLES: Record<
+  Role,
+  { label: string; canEdit: boolean; canDelete: boolean; canManageSettings: boolean; canAdvance: boolean; desc: string }
+> = {
+  admin: {
+    label: 'Admin',
+    canEdit: true,
+    canDelete: true,
+    canManageSettings: true,
+    canAdvance: true,
+    desc: 'Full access \u2014 manage all TMPs, settings, themes, and configuration.',
+  },
+  planner: {
+    label: 'Planner',
+    canEdit: true,
+    canDelete: true,
+    canManageSettings: false,
+    canAdvance: true,
+    desc: 'Create and edit TMPs, move through workflow.',
+  },
+  inspector: {
+    label: 'Inspector',
+    canEdit: false,
+    canDelete: false,
+    canManageSettings: false,
+    canAdvance: true,
+    desc: 'View TMPs and advance status. Cannot create or edit.',
+  },
+  viewer: {
+    label: 'Viewer',
+    canEdit: false,
+    canDelete: false,
+    canManageSettings: false,
+    canAdvance: false,
+    desc: 'Read-only access. View all TMPs, dashboard, and calendar.',
+  },
 };
 
 export const DEFAULT_STATUSES = [
@@ -33,7 +81,14 @@ export const DEFAULT_FORM_FIELDS = [
   { key: 'dateOfWorks', label: 'Date of Works', type: 'date', required: true, enabled: true, gridClass: '' },
   { key: 'assignedTo', label: 'Assigned To', type: 'text', required: false, enabled: true, gridClass: '' },
   { key: 'priority', label: 'Priority', type: 'select', required: false, enabled: true, gridClass: '' },
-  { key: 'details', label: 'Details / Scope of Work', type: 'textarea', required: false, enabled: true, gridClass: 'full-width' },
+  {
+    key: 'details',
+    label: 'Details / Scope of Work',
+    type: 'textarea',
+    required: false,
+    enabled: true,
+    gridClass: 'full-width',
+  },
 ];
 
 export const DEFAULT_MENU_ITEMS = [
@@ -71,37 +126,119 @@ export const DEFAULT_USERS = [
 ];
 
 export const DEFAULT_THEME = {
-  primary: '#1e40af', primaryLight: '#3b82f6', primaryDark: '#1e3a8a', sidebarBg: '#1e3a8a',
-  bg: '#f1f5f9', surface: '#ffffff', text: '#1e293b', textSecondary: '#64748b', border: '#e2e8f0',
-  success: '#10b981', warning: '#f59e0b', danger: '#ef4444', purple: '#8b5cf6', cyan: '#06b6d4',
-  radius: '8px', font: '-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,\'Helvetica Neue\',Arial,sans-serif',
-  sidebarText: '#ffffff', sidebarNavText: 'rgba(255,255,255,.75)', sidebarHoverBg: 'rgba(255,255,255,.08)',
-  sidebarActiveBg: 'rgba(255,255,255,.12)', sidebarHeaderBorder: 'rgba(255,255,255,.1)', sidebarSubOpacity: '0.7',
-  logo: '', banner: '', favicon: '', sidebarBgImg: '',
+  primary: '#1e40af',
+  primaryLight: '#3b82f6',
+  primaryDark: '#1e3a8a',
+  sidebarBg: '#1e3a8a',
+  bg: '#f1f5f9',
+  surface: '#ffffff',
+  text: '#1e293b',
+  textSecondary: '#64748b',
+  border: '#e2e8f0',
+  success: '#10b981',
+  warning: '#f59e0b',
+  danger: '#ef4444',
+  purple: '#8b5cf6',
+  cyan: '#06b6d4',
+  radius: '8px',
+  font: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif",
+  sidebarText: '#ffffff',
+  sidebarNavText: 'rgba(255,255,255,.75)',
+  sidebarHoverBg: 'rgba(255,255,255,.08)',
+  sidebarActiveBg: 'rgba(255,255,255,.12)',
+  sidebarHeaderBorder: 'rgba(255,255,255,.1)',
+  sidebarSubOpacity: '0.7',
+  logo: '',
+  banner: '',
+  favicon: '',
+  sidebarBgImg: '',
 };
 
 export const DEFAULT_KEYBOARD_SHORTCUTS = {
-  newRequest: 'ctrl+n', globalSearch: 'ctrl+f', exportJSON: 'ctrl+e',
-  dashboard: 'ctrl+1', calendar: 'ctrl+2', adminSettings: 'ctrl+,', help: '?',
+  newRequest: 'ctrl+n',
+  globalSearch: 'ctrl+f',
+  exportJSON: 'ctrl+e',
+  dashboard: 'ctrl+1',
+  calendar: 'ctrl+2',
+  adminSettings: 'ctrl+,',
+  help: '?',
 };
 
 export const DEFAULT_DASHBOARD_WIDGETS = {
-  statActiveTMPs: true, statPendingApprovals: true, statUpcomingWorks: true, statHighPriority: true, chartStatusDistribution: true,
+  statActiveTMPs: true,
+  statPendingApprovals: true,
+  statUpcomingWorks: true,
+  statHighPriority: true,
+  chartStatusDistribution: true,
 };
 
 export const DEFAULT_CLIENTS = [
-  { id: 'client-1', name: 'City of Sydney Council', type: 'government', contact: 'planning@cityofsydney.nsw.gov.au', phone: '02 9265 9333' },
-  { id: 'client-2', name: 'Transport NSW', type: 'government', contact: 'tmp@transport.nsw.gov.au', phone: '02 8202 2200' },
-  { id: 'client-3', name: 'Roads & Maritime Services', type: 'government', contact: 'permits@rms.nsw.gov.au', phone: '13 22 13' },
-  { id: 'client-4', name: 'Sydney Water', type: 'government', contact: 'development@sydneywater.com.au', phone: '13 20 92' },
+  {
+    id: 'client-1',
+    name: 'City of Sydney Council',
+    type: 'government',
+    contact: 'planning@cityofsydney.nsw.gov.au',
+    phone: '02 9265 9333',
+  },
+  {
+    id: 'client-2',
+    name: 'Transport NSW',
+    type: 'government',
+    contact: 'tmp@transport.nsw.gov.au',
+    phone: '02 8202 2200',
+  },
+  {
+    id: 'client-3',
+    name: 'Roads & Maritime Services',
+    type: 'government',
+    contact: 'permits@rms.nsw.gov.au',
+    phone: '13 22 13',
+  },
+  {
+    id: 'client-4',
+    name: 'Sydney Water',
+    type: 'government',
+    contact: 'development@sydneywater.com.au',
+    phone: '13 20 92',
+  },
   { id: 'client-5', name: 'Ausgrid', type: 'government', contact: 'wayleave@ausgrid.com.au', phone: '13 13 65' },
-  { id: 'client-6', name: 'WestConnex Delivery Authority', type: 'government', contact: 'tmp@westconnex.com.au', phone: '02 8265 4500' },
-  { id: 'client-7', name: 'Boral Construction', type: 'private', contact: 'projects@boral.com.au', phone: '02 9033 4300' },
-  { id: 'client-8', name: 'Lendlease Engineering', type: 'private', contact: 'tmp@lendlease.com', phone: '02 9230 7111' },
-  { id: 'client-9', name: 'John Holland Group', type: 'private', contact: 'traffic@johnholland.com.au', phone: '03 8652 7777' },
+  {
+    id: 'client-6',
+    name: 'WestConnex Delivery Authority',
+    type: 'government',
+    contact: 'tmp@westconnex.com.au',
+    phone: '02 8265 4500',
+  },
+  {
+    id: 'client-7',
+    name: 'Boral Construction',
+    type: 'private',
+    contact: 'projects@boral.com.au',
+    phone: '02 9033 4300',
+  },
+  {
+    id: 'client-8',
+    name: 'Lendlease Engineering',
+    type: 'private',
+    contact: 'tmp@lendlease.com',
+    phone: '02 9230 7111',
+  },
+  {
+    id: 'client-9',
+    name: 'John Holland Group',
+    type: 'private',
+    contact: 'traffic@johnholland.com.au',
+    phone: '03 8652 7777',
+  },
   { id: 'client-10', name: 'CPB Contractors', type: 'private', contact: 'tmp@cpbcon.com.au', phone: '02 9462 3000' },
   { id: 'client-11', name: 'Downer Group', type: 'private', contact: 'traffic@downergroup.com', phone: '02 9462 3000' },
-  { id: 'client-12', name: 'Fulton Hogan Industries', type: 'private', contact: 'tmp@fultonhogan.com.au', phone: '02 9797 8600' },
+  {
+    id: 'client-12',
+    name: 'Fulton Hogan Industries',
+    type: 'private',
+    contact: 'tmp@fultonhogan.com.au',
+    phone: '02 9797 8600',
+  },
 ];
 
 function buildDefaultTableColumns() {
@@ -162,11 +299,81 @@ function getMockData() {
     return dt.toISOString().slice(0, 10);
   };
   return [
-    { id: 'mock-1', tmpNumber: 'TMP-2024-001', projectName: 'Main Street Utility Works', requestDate: d(-14), clientName: 'City Water Authority', location: '123 Main Street, Sydney CBD', dateOfWorks: d(5), details: 'Installation of new water main requiring lane closures.', assignedTo: 'Sarah Chen', priority: 'high', status: 'new', lastUpdated: d(-10) + 'T09:30:00Z', customFields: {} },
-    { id: 'mock-2', tmpNumber: 'TMP-2024-002', projectName: 'Highway Bridge Inspection', requestDate: d(-21), clientName: 'Transport NSW', location: 'Warringah Expressway, North Sydney', dateOfWorks: d(12), details: 'Routine structural inspection of bridge #4.', assignedTo: 'Michael Torres', priority: 'medium', status: 'in-progress', lastUpdated: d(-5) + 'T14:15:00Z', customFields: {} },
-    { id: 'mock-3', tmpNumber: 'TMP-2024-003', projectName: 'Road Resurfacing Program', requestDate: d(-30), clientName: 'City of Sydney Council', location: 'Elizabeth Street, Surry Hills', dateOfWorks: d(18), details: 'Asphalt resurfacing. Night works only.', assignedTo: 'Emily Watson', priority: 'high', status: 'permits-lga', lastUpdated: d(-8) + 'T11:00:00Z', customFields: {} },
-    { id: 'mock-4', tmpNumber: 'TMP-2024-004', projectName: 'Traffic Signal Upgrade', requestDate: d(-45), clientName: 'Roads & Maritime Services', location: 'Pacific Highway & Berry Street', dateOfWorks: d(25), details: 'Upgrade of traffic signal controllers.', assignedTo: 'David Park', priority: 'medium', status: 'approvals', lastUpdated: d(-3) + 'T16:45:00Z', customFields: {} },
-    { id: 'mock-5', tmpNumber: 'TMP-2024-005', projectName: 'Sidewalk Construction', requestDate: d(-60), clientName: 'Parramatta City Council', location: 'Church Street, Parramatta', dateOfWorks: d(-10), details: 'New footpath construction.', assignedTo: 'Sarah Chen', priority: 'low', status: 'completed', lastUpdated: d(-15) + 'T10:00:00Z', customFields: {} },
+    {
+      id: 'mock-1',
+      tmpNumber: 'TMP-2024-001',
+      projectName: 'Main Street Utility Works',
+      requestDate: d(-14),
+      clientName: 'City Water Authority',
+      location: '123 Main Street, Sydney CBD',
+      dateOfWorks: d(5),
+      details: 'Installation of new water main requiring lane closures.',
+      assignedTo: 'Sarah Chen',
+      priority: 'high',
+      status: 'new',
+      lastUpdated: d(-10) + 'T09:30:00Z',
+      customFields: {},
+    },
+    {
+      id: 'mock-2',
+      tmpNumber: 'TMP-2024-002',
+      projectName: 'Highway Bridge Inspection',
+      requestDate: d(-21),
+      clientName: 'Transport NSW',
+      location: 'Warringah Expressway, North Sydney',
+      dateOfWorks: d(12),
+      details: 'Routine structural inspection of bridge #4.',
+      assignedTo: 'Michael Torres',
+      priority: 'medium',
+      status: 'in-progress',
+      lastUpdated: d(-5) + 'T14:15:00Z',
+      customFields: {},
+    },
+    {
+      id: 'mock-3',
+      tmpNumber: 'TMP-2024-003',
+      projectName: 'Road Resurfacing Program',
+      requestDate: d(-30),
+      clientName: 'City of Sydney Council',
+      location: 'Elizabeth Street, Surry Hills',
+      dateOfWorks: d(18),
+      details: 'Asphalt resurfacing. Night works only.',
+      assignedTo: 'Emily Watson',
+      priority: 'high',
+      status: 'permits-lga',
+      lastUpdated: d(-8) + 'T11:00:00Z',
+      customFields: {},
+    },
+    {
+      id: 'mock-4',
+      tmpNumber: 'TMP-2024-004',
+      projectName: 'Traffic Signal Upgrade',
+      requestDate: d(-45),
+      clientName: 'Roads & Maritime Services',
+      location: 'Pacific Highway & Berry Street',
+      dateOfWorks: d(25),
+      details: 'Upgrade of traffic signal controllers.',
+      assignedTo: 'David Park',
+      priority: 'medium',
+      status: 'approvals',
+      lastUpdated: d(-3) + 'T16:45:00Z',
+      customFields: {},
+    },
+    {
+      id: 'mock-5',
+      tmpNumber: 'TMP-2024-005',
+      projectName: 'Sidewalk Construction',
+      requestDate: d(-60),
+      clientName: 'Parramatta City Council',
+      location: 'Church Street, Parramatta',
+      dateOfWorks: d(-10),
+      details: 'New footpath construction.',
+      assignedTo: 'Sarah Chen',
+      priority: 'low',
+      status: 'completed',
+      lastUpdated: d(-15) + 'T10:00:00Z',
+      customFields: {},
+    },
   ];
 }
 
@@ -182,7 +389,15 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-export const state = {
+export const state: {
+  tmps: TMP[];
+  auditLog: AuditLogEntry[];
+  currentView: string;
+  searchQuery: string;
+  calendarDate: Date;
+  currentUser: { username: string; role: Role } | null;
+  settings: Settings;
+} = {
   tmps: [],
   auditLog: [],
   currentView: 'dashboard',
@@ -192,32 +407,48 @@ export const state = {
   settings: buildDefaultSettings(),
 };
 
-export let editingId = null;
-export let viewingId = null;
-export let settingsTab = 'general';
+export let editingId: string | null = null;
+export let viewingId: string | null = null;
+export let settingsTab: string = 'general';
 
-export function setEditingId(val) { editingId = val; }
-export function setViewingId(val) { viewingId = val; }
-export function setSettingsTab(val) { settingsTab = val; }
+export function setEditingId(val: string | null) {
+  editingId = val;
+}
+export function setViewingId(val: string | null) {
+  viewingId = val;
+}
+export function setSettingsTab(val: string) {
+  settingsTab = val;
+}
 
 export function persist() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tmps)); } catch (_) {}
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tmps));
+  } catch (_) {}
 }
 
 export function persistSettings() {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings)); } catch (_) {}
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  } catch (_) {}
 }
 
 export function persistUser() {
   if (state.currentUser) {
-    try { localStorage.setItem(USER_KEY, JSON.stringify(state.currentUser)); } catch (_) {}
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(state.currentUser));
+    } catch (_) {}
   } else {
-    try { localStorage.removeItem(USER_KEY); } catch (_) {}
+    try {
+      localStorage.removeItem(USER_KEY);
+    } catch (_) {}
   }
 }
 
 export function persistAuditLog() {
-  try { localStorage.setItem(AUDIT_KEY, JSON.stringify(state.auditLog)); } catch (_) {}
+  try {
+    localStorage.setItem(AUDIT_KEY, JSON.stringify(state.auditLog));
+  } catch (_) {}
 }
 
 export async function loadData() {
@@ -225,7 +456,7 @@ export async function loadData() {
     const r = localStorage.getItem(STORAGE_KEY);
     if (r) {
       const p = JSON.parse(r);
-      if (Array.isArray(p) && p.every(v => v && typeof v === 'object' && v.id)) {
+      if (Array.isArray(p) && p.every((v) => v && typeof v === 'object' && v.id)) {
         state.tmps = p;
         return;
       }
@@ -257,7 +488,17 @@ export async function loadSettings() {
     const r = localStorage.getItem(SETTINGS_KEY);
     if (r) {
       const p = JSON.parse(r);
-      if (p && p.menuItems && Array.isArray(p.menuItems) && p.statuses && Array.isArray(p.statuses) && p.priorities && Array.isArray(p.priorities) && p.content && p.theme) {
+      if (
+        p &&
+        p.menuItems &&
+        Array.isArray(p.menuItems) &&
+        p.statuses &&
+        Array.isArray(p.statuses) &&
+        p.priorities &&
+        Array.isArray(p.priorities) &&
+        p.content &&
+        p.theme
+      ) {
         state.settings = p;
         ensureSettingsDefaults();
         return;
@@ -272,13 +513,17 @@ function ensureSettingsDefaults() {
   if (!state.settings.users) state.settings.users = JSON.parse(JSON.stringify(DEFAULT_USERS));
   if (!state.settings.statusRules) state.settings.statusRules = JSON.parse(JSON.stringify(DEFAULT_STATUS_RULES));
   if (!state.settings.defaultValues) state.settings.defaultValues = {};
-  if (!state.settings.dashboardWidgets) state.settings.dashboardWidgets = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS));
+  if (!state.settings.dashboardWidgets)
+    state.settings.dashboardWidgets = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS));
   if (!state.settings.rowDensity) state.settings.rowDensity = 'comfortable';
-  if (!state.settings.keyboardShortcuts) state.settings.keyboardShortcuts = JSON.parse(JSON.stringify(DEFAULT_KEYBOARD_SHORTCUTS));
+  if (!state.settings.keyboardShortcuts)
+    state.settings.keyboardShortcuts = JSON.parse(JSON.stringify(DEFAULT_KEYBOARD_SHORTCUTS));
   if (!state.settings.automations) state.settings.automations = [];
   if (!state.settings.clients) state.settings.clients = JSON.parse(JSON.stringify(DEFAULT_CLIENTS));
   if (state.settings.customFields) {
-    state.settings.customFields = state.settings.customFields.filter(f => !['type', 'lga'].includes((f.label || '').toLowerCase().trim()));
+    state.settings.customFields = state.settings.customFields.filter(
+      (f) => !['type', 'lga'].includes((f.label || '').toLowerCase().trim())
+    );
   }
 }
 
@@ -309,7 +554,7 @@ export async function loadAuditLog() {
     const r = localStorage.getItem(AUDIT_KEY);
     if (r) {
       const p = JSON.parse(r);
-      if (Array.isArray(p) && p.every(v => v && typeof v === 'object' && v.id)) {
+      if (Array.isArray(p) && p.every((v) => v && typeof v === 'object' && v.id)) {
         state.auditLog = p;
         return;
       }
@@ -364,22 +609,22 @@ export function canAdvanceStatus(statusId) {
 }
 
 export function getStatusLabel(id) {
-  const s = (state.settings.statuses || DEFAULT_STATUSES).find(x => x.id === id);
+  const s = (state.settings.statuses || DEFAULT_STATUSES).find((x) => x.id === id);
   return s ? s.label : id;
 }
 
 export function getStatusStyle(id) {
-  const s = (state.settings.statuses || DEFAULT_STATUSES).find(x => x.id === id);
+  const s = (state.settings.statuses || DEFAULT_STATUSES).find((x) => x.id === id);
   return s ? `background:${s.bg};color:${s.color}` : '';
 }
 
 export function getPriorityStyle(id) {
-  const p = (state.settings.priorities || DEFAULT_PRIORITIES).find(x => x.id === id);
+  const p = (state.settings.priorities || DEFAULT_PRIORITIES).find((x) => x.id === id);
   return p ? `background:${p.bg};color:${p.color}` : '';
 }
 
 export function getPriorityLabel(id) {
-  const p = (state.settings.priorities || DEFAULT_PRIORITIES).find(x => x.id === id);
+  const p = (state.settings.priorities || DEFAULT_PRIORITIES).find((x) => x.id === id);
   return p ? p.label : id;
 }
 
@@ -393,11 +638,15 @@ export function getContent(key) {
   return o;
 }
 
-export function appName() { return getContent('appName'); }
-export function appTagline() { return getContent('appTagline'); }
+export function appName() {
+  return getContent('appName');
+}
+export function appTagline() {
+  return getContent('appTagline');
+}
 
 export function getEnabledFormFields() {
-  return state.settings.formFields.filter(f => f.enabled).concat(state.settings.customFields || []);
+  return state.settings.formFields.filter((f) => f.enabled).concat(state.settings.customFields || []);
 }
 
 export function getAllFormFields() {
@@ -409,30 +658,31 @@ export function getFormFieldsForEdit() {
 }
 
 export function getEnabledMenuItems() {
-  return state.settings.menuItems.filter(m => m.enabled);
+  return state.settings.menuItems.filter((m) => m.enabled);
 }
 
 export function getFilteredTmps() {
   let l = state.tmps;
   const q = state.searchQuery.toLowerCase().trim();
   if (q) {
-    l = l.filter(t =>
-      (t.clientName || '').toLowerCase().includes(q) ||
-      (t.location || '').toLowerCase().includes(q) ||
-      (t.tmpNumber || '').toLowerCase().includes(q) ||
-      (t.projectName || '').toLowerCase().includes(q) ||
-      (t.assignedTo || '').toLowerCase().includes(q)
+    l = l.filter(
+      (t) =>
+        (t.clientName || '').toLowerCase().includes(q) ||
+        (t.location || '').toLowerCase().includes(q) ||
+        (t.tmpNumber || '').toLowerCase().includes(q) ||
+        (t.projectName || '').toLowerCase().includes(q) ||
+        (t.assignedTo || '').toLowerCase().includes(q)
     );
   }
   return l;
 }
 
 export function getTmpsByStatus(s) {
-  return getFilteredTmps().filter(t => t.status === s);
+  return getFilteredTmps().filter((t) => t.status === s);
 }
 
 export function getCountByStatus(s) {
-  return state.tmps.filter(t => t.status === s).length;
+  return state.tmps.filter((t) => t.status === s).length;
 }
 
 export function getUpcomingWorks(days) {
@@ -440,16 +690,18 @@ export function getUpcomingWorks(days) {
   const lim = new Date(td + 'T00:00:00');
   lim.setDate(lim.getDate() + days);
   const ls = lim.toISOString().slice(0, 10);
-  return state.tmps.filter(t => t.dateOfWorks && t.dateOfWorks >= td && t.dateOfWorks <= ls && t.status !== 'completed');
+  return state.tmps.filter(
+    (t) => t.dateOfWorks && t.dateOfWorks >= td && t.dateOfWorks <= ls && t.status !== 'completed'
+  );
 }
 
 export function getActiveStatuses() {
-  return (state.settings.statuses || DEFAULT_STATUSES).filter(s => s.enabled);
+  return (state.settings.statuses || DEFAULT_STATUSES).filter((s) => s.enabled);
 }
 
 export function getEnabledColumns(status) {
   const c = state.settings.tableColumns[status] || DEFAULT_TABLE_COLUMNS[status] || [];
-  return c.filter(x => x.enabled);
+  return c.filter((x) => x.enabled);
 }
 
 export function getDensityClass() {
@@ -459,20 +711,21 @@ export function getDensityClass() {
 
 export function getClientType(name) {
   if (!name || !state.settings.clients) return '';
-  const c = state.settings.clients.find(x => x.name === name);
+  const c = state.settings.clients.find((x) => x.name === name);
   return c ? c.type : '';
 }
 
 export function createTmp(data) {
   const year = new Date().getFullYear();
   const prefix = 'TMP-' + year + '-';
-  const existing = state.tmps.filter(t => t.tmpNumber && t.tmpNumber.startsWith(prefix))
-    .map(t => parseInt(t.tmpNumber.slice(prefix.length), 10))
-    .filter(n => !isNaN(n));
+  const existing = state.tmps
+    .filter((t) => t.tmpNumber && t.tmpNumber.startsWith(prefix))
+    .map((t) => parseInt(t.tmpNumber.slice(prefix.length), 10))
+    .filter((n) => !isNaN(n));
   const nextNum = existing.length ? Math.max(...existing) + 1 : 1;
   const tmp = {
     id: uid(),
-    tmpNumber: data.tmpNumber || (prefix + String(nextNum).padStart(3, '0')),
+    tmpNumber: data.tmpNumber || prefix + String(nextNum).padStart(3, '0'),
     projectName: data.projectName || '',
     requestDate: data.requestDate || todayStr(),
     clientName: data.clientName || '',
@@ -492,7 +745,7 @@ export function createTmp(data) {
 }
 
 export function updateTmp(id, data) {
-  const idx = state.tmps.findIndex(t => t.id === id);
+  const idx = state.tmps.findIndex((t) => t.id === id);
   if (idx === -1) return null;
   const old = state.tmps[idx];
   state.tmps[idx] = { ...old, ...data, lastUpdated: nowISO() };
@@ -502,28 +755,38 @@ export function updateTmp(id, data) {
 }
 
 export function deleteTmp(id) {
-  const t = state.tmps.find(x => x.id === id);
-  state.tmps = state.tmps.filter(x => x.id !== id);
+  const t = state.tmps.find((x) => x.id === id);
+  state.tmps = state.tmps.filter((x) => x.id !== id);
   persist();
   if (t) addAuditLog('delete', id, t.tmpNumber, 'Deleted by ' + state.currentUser.username);
 }
 
 export function advanceStatus(id, skipSchedule) {
-  const t = state.tmps.find(x => x.id === id);
+  const t = state.tmps.find((x) => x.id === id);
   if (!t) return;
   const statuses = getActiveStatuses();
-  const idx = statuses.findIndex(s => s.id === t.status);
+  const idx = statuses.findIndex((s) => s.id === t.status);
   if (idx === -1 || idx >= statuses.length - 1) return;
   if (!skipSchedule) {
     const rules = state.settings.automations || [];
-    const rule = rules.find(r => r.enabled !== false && r.fromStatus === t.status && r.delayDays > 0);
+    const rule = rules.find((r) => r.enabled !== false && r.fromStatus === t.status && r.delayDays > 0);
     if (rule) {
       const schedDate = new Date();
       schedDate.setDate(schedDate.getDate() + rule.delayDays);
       t.scheduledAdvance = { toStatus: statuses[idx + 1].id, scheduledDate: schedDate.toISOString().slice(0, 10) };
       t.lastUpdated = nowISO();
       persist();
-      addAuditLog('schedule', id, t.tmpNumber, 'Scheduled advance to "' + getStatusLabel(t.scheduledAdvance.toStatus) + '" in ' + rule.delayDays + ' day(s) by ' + state.currentUser.username);
+      addAuditLog(
+        'schedule',
+        id,
+        t.tmpNumber,
+        'Scheduled advance to "' +
+          getStatusLabel(t.scheduledAdvance.toStatus) +
+          '" in ' +
+          rule.delayDays +
+          ' day(s) by ' +
+          state.currentUser.username
+      );
       return;
     }
   }
@@ -533,13 +796,18 @@ export function advanceStatus(id, skipSchedule) {
   t.status = toS;
   t.lastUpdated = nowISO();
   persist();
-  addAuditLog('advance', id, t.tmpNumber, 'Advanced from "' + getStatusLabel(fromS) + '" to "' + getStatusLabel(toS) + '" by ' + state.currentUser.username);
+  addAuditLog(
+    'advance',
+    id,
+    t.tmpNumber,
+    'Advanced from "' + getStatusLabel(fromS) + '" to "' + getStatusLabel(toS) + '" by ' + state.currentUser.username
+  );
 }
 
 export function processScheduledAdvances() {
   const today = todayStr();
   let changed = false;
-  state.tmps.forEach(t => {
+  state.tmps.forEach((t) => {
     if (!t.scheduledAdvance || !t.scheduledAdvance.scheduledDate) return;
     if (t.scheduledAdvance.scheduledDate <= today) {
       const toStatus = t.scheduledAdvance.toStatus;
@@ -547,7 +815,16 @@ export function processScheduledAdvances() {
       t.status = toStatus;
       t.scheduledAdvance = null;
       t.lastUpdated = nowISO();
-      addAuditLog('auto-advance', t.id, t.tmpNumber, 'Auto-advanced from "' + getStatusLabel(fromS) + '" to "' + getStatusLabel(toStatus) + '" (scheduled delay elapsed)');
+      addAuditLog(
+        'auto-advance',
+        t.id,
+        t.tmpNumber,
+        'Auto-advanced from "' +
+          getStatusLabel(fromS) +
+          '" to "' +
+          getStatusLabel(toStatus) +
+          '" (scheduled delay elapsed)'
+      );
       changed = true;
     }
   });

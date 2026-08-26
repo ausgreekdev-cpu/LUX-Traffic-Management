@@ -48,8 +48,8 @@ describe('escHtml', () => {
     expect(escHtml('<script>alert("xss")</script>')).not.toContain('<');
     expect(escHtml('hello & "world"')).toContain('&amp;');
   });
-  it('returns non-string values as-is', () => {
-    expect(escHtml(42)).toBe(42);
-    expect(escHtml(null)).toBe(null);
+  it('returns non-string values as string', () => {
+    expect(escHtml(42)).toBe('42');
+    expect(escHtml(null)).toBe('null');
   });
 });

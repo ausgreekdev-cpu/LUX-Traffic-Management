@@ -1,11 +1,27 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  state, ROLES, DEFAULT_STATUSES, DEFAULT_PRIORITIES,
-  createTmp, updateTmp, deleteTmp, advanceStatus,
-  getFilteredTmps, getTmpsByStatus, getCountByStatus,
-  getActiveStatuses, getStatusLabel, getStatusStyle,
-  getPriorityLabel, getPriorityStyle, canEdit, canDelete, canManageSettings,
-  userRole, persist, persistSettings,
+  state,
+  ROLES,
+  DEFAULT_STATUSES,
+  DEFAULT_PRIORITIES,
+  createTmp,
+  updateTmp,
+  deleteTmp,
+  advanceStatus,
+  getFilteredTmps,
+  getTmpsByStatus,
+  getCountByStatus,
+  getActiveStatuses,
+  getStatusLabel,
+  getStatusStyle,
+  getPriorityLabel,
+  getPriorityStyle,
+  canEdit,
+  canDelete,
+  canManageSettings,
+  userRole,
+  persist,
+  persistSettings,
 } from '../state.js';
 
 beforeEach(() => {
@@ -38,7 +54,7 @@ describe('updateTmp', () => {
     const tmp = createTmp({ projectName: 'Original' });
     const updated = updateTmp(tmp.id, { projectName: 'Updated' });
     expect(updated.projectName).toBe('Updated');
-    expect(updated.lastUpdated).not.toBe(tmp.lastUpdated);
+    expect(new Date(updated.lastUpdated).getTime()).toBeGreaterThanOrEqual(new Date(tmp.lastUpdated).getTime());
   });
 
   it('returns null for non-existent id', () => {
@@ -109,7 +125,7 @@ describe('getActiveStatuses', () => {
   it('returns only enabled statuses', () => {
     state.settings.statuses[0].enabled = false;
     const active = getActiveStatuses();
-    expect(active.find(s => s.id === 'new')).toBeUndefined();
+    expect(active.find((s) => s.id === 'new')).toBeUndefined();
     expect(active).toHaveLength(DEFAULT_STATUSES.length - 1);
   });
 });

@@ -16,8 +16,8 @@
     "build": "npm run build --workspaces --if-present",
     "build:frontend": "npm run build -w frontend",
     "build:desktop": "npm run build -w desktop",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "npm run test --workspaces --if-present",
@@ -30,6 +30,7 @@
     "@eslint/js": "^8.56.0",
     "prettier": "^3.2.0"
   },
+  "type": "module",
   "engines": {
     "node": ">=18.0.0"
   }

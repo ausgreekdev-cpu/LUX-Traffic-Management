@@ -1,0 +1,30 @@
+{
+  "name": "tmp-dashboard",
+  "version": "1.0.0",
+  "description": "Traffic Management Plan Dashboard",
+  "author": "Traffic Planning Team",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable",
+    "build:dir": "electron-builder --win --dir"
+  },
+  "build": {
+    "appId": "com.trafficplanning.tmp-dashboard",
+    "productName": "TMP-Dashboard",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "icon": null
+    },
+    "portable": {
+      "requestExecutionLevel": "user"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}

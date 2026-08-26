@@ -1,61 +1,87 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Traffic Management Plan Dashboard</title>
-  <link rel="stylesheet" href="./src/styles/main.css" />
-</head>
-<body>
-  <button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
-  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Traffic Management Plan Dashboard</title>
+    <link rel="stylesheet" href="./src/styles/main.css" />
+  </head>
+  <body>
+    <button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-  <div class="login-overlay" id="loginOverlay">
-    <div class="login-card">
-      <div id="loginBanner" style="display:none;margin:-40px -40px 20px;border-radius:12px 12px 0 0;overflow:hidden;max-height:160px"><img id="loginBannerImg" style="width:100%;height:auto;display:block"></div>
-      <div id="loginLogoWrap" style="text-align:center;margin-bottom:12px"><img id="loginLogoImg" style="max-height:60px;display:none;margin:0 auto"></div>
-      <h1 id="loginTitle">Traffic Planning</h1>
-      <p class="subtitle" id="loginSubtitle">TMP Management System</p>
-      <form id="loginForm" autocomplete="off">
-        <div class="form-group"><label for="loginName">Username</label><input type="text" id="loginName" required autofocus></div>
-        <div class="form-group"><label for="loginPassword">Password</label><input type="password" id="loginPassword" required></div>
-        <button type="submit" class="btn btn-primary">Sign In</button>
-      </form>
-      <div class="role-desc" id="roleDesc">Enter your credentials to sign in.</div>
-    </div>
-  </div>
-
-  <div id="app">
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header" id="sidebarHeader">
-        <div id="sidebarLogo"></div>
-        <h1 id="sidebarTitle">Traffic Planning</h1>
-        <span id="sidebarUser">TMP Management System</span>
-      </div>
-      <nav class="sidebar-nav" id="sidebarNav"></nav>
-    </aside>
-    <main class="main-content">
-      <header class="top-header">
-        <h2 class="view-title" id="viewTitle">Dashboard</h2>
-        <div class="header-actions">
-          <div class="search-wrapper"><span class="search-icon">&#128269;</span><input type="text" id="globalSearch" placeholder="Search..." autocomplete="off"></div>
-          <div class="user-badge" id="userBadge" title="Click to switch user"><span id="userBadgeText">User</span><span style="font-size:.75rem;color:var(--text-secondary)">&#9660;</span></div>
-          <button class="btn-icon-top" id="adminBtn" title="Admin Settings">&#9881;&#65039;</button>
-          <button class="btn btn-primary" id="newRequestBtn">+ <span>New Request</span></button>
+    <div class="login-overlay" id="loginOverlay">
+      <div class="login-card">
+        <div
+          id="loginBanner"
+          style="
+            display: none;
+            margin: -40px -40px 20px;
+            border-radius: 12px 12px 0 0;
+            overflow: hidden;
+            max-height: 160px;
+          "
+        >
+          <img id="loginBannerImg" style="width: 100%; height: auto; display: block" />
         </div>
-      </header>
-      <div class="content-area" id="contentArea"></div>
-    </main>
-  </div>
-
-  <div class="modal-overlay" id="modalOverlay">
-    <div class="modal" id="modal">
-      <div class="modal-header"><h2 id="modalTitle">Title</h2><button class="modal-close" id="modalClose">&#10005;</button></div>
-      <div class="modal-body" id="modalBody"></div>
-      <div class="modal-footer" id="modalFooter"></div>
+        <div id="loginLogoWrap" style="text-align: center; margin-bottom: 12px">
+          <img id="loginLogoImg" style="max-height: 60px; display: none; margin: 0 auto" />
+        </div>
+        <h1 id="loginTitle">Traffic Planning</h1>
+        <p class="subtitle" id="loginSubtitle">TMP Management System</p>
+        <form id="loginForm" autocomplete="off">
+          <div class="form-group">
+            <label for="loginName">Username</label><input type="text" id="loginName" required autofocus />
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label><input type="password" id="loginPassword" required />
+          </div>
+          <button type="submit" class="btn btn-primary">Sign In</button>
+        </form>
+        <div class="role-desc" id="roleDesc">Enter your credentials to sign in.</div>
+      </div>
     </div>
-  </div>
 
-  <script type="module" src="./src/main.js"></script>
-</body>
+    <div id="app">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header" id="sidebarHeader">
+          <div id="sidebarLogo"></div>
+          <h1 id="sidebarTitle">Traffic Planning</h1>
+          <span id="sidebarUser">TMP Management System</span>
+        </div>
+        <nav class="sidebar-nav" id="sidebarNav"></nav>
+      </aside>
+      <main class="main-content">
+        <header class="top-header">
+          <h2 class="view-title" id="viewTitle">Dashboard</h2>
+          <div class="header-actions">
+            <div class="search-wrapper">
+              <span class="search-icon">&#128269;</span
+              ><input type="text" id="globalSearch" placeholder="Search..." autocomplete="off" />
+            </div>
+            <div class="user-badge" id="userBadge" title="Click to switch user">
+              <span id="userBadgeText">User</span
+              ><span style="font-size: 0.75rem; color: var(--text-secondary)">&#9660;</span>
+            </div>
+            <button class="btn-icon-top" id="adminBtn" title="Admin Settings">&#9881;&#65039;</button>
+            <button class="btn btn-primary" id="newRequestBtn">+ <span>New Request</span></button>
+          </div>
+        </header>
+        <div class="content-area" id="contentArea"></div>
+      </main>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal" id="modal">
+        <div class="modal-header">
+          <h2 id="modalTitle">Title</h2>
+          <button class="modal-close" id="modalClose">&#10005;</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer" id="modalFooter"></div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
 </html>

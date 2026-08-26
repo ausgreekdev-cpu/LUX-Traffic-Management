@@ -46,6 +46,10 @@ npm-debug.log*
 coverage/
 .nyc_output/
 
+# Playwright
+frontend/playwright-report/
+frontend/test-results/
+
 # Electron
 desktop/dist/
 desktop/out/
@@ -56,3 +60,5 @@ docker-compose.override.yml
 # Misc
 *.bak
 *.tmp
+lux-traffic-planning/Lux Planning/
+*.exe
