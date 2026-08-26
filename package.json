@@ -1,0 +1,36 @@
+{
+  "name": "lux-traffic-management",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Traffic Management Plan Dashboard - Monorepo",
+  "workspaces": [
+    "frontend",
+    "backend",
+    "desktop"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "dev:desktop": "npm run start -w desktop",
+    "build": "npm run build --workspaces --if-present",
+    "build:frontend": "npm run build -w frontend",
+    "build:desktop": "npm run build -w desktop",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test --workspaces --if-present",
+    "test:frontend": "npm run test -w frontend",
+    "test:backend": "npm run test -w backend",
+    "clean": "rm -rf node_modules frontend/node_modules backend/node_modules desktop/node_modules"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "@eslint/js": "^8.56.0",
+    "prettier": "^3.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
