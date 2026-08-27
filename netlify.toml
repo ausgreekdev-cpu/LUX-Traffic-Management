@@ -24,6 +24,7 @@
     "nodemailer",
     "pdfkit",
     "serverless-http",
+    "stripe",
     "uuid",
     "zod"
   ]
