@@ -3,7 +3,7 @@
   publish = "dist/frontend"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
 
 # Missing static assets must 404, not be rewritten to index.html.
 # Served as HTML they make dynamic import() throw
