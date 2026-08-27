@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import db from '../db.js';
 import { getTier, isFeatureAllowed, getLimit } from './tiers.js';
 

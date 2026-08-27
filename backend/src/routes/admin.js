@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import express from 'express';
 import { authenticate, authorize } from '../middleware/auth.js';
 import db from '../db.js';
