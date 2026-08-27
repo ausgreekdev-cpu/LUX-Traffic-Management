@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import db from './db.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 const LGA_DIR_PATH = path.join(__dirname, '..', 'data', 'wa-lga-directory.json');
 
 // In-memory cache for suburb -> LGA mapping

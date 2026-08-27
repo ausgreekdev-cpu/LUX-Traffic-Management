@@ -118,6 +118,6 @@ export function seedAdminFromEnv() {
   return true;
 }
 
-if (import.meta.url === new URL(process.argv[1] || '', 'file://').href) {
+if (typeof import.meta !== 'undefined' && import.meta.url === new URL(process.argv[1] || '', 'file://').href) {
   seedDatabase();
 }

@@ -164,25 +164,27 @@ app.get('/api/health', async (req, res) => {
 app.use('/api', notFound);
 app.use(errorHandler);
 
-ensureWorkflowSeeds();
-ensureBoardColumns();
-seedDirectoryIfEmpty();
-ensureAutomationPresets();
-seedComplianceRules();
-ensureEncryptionKey();
-encryptLegacySecrets(db);
+try { ensureWorkflowSeeds(); } catch(e){ console.warn('ensureWorkflowSeeds failed', e.message); }
+try { ensureBoardColumns(); } catch(e){ console.warn('ensureBoardColumns failed', e.message); }
+try { seedDirectoryIfEmpty(); } catch(e){ console.warn('seedDirectoryIfEmpty failed', e.message); }
+try { ensureAutomationPresets(); } catch(e){ console.warn('ensureAutomationPresets failed', e.message); }
+try { seedComplianceRules(); } catch(e){ console.warn('seedComplianceRules failed', e.message); }
+try { ensureEncryptionKey(); } catch(e){ console.warn('ensureEncryptionKey failed', e.message); }
+try { encryptLegacySecrets(db); } catch(e){ console.warn('encryptLegacySecrets failed', e.message); }
 
-const { c: userCount } = db.prepare('SELECT COUNT(*) as c FROM users').get();
-if (userCount === 0) {
-  if (isServerless) {
-    seedAdminFromEnv();
-  } else {
-    seedDatabase();
+try {
+  const { c: userCount } = db.prepare('SELECT COUNT(*) as c FROM users').get();
+  if (userCount === 0) {
+    if (isServerless) {
+      seedAdminFromEnv();
+    } else {
+      seedDatabase();
+    }
   }
-}
-// Idempotently ensure the demo login accounts exist (INSERT OR IGNORE) so the
-// demo credentials shown on the login page work on any deployment, including
-// serverless and local DBs that pre-date the LUX rebrand.
-ensureDemoUsers();
+  // Idempotently ensure the demo login accounts exist (INSERT OR IGNORE) so the
+  // demo credentials shown on the login page work on any deployment, including
+  // serverless and local DBs that pre-date the LUX rebrand.
+  ensureDemoUsers();
+} catch(e){ console.warn('seed users failed', e.message); }
 
 export default app;
