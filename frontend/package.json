@@ -28,5 +28,8 @@
     "@capacitor/cli": "^7.6.8",
     "@capacitor/core": "^8.5.0",
     "electron": "41.7.1"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.0.0"
   }
 }
