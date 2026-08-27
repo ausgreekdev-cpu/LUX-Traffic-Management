@@ -9,10 +9,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'favicon.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'LUX Traffic Management',
-        short_name: 'LUX',
-        description: 'WA Traffic Management System — TMP & Permit Management',
-        id: 'LUX-Traffic-Management',
+        name: 'Delux TPM CRM',
+        short_name: 'Delux',
+        description: 'Delux TPM CRM powered by AusGreek Developments — Traffic Management Planning',
+        id: 'delux-tpm-crm',
         lang: 'en',
         dir: 'ltr',
         theme_color: '#f57f17',
@@ -29,14 +29,14 @@ export default defineConfig({
             sizes: '1280x720',
             type: 'image/png',
             form_factor: 'wide',
-            label: 'LUX Traffic Management dashboard'
+            label: 'Delux TPM CRM dashboard'
           },
           {
             src: '/screenshot-narrow.png',
             sizes: '720x1280',
             type: 'image/png',
             form_factor: 'narrow',
-            label: 'LUX Traffic Management mobile view'
+            label: 'Delux TPM CRM mobile view'
           }
         ],
         icons: [
@@ -83,7 +83,7 @@ export default defineConfig({
             urlPattern: ({ request }) => request.mode === 'navigate',
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'lux-navigation',
+              cacheName: 'delux-navigation',
               networkTimeoutSeconds: 4,
               cacheableResponse: { statuses: [0, 200] }
             }
@@ -92,7 +92,7 @@ export default defineConfig({
             urlPattern: /\/api\/photos\/[^?]+/,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'lux-photos',
+              cacheName: 'delux-photos',
               networkTimeoutSeconds: 4,
               expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] }
@@ -102,7 +102,7 @@ export default defineConfig({
             urlPattern: /\/api\/(tmps|kanban\/board|permits|workflows\/checklist)/,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'lux-field-data',
+              cacheName: 'delux-field-data',
               networkTimeoutSeconds: 4,
               expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
               cacheableResponse: { statuses: [0, 200] }

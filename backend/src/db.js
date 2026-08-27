@@ -839,6 +839,132 @@ const MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status ON webhook_deliveries(status);
       `);
     }
+  },
+  {
+    version: 9,
+    name: 'saas_tenancy',
+    up() {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS tenants (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          slug TEXT UNIQUE,
+          stripe_customer_id TEXT UNIQUE,
+          revenuecat_user_id TEXT UNIQUE,
+          plan TEXT NOT NULL DEFAULT 'starter' CHECK(plan IN ('starter','pro','agency','enterprise','trial')),
+          status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','past_due','paused','canceled','trialing')),
+          trial_ends_at TEXT,
+          current_period_end TEXT,
+          seats_included INTEGER NOT NULL DEFAULT 2,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS tenant_users (
+          tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('developer','manager','staff','client')),
+          created_at TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (tenant_id, user_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS entitlements (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          feature_key TEXT NOT NULL,
+          limit_value TEXT,
+          granted_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(tenant_id, feature_key)
+        );
+
+        CREATE TABLE IF NOT EXISTS tenant_overrides (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          feature_key TEXT NOT NULL,
+          limit_value TEXT,
+          reason TEXT,
+          granted_by TEXT REFERENCES users(id),
+          expires_at TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS subscriptions (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          stripe_subscription_id TEXT UNIQUE,
+          stripe_price_id TEXT,
+          status TEXT NOT NULL,
+          quantity INTEGER DEFAULT 1,
+          current_period_end TEXT,
+          cancel_at_period_end INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS admin_audit_log (
+          id TEXT PRIMARY KEY,
+          actor_id TEXT REFERENCES users(id),
+          action TEXT NOT NULL,
+          target_tenant TEXT,
+          metadata_json TEXT,
+          ip TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        -- Add tenant scoping to core entities (nullable for migration, backfilled to default tenant)
+        CREATE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);
+        CREATE INDEX IF NOT EXISTS idx_tenants_stripe ON tenants(stripe_customer_id);
+        CREATE INDEX IF NOT EXISTS idx_tenant_users_tenant ON tenant_users(tenant_id);
+        CREATE INDEX IF NOT EXISTS idx_tenant_users_user ON tenant_users(user_id);
+        CREATE INDEX IF NOT EXISTS idx_entitlements_tenant ON entitlements(tenant_id);
+        CREATE INDEX IF NOT EXISTS idx_overrides_tenant ON tenant_overrides(tenant_id);
+        CREATE INDEX IF NOT EXISTS idx_overrides_expires ON tenant_overrides(expires_at);
+      `);
+
+      // Add tenant_id columns to existing tables if missing
+      const addTenantCol = (table) => {
+        const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+        if (!cols.includes('tenant_id')) {
+          db.exec(`ALTER TABLE ${table} ADD COLUMN tenant_id TEXT REFERENCES tenants(id)`);
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_${table}_tenant ON ${table}(tenant_id)`);
+        }
+      };
+      for (const t of ['tmp_projects','traffic_management_plans','clients','sites','permits']) {
+        try { addTenantCol(t); } catch {}
+      }
+
+      // Seed default tenant for existing single-tenant data
+      const existing = db.prepare('SELECT count(*) as c FROM tenants').get();
+      if (existing.c === 0) {
+        const id = randomUUID();
+        db.prepare(`INSERT INTO tenants (id, name, slug, plan, status) VALUES (?, ?, ?, ?, ?)`).run(id, 'Default Tenant', 'default', 'pro', 'active');
+        // Backfill existing rows
+        for (const t of ['tmp_projects','traffic_management_plans','clients','sites','permits']) {
+          try { db.prepare(`UPDATE ${t} SET tenant_id = ? WHERE tenant_id IS NULL`).run(id); } catch {}
+        }
+        // Attach all existing users to default tenant as manager/staff
+        const users = db.prepare('SELECT id, role FROM users').all();
+        const link = db.prepare('INSERT OR IGNORE INTO tenant_users (tenant_id, user_id, role) VALUES (?, ?, ?)');
+        for (const u of users) link.run(id, u.id, u.role);
+      }
+    }
+  },
+  {
+    version: 10,
+    name: 'saas_limits',
+    up() {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS usage_counters (
+          tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          feature_key TEXT NOT NULL,
+          period TEXT NOT NULL, -- e.g., 2026-04
+          used INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (tenant_id, feature_key, period)
+        );
+        CREATE INDEX IF NOT EXISTS idx_usage_tenant ON usage_counters(tenant_id);
+      `);
+    }
   }
 ];
 

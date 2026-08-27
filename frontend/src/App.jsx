@@ -33,6 +33,9 @@ const FieldTmpDetail = lazy(() => import('./pages/field/FieldTmpDetail'));
 const FieldBoard = lazy(() => import('./pages/field/FieldBoard'));
 const FieldPermits = lazy(() => import('./pages/field/FieldPermits'));
 const FieldPermitDetail = lazy(() => import('./pages/field/FieldPermitDetail'));
+const Billing = lazy(() => import('./pages/Billing'));
+const AdminOverride = lazy(() => import('./pages/AdminOverride'));
+const GisGenerator = lazy(() => import('./pages/GisGenerator'));
 
 // Settings hub panels
 const SystemPanel = lazy(() => import('./pages/settings/SystemPanel'));
@@ -129,6 +132,9 @@ export default function App() {
         { path: 'time-tracking', element: <RoleRoute user={user} minRole="staff"><TimeTracking /></RoleRoute> },
         { path: 'analytics', element: <RoleRoute user={user} minRole="staff"><Analytics /></RoleRoute> },
         { path: 'help', element: <Help /> },
+        { path: 'billing', element: <Billing /> },
+        { path: 'gis', element: <RoleRoute user={user} minRole="staff"><GisGenerator /></RoleRoute> },
+        { path: 'admin/override', element: <RoleRoute user={user} minRole="developer"><AdminOverride /></RoleRoute> },
         { path: 'correspondence', element: <RoleRoute user={user} minRole="manager"><Correspondence /></RoleRoute> },
         {
           path: 'settings',

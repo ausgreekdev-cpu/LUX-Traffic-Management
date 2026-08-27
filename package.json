@@ -1,9 +1,9 @@
 {
-  "name": "lux-traffic-management",
+  "name": "delux-tpm-crm",
   "version": "1.2.3",
-  "description": "WA Traffic Management System - TMP & Permit Management",
+  "description": "Delux TPM CRM powered by AusGreek Developments",
   "main": "electron/main.js",
-  "author": "LUX Traffic Management",
+  "author": "AusGreek Developments",
   "license": "MIT",
   "homepage": "https://lux-official.netlify.app",
   "scripts": {
@@ -23,8 +23,8 @@
     "release": "powershell -ExecutionPolicy Bypass -File scripts/release.ps1"
   },
   "build": {
-    "appId": "com.luxtraffic.management",
-    "productName": "LUX Traffic Management",
+    "appId": "com.ausgreek.deluxtpmcrm",
+    "productName": "Delux TPM CRM",
     "directories": {
       "output": "release"
     },
@@ -93,7 +93,7 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "LUX Traffic Management",
+      "shortcutName": "Delux TPM CRM",
       "installerIcon": "assets/icon.ico",
       "uninstallerIcon": "assets/icon.ico",
       "installerHeaderIcon": "assets/icon.ico"

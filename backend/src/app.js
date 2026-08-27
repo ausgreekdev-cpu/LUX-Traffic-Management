@@ -31,6 +31,9 @@ import kanbanRoutes from './routes/kanban.js';
 import brandingRoutes from './routes/branding.js';
 import telemetryRoutes from './routes/telemetry.js';
 import complianceRoutes from './routes/compliance.js';
+import billingRoutes from './routes/billing.js';
+import adminRoutes from './routes/admin.js';
+import gisRoutes from './routes/gis.js';
 import { ensureAutomationPresets } from './automation-presets.js';
 import { seedComplianceRules } from './compliance/ruleset.js';
 import { ensureBoardColumns } from './board.js';
@@ -100,6 +103,9 @@ app.use('/api/kanban', kanbanRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/telemetry', telemetryRoutes);
 app.use('/api/compliance', complianceRoutes);
+app.use('/api/billing', billingRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/gis', gisRoutes);
 
 app.get('/api/ping', (req, res) => {
   res.json({ pong: true, at: new Date().toISOString() });
