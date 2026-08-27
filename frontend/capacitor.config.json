@@ -1,0 +1,11 @@
+{
+  "appId": "com.ausgreek.deluxtpmcrm",
+  "appName": "Delux TPM CRM",
+  "webDir": "../dist/frontend",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

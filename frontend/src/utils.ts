@@ -3,7 +3,20 @@ export const SETTINGS_KEY = 'tmp_dashboard_settings';
 export const USER_KEY = 'tmp_current_user';
 export const AUDIT_KEY = 'tmp_dashboard_audit';
 export const TOKEN_KEY = 'tmp_auth_token';
-export const API_BASE = window.location.origin + ':3001';
+function apiBaseUrl(): string {
+  const fromEnv = import.meta.env?.VITE_API_BASE as string | undefined;
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  const origin = window.location.origin;
+  if (
+    origin.startsWith('capacitor://') ||
+    origin.startsWith('http://localhost') ||
+    origin.startsWith('https://localhost')
+  ) {
+    return 'http://localhost:3001';
+  }
+  return origin + ':3001';
+}
+export const API_BASE = apiBaseUrl();
 
 export function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);

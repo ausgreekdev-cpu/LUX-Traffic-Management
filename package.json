@@ -1,8 +1,8 @@
 {
-  "name": "lux-traffic-management",
+  "name": "delux-tpm-crm",
   "version": "1.2.0",
   "private": true,
-  "description": "Traffic Management Plan Dashboard - Monorepo",
+  "description": "Delux TPM CRM powered by AusGreek Developments",
   "workspaces": [
     "frontend",
     "backend",
@@ -16,6 +16,9 @@
     "build": "npm run build --workspaces --if-present",
     "build:frontend": "npm run build -w frontend",
     "build:desktop": "npm run build -w desktop",
+    "build:msix": "npm run build:msix -w desktop",
+    "build:android": "npm run build -w frontend && npm run cap:sync -w frontend",
+    "build:android:aab": "cd frontend/android && ./gradlew bundleRelease",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

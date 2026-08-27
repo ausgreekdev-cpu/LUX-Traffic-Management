@@ -8,7 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "cap:sync": "npm run build && cap sync android",
+    "cap:open": "cap open android",
+    "android": "npm run cap:sync && cap run android"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
@@ -21,6 +24,9 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^7.6.8",
+    "@capacitor/core": "^8.5.0",
     "electron": "41.7.1"
   }
 }

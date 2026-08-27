@@ -1,8 +1,8 @@
 {
-  "name": "tmp-dashboard",
+  "name": "delux-tpm-crm",
   "version": "1.2.0",
-  "description": "Traffic Management Plan Dashboard",
-  "author": "Traffic Planning Team",
+  "description": "Delux TPM CRM powered by AusGreek Developments",
+  "author": "AusGreek Developments",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -10,11 +10,13 @@
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
+    "build:msix": "electron-builder --win msix",
+    "build:appimage": "electron-builder --linux AppImage",
     "build:dir": "electron-builder --win --mac --linux --dir"
   },
   "build": {
-    "appId": "com.trafficplanning.tmp-dashboard",
-    "productName": "TMP-Dashboard",
+    "appId": "com.ausgreek.deluxtpmcrm",
+    "productName": "Delux TPM CRM",
     "directories": {
       "output": "dist"
     },
@@ -36,9 +38,26 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "msix",
+          "arch": [
+            "x64"
+          ]
         }
       ],
-      "icon": null
+      "icon": null,
+      "publisherName": "AusGreek Developments"
+    },
+    "electronSign": {
+      "publisherName": "AusGreek Developments"
+    },
+    "msix": {
+      "createCertificate": true,
+      "signAndEditExecutable": true,
+      "signtoolOptions": {
+        "publisherName": "AusGreek Developments"
+      }
     },
     "mac": {
       "target": [

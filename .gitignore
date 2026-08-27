@@ -60,5 +60,19 @@ docker-compose.override.yml
 # Misc
 *.bak
 *.tmp
+
+# Signing certificates (never commit)
+*.pfx
+*.p12
+*.keystore
+desktop/certs/
+
+# Capacitor / Android (generated build outputs + synced web assets)
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/.idea/
+frontend/android/capacitor-cordova-android-plugins/build/
+frontend/android/app/src/main/assets/public/
 lux-traffic-planning/Lux Planning/
 *.exe

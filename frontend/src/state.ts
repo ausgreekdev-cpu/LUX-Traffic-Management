@@ -102,8 +102,8 @@ export const DEFAULT_MENU_ITEMS = [
 ];
 
 export const DEFAULT_CONTENT = {
-  appName: 'Traffic Planning',
-  appTagline: 'TMP Management System',
+  appName: 'Delux TPM CRM',
+  appTagline: 'powered by AusGreek Developments',
   viewTitles: {
     dashboard: 'Dashboard',
     new: 'New TMP Requests',

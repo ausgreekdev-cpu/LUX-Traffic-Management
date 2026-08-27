@@ -1,0 +1,19 @@
+[build]
+  command = "npm run build:frontend"
+  publish = "dist/frontend"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Missing static assets must 404, not be rewritten to index.html.
+# Served as HTML they make dynamic import() throw
+# "Failed to fetch dynamically imported module" for stale-cache clients.
+[[redirects]]
+  from = "/assets/*"
+  to = "/404.html"
+  status = 404
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
