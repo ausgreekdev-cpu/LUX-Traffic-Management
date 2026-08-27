@@ -14,7 +14,7 @@ npm ci --prefer-offline --no-audit --omit=dev 2>&1
 
 echo "=== Installing frontend dependencies ==="
 cd ../frontend
-npm ci --prefer-offline --no-audit --omit=dev 2>&1
+npm ci --prefer-offline --no-audit 2>&1
 
 echo "=== Building frontend ==="
 npm run build 2>&1

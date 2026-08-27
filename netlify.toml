@@ -4,7 +4,7 @@
   functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
   NPM_CONFIG_CACHE = "/opt/buildhome/.npm"
   NPM_CONFIG_OPTIONAL = "false"
   NPM_CONFIG_AUDIT = "false"
