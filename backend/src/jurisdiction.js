@@ -3,8 +3,19 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import db from './db.js';
 
-const __dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
-const LGA_DIR_PATH = path.join(__dirname, '..', 'data', 'wa-lga-directory.json');
+function getLgaPath() {
+  const candidates = [
+    path.join(process.cwd(), 'backend', 'data', 'wa-lga-directory.json'),
+    path.join(process.cwd(), 'data', 'wa-lga-directory.json'),
+    path.join('/var/task', 'backend', 'data', 'wa-lga-directory.json'),
+    path.join('/opt/build/repo', 'backend', 'data', 'wa-lga-directory.json'),
+  ];
+  for (const p of candidates) {
+    try { if (fs.existsSync(p)) return p; } catch {}
+  }
+  // Fallback (no import.meta needed — already tried process.cwd candidates)
+  return candidates[0];
+}
 
 // In-memory cache for suburb -> LGA mapping
 let suburbToLgaMap = null;
@@ -12,7 +23,8 @@ let lgaData = null;
 
 function loadLgaData() {
   if (lgaData) return lgaData;
-  const raw = fs.readFileSync(LGA_DIR_PATH, 'utf8');
+  const p = getLgaPath();
+  const raw = fs.readFileSync(p, 'utf8');
   lgaData = JSON.parse(raw);
   return lgaData;
 }
