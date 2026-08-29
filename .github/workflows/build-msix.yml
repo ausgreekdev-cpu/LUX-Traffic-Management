@@ -1,0 +1,58 @@
+name: Build MSIX (Microsoft Store)
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-msix:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build:frontend
+
+      - name: Build MSIX
+        run: npx electron-builder build --win msix --publish never
+        env:
+          # For local test signing, provide a base64 PFX and password as secrets.
+          # For Store submission, leave CSC_LINK empty — Partner Center will re-sign.
+          CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          CSC_KEY_PASSWORD_FILE: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+
+      - name: List artifacts
+        run: dir release
+        shell: pwsh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: msix-package
+          path: |
+            release/*.msix
+            release/*.appx
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Validate MSIX exists
+        run: |
+          if (!(Test-Path "release/*.msix")) { Write-Error "No .msix found in release/"; exit 1 }
+        shell: pwsh

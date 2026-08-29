@@ -100,7 +100,7 @@ function createWindow() {
     minHeight: 600,
     show: false,
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
-    title: 'LUX Traffic Management',
+    title: 'Delux TPM CRM',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -126,6 +126,10 @@ function createWindow() {
 
 function setupAutoUpdater() {
   if (!app.isPackaged) return;
+  if (process.windowsStore) {
+    log('Windows Store package detected - auto-update disabled (Store manages updates)');
+    return;
+  }
   if (process.env.PORTABLE_EXECUTABLE_DIR) {
     log('Portable build detected - auto-update disabled');
     return;
@@ -147,7 +151,7 @@ function setupAutoUpdater() {
       dialog.showMessageBox(mainWindow, {
         type: 'info',
         title: 'Update ready',
-        message: 'LUX Traffic Management ' + info.version + ' has been downloaded and will install when you quit the app.',
+        message: 'Delux TPM CRM ' + info.version + ' has been downloaded and will install when you quit the app.',
         buttons: ['Restart now', 'Later']
       }).then(({ response }) => {
         if (response === 0) autoUpdater.quitAndInstall();

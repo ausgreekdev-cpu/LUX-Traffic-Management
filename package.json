@@ -18,6 +18,7 @@
     "electron:dev": "npm run build:frontend && electron .",
     "electron:build": "npm run build:frontend && electron-builder build --windows",
     "electron:portable": "npm run build:frontend && electron-builder build --win portable",
+    "electron:msix": "npm run build:frontend && electron-builder build --win msix",
     "lint": "cd backend && npm run lint && cd ../frontend && npm run lint",
     "test": "cd backend && npm test",
     "release": "powershell -ExecutionPolicy Bypass -File scripts/release.ps1"
@@ -77,10 +78,26 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "msix",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.ico",
       "signAndEditExecutable": false
+    },
+    "appx": {
+      "applicationId": "DeluxTPMCRM",
+      "backgroundColor": "#111827",
+      "displayName": "Delux TPM CRM",
+      "identityName": "AusGreekDevelopments.DeluxTPMCRM",
+      "publisher": "CN=AusGreek Developments",
+      "publisherDisplayName": "AusGreek Developments",
+      "languages": ["en-AU", "en-US"],
+      "addAutoLaunchExtension": false
     },
     "publish": {
       "provider": "github",
