@@ -11,6 +11,7 @@ export const TIERS = {
     seatsIncluded: 2,
     extraSeatPrice: 39,
     limits: {
+      seats: 2,
       active_projects: 5,
       pdf_exports_per_month: 10,
       storage_gb: 10,
@@ -35,6 +36,7 @@ export const TIERS = {
     seatsIncluded: 5,
     extraSeatPrice: 39,
     limits: {
+      seats: 5,
       active_projects: 25,
       pdf_exports_per_month: Infinity,
       storage_gb: 100,
@@ -59,6 +61,7 @@ export const TIERS = {
     seatsIncluded: 15,
     extraSeatPrice: 29,
     limits: {
+      seats: 15,
       active_projects: Infinity,
       pdf_exports_per_month: Infinity,
       storage_gb: 500,
@@ -83,6 +86,7 @@ export const TIERS = {
     seatsIncluded: Infinity,
     extraSeatPrice: 0,
     limits: {
+      seats: Infinity,
       active_projects: Infinity,
       pdf_exports_per_month: Infinity,
       storage_gb: Infinity,
@@ -106,7 +110,7 @@ export const TIERS = {
     name: 'Trial (Pro)',
     priceMonthly: 0,
     seatsIncluded: 2,
-    limits: { active_projects: 3, pdf_exports_per_month: 3, storage_gb: 5, api_calls_per_day: 500 },
+    limits: { seats: 2, active_projects: 3, pdf_exports_per_month: 3, storage_gb: 5, api_calls_per_day: 500 },
     features: { gis_generator: true, geojson_export: true, wa_lga_packet: true, dispatch: false, mobile_offline: false, white_label: false, api_access: false, custom_domain: false },
   },
 };

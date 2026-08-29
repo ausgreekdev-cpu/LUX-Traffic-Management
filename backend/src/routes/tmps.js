@@ -11,6 +11,7 @@ import { suggestComplexity, computeRisk, riskPreviewQuery } from '../risk.js';
 import { unresolvedComplianceViolations, latestComplianceSummary } from '../compliance/ruleset.js';
 import { getWorkTypeList, createTmpFromTemplate } from '../tmp-templates.js';
 import { deriveJurisdiction, getRelevantAuthorities, getPermitPacketConfig } from '../jurisdiction.js';
+import { enforceLimit, resolveEntitlements } from '../saas/entitlements.js';
 
 const router = Router();
 router.use(authenticate);
@@ -97,6 +98,16 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', roleAtLeast('staff'), validate('tmp'), (req, res) => {
+  // Enforce active_projects limit
+  const tenantId = req.user.tenant_id || req.user.tenantId;
+  if (tenantId) {
+    const ent = resolveEntitlements(tenantId);
+    if (ent) {
+      const active = db.prepare("SELECT count(*) as c FROM traffic_management_plans WHERE tenant_id = ? AND status != 'completed'").get(tenantId)?.c || 0;
+      const { allowed, limit } = enforceLimit(tenantId, 'active_projects', active);
+      if (!allowed) return res.status(402).json({ error: 'limit_exceeded', limit: 'active_projects', limit_value: limit, current: active, message: `Active project limit reached (${active}/${limit}). Upgrade at /billing.` });
+    }
+  }
   const id = uuid();
   const reference = generateReference();
   const { project_id, site_id, title, status, plan_type, complexity, complexity_source, description, start_date, end_date, work_type, authority_id } = req.validated;
@@ -116,7 +127,8 @@ router.post('/', roleAtLeast('staff'), validate('tmp'), (req, res) => {
     authority_id
   }) : 'unknown';
   
-  db.prepare('INSERT INTO traffic_management_plans (id, project_id, site_id, title, reference, status, plan_type, complexity, complexity_source, description, start_date, end_date, work_type, authority_id, jurisdiction, risk_consequence, risk_likelihood, risk_score, risk_band, risk_mitigations, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, project_id || null, site_id || null, title, reference, status || 'draft', plan_type || 'temporary', finalComplexity, useAuto ? 'auto' : 'manual', description || null, start_date || null, end_date || null, work_type || null, authority_id || null, jurisdiction, risk.consequence, risk.likelihood, risk.score, risk.band, JSON.stringify(risk.mitigations), req.user.id);
+   db.prepare('INSERT INTO traffic_management_plans (id, project_id, site_id, title, reference, status, plan_type, complexity, complexity_source, description, start_date, end_date, work_type, authority_id, jurisdiction, risk_consequence, risk_likelihood, risk_score, risk_band, risk_mitigations, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, project_id || null, site_id || null, title, reference, status || 'draft', plan_type || 'temporary', finalComplexity, useAuto ? 'auto' : 'manual', description || null, start_date || null, end_date || null, work_type || null, authority_id || null, jurisdiction, risk.consequence, risk.likelihood, risk.score, risk.band, JSON.stringify(risk.mitigations), req.user.id);
+   if (tenantId) { try { db.prepare('UPDATE traffic_management_plans SET tenant_id = ? WHERE id = ?').run(tenantId, id); } catch {} }
   db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), id, req.user.id, 'created', 'Plan created');
   if (useAuto) {
     db.prepare('INSERT INTO plan_activities (id, tmp_id, user_id, action, description) VALUES (?, ?, ?, ?, ?)').run(uuid(), id, req.user.id, 'complexity_changed', `Complexity auto-suggested as ${autoComplexity} (triage)`);

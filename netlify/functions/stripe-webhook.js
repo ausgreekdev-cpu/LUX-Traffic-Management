@@ -43,19 +43,24 @@ export async function handler(event) {
         const tenant = db.prepare('SELECT id FROM tenants WHERE stripe_customer_id = ?').get(sub.customer);
         if (tenant) {
           const priceId = sub.items.data[0]?.price.id;
-          // Map priceId to plan - maintain mapping in env or lookup
+          const qty = sub.items.data[0]?.quantity || 1;
+          // Map priceId to plan - include both monthly and annual
           const planMap = {
             [process.env.STRIPE_PRICE_STARTER_MONTHLY]: 'starter',
+            [process.env.STRIPE_PRICE_STARTER_ANNUAL]: 'starter',
             [process.env.STRIPE_PRICE_PRO_MONTHLY]: 'pro',
+            [process.env.STRIPE_PRICE_PRO_ANNUAL]: 'pro',
             [process.env.STRIPE_PRICE_AGENCY_MONTHLY]: 'agency',
+            [process.env.STRIPE_PRICE_AGENCY_ANNUAL]: 'agency',
           };
           const plan = planMap[priceId] || tenant.plan || 'pro';
           db.prepare(`INSERT INTO subscriptions (id, tenant_id, stripe_subscription_id, stripe_price_id, status, quantity, current_period_end)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(stripe_subscription_id) DO UPDATE SET status=excluded.status, quantity=excluded.quantity, current_period_end=excluded.current_period_end`).run(
-              sub.id, tenant.id, sub.id, priceId, sub.status, sub.items.data[0]?.quantity || 1, new Date(sub.current_period_end * 1000).toISOString()
+              sub.id, tenant.id, sub.id, priceId, sub.status, qty, new Date(sub.current_period_end * 1000).toISOString()
           );
-          db.prepare('UPDATE tenants SET plan = ?, status = ?, current_period_end = ? WHERE id = ?').run(plan, sub.status === 'active' ? 'active' : sub.status, new Date(sub.current_period_end * 1000).toISOString(), tenant.id);
+          // Sync seats_included from Stripe quantity and plan
+          db.prepare('UPDATE tenants SET plan = ?, status = ?, seats_included = ?, current_period_end = ? WHERE id = ?').run(plan, sub.status === 'active' ? 'active' : sub.status, qty, new Date(sub.current_period_end * 1000).toISOString(), tenant.id);
         }
         break;
       }
@@ -64,6 +69,12 @@ export async function handler(event) {
         db.prepare('UPDATE subscriptions SET status = ? WHERE stripe_subscription_id = ?').run('canceled', sub.id);
         const tenant = db.prepare('SELECT tenant_id FROM subscriptions WHERE stripe_subscription_id = ?').get(sub.id);
         if (tenant) db.prepare('UPDATE tenants SET status = ? WHERE id = ?').run('canceled', tenant.tenant_id);
+        break;
+      }
+      case 'invoice.payment_failed': {
+        const inv = stripeEvent.data.object;
+        const tenant = db.prepare('SELECT id FROM tenants WHERE stripe_customer_id = ?').get(inv.customer);
+        if (tenant) db.prepare('UPDATE tenants SET status = ? WHERE id = ?').run('past_due', tenant.id);
         break;
       }
       default:

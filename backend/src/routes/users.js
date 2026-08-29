@@ -17,6 +17,17 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', validate('user'), asyncHandler(async (req, res) => {
+  // Seat-gated people upgrade: enforce seats limit before creating user
+  const tenantId = req.user.tenant_id || req.user.tenantId;
+  if (tenantId) {
+    const { resolveEntitlements, enforceLimit } = await import('../saas/entitlements.js');
+    const ent = resolveEntitlements(tenantId);
+    if (ent) {
+      const used = db.prepare('SELECT count(*) as c FROM tenant_users WHERE tenant_id = ?').get(tenantId).c;
+      const { allowed, limit } = enforceLimit(tenantId, 'seats', used);
+      if (!allowed) return res.status(402).json({ error: 'limit_exceeded', limit: 'seats', limit_value: limit, current: used, message: `Seat limit reached (${used}/${limit}). Upgrade plan or buy extra seats at /billing.` });
+    }
+  }
   const id = uuid();
   const { email, password, name, role, client_id } = req.validated;
   const hash = await bcrypt.hash(password, 12);
@@ -30,6 +41,10 @@ router.post('/', validate('user'), asyncHandler(async (req, res) => {
   try {
     db.prepare('INSERT INTO users (id, email, password, name, role, client_id) VALUES (?, ?, ?, ?, ?, ?)')
       .run(id, email, hash, name, finalRole, client_id || null);
+    // Link to tenant for seat billing
+    if (tenantId) {
+      try { db.prepare('INSERT OR IGNORE INTO tenant_users (tenant_id, user_id, role) VALUES (?, ?, ?)').run(tenantId, id, finalRole); } catch {}
+    }
     res.status(201).json({ id, email, name, role: finalRole, client_id: client_id || null });
   } catch (e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'Email already exists' });

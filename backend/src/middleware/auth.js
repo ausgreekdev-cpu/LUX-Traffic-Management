@@ -20,7 +20,14 @@ export function authenticate(req, res, next) {
     const payload = jwt.verify(token, JWT_SECRET);
     const user = db.prepare('SELECT id, email, name, role, client_id FROM users WHERE id = ?').get(payload.userId);
     if (!user) return res.status(401).json({ error: 'User not found', requestId: req.requestId });
-    req.user = { ...user, clientId: user.client_id };
+    // Resolve tenant_id via tenant_users (multi-tenant) or fallback to default tenant
+    let tenantId = null;
+    try {
+      const link = db.prepare('SELECT tenant_id FROM tenant_users WHERE user_id = ? LIMIT 1').get(user.id);
+      if (link) tenantId = link.tenant_id;
+      else tenantId = db.prepare('SELECT id FROM tenants LIMIT 1').get()?.id || null;
+    } catch {}
+    req.user = { ...user, clientId: user.client_id, tenant_id: tenantId, tenantId };
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid token', requestId: req.requestId });
