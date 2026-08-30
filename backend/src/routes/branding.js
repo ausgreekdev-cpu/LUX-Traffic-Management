@@ -4,6 +4,8 @@ import multer from 'multer';
 import db from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { saveAsset, loadAsset, deleteAsset, assetMimeType } from '../assets.js';
+import { can } from '../saas/entitlements.js';
+import { getTenantId } from '../middleware/tenant.js';
 import {
   getPublicSummary, getFullBranding, saveBrandingRow, snapshotBranding,
   listVersions, restoreVersion, resetBranding, validateBrandingInput,
@@ -58,8 +60,14 @@ router.get('/full', authenticate, authorize('developer'), (req, res) => {
   res.json(getFullBranding(scope(req)));
 });
 
+function requireWhiteLabel(req, res, next) {
+  const tenantId = getTenantId(req);
+  if (tenantId && !can(tenantId, 'white_label')) return res.status(402).json({ error: 'upgrade_required', feature: 'white_label', message: 'White-label requires Agency plan.' });
+  next();
+}
+
 // Save any branding section. Previous state is snapshotted for rollback.
-router.put('/', authenticate, authorize('developer'), (req, res) => {
+router.put('/', authenticate, authorize('developer'), requireWhiteLabel, (req, res) => {
   const { errors, clean } = validateBrandingInput(req.body || {});
   if (errors.length) return res.status(400).json({ error: errors.join('; ') });
   const domain = scope(req);
@@ -78,7 +86,7 @@ router.post('/preview', authenticate, authorize('developer'), (req, res) => {
   });
 });
 
-router.post('/assets/:slot', authenticate, authorize('developer'), upload.single('file'), async (req, res) => {
+router.post('/assets/:slot', authenticate, authorize('developer'), requireWhiteLabel, upload.single('file'), async (req, res) => {
   const slot = String(req.params.slot || '');
   if (!ASSET_SLOTS.has(slot)) return res.status(400).json({ error: 'Unknown asset slot' });
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });

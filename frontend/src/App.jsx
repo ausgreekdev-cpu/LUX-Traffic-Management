@@ -36,6 +36,8 @@ const FieldPermitDetail = lazy(() => import('./pages/field/FieldPermitDetail'));
 const Billing = lazy(() => import('./pages/Billing'));
 const AdminOverride = lazy(() => import('./pages/AdminOverride'));
 const GisGenerator = lazy(() => import('./pages/GisGenerator'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Support = lazy(() => import('./pages/Support'));
 
 // Settings hub panels
 const SystemPanel = lazy(() => import('./pages/settings/SystemPanel'));
@@ -109,6 +111,8 @@ export default function App() {
       element: user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />,
       errorElement: <ChunkErrorElement />
     },
+    { path: '/privacy', element: <Privacy />, errorElement: <ChunkErrorElement /> },
+    { path: '/support', element: <Support />, errorElement: <ChunkErrorElement /> },
     {
       path: '/',
       element: <ProtectedRoute><Layout user={user} onLogout={handleLogout} /></ProtectedRoute>,

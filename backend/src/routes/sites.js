@@ -6,13 +6,19 @@ import { roleAtLeast } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { paginateResponse } from '../middleware/pagination.js';
 import { deriveJurisdiction } from '../jurisdiction.js';
+import { getTenantId } from '../middleware/tenant.js';
 
 const router = Router();
 router.use(authenticate);
 router.use(roleAtLeast('staff'));
 
 router.get('/', (req, res) => {
-  const sites = db.prepare('SELECT * FROM sites ORDER BY created_at DESC').all();
+  const tenantId = getTenantId(req);
+  let q = 'SELECT * FROM sites';
+  const params = [];
+  if (tenantId) { q += ' WHERE tenant_id = ?'; params.push(tenantId); }
+  q += ' ORDER BY created_at DESC';
+  const sites = db.prepare(q).all(...params);
   res.json(paginateResponse(req, sites));
 });
 
@@ -26,7 +32,9 @@ router.post('/', validate('site'), (req, res) => {
   const id = uuid();
   const { name, road_name, suburb, state, postcode, latitude, longitude, description, road_class, speed_limit, aadt, pedestrian_activity, cyclist_activity, rail_corridor, school_zone, jurisdiction: providedJurisdiction } = req.validated;
   const jurisdiction = providedJurisdiction || deriveJurisdiction({ latitude, longitude, suburb, postcode, road_class });
-  db.prepare('INSERT INTO sites (id, name, road_name, suburb, state, postcode, latitude, longitude, description, road_class, speed_limit, aadt, pedestrian_activity, cyclist_activity, rail_corridor, school_zone, jurisdiction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, name, road_name || null, suburb || null, state || 'WA', postcode || null, latitude || null, longitude || null, description || null, road_class || null, speed_limit || null, aadt || null, pedestrian_activity || null, cyclist_activity || null, rail_corridor ? 1 : 0, school_zone ? 1 : 0, jurisdiction);
+  const tenantId = getTenantId(req);
+  try { db.prepare('INSERT INTO sites (id, name, road_name, suburb, state, postcode, latitude, longitude, description, road_class, speed_limit, aadt, pedestrian_activity, cyclist_activity, rail_corridor, school_zone, jurisdiction, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, name, road_name || null, suburb || null, state || 'WA', postcode || null, latitude || null, longitude || null, description || null, road_class || null, speed_limit || null, aadt || null, pedestrian_activity || null, cyclist_activity || null, rail_corridor ? 1 : 0, school_zone ? 1 : 0, jurisdiction, tenantId); }
+  catch { db.prepare('INSERT INTO sites (id, name, road_name, suburb, state, postcode, latitude, longitude, description, road_class, speed_limit, aadt, pedestrian_activity, cyclist_activity, rail_corridor, school_zone, jurisdiction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, name, road_name || null, suburb || null, state || 'WA', postcode || null, latitude || null, longitude || null, description || null, road_class || null, speed_limit || null, aadt || null, pedestrian_activity || null, cyclist_activity || null, rail_corridor ? 1 : 0, school_zone ? 1 : 0, jurisdiction); }
   res.status(201).json({ id, name, road_name, suburb, state, jurisdiction });
 });
 

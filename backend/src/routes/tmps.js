@@ -234,7 +234,14 @@ res.json({ success: true, count: ids.length });
   });
 
   // Create paired permits based on jurisdiction
-  router.post('/:id/create-permits', roleAtLeast('staff'), (req, res) => {
+  router.post('/:id/create-permits', roleAtLeast('staff'), (req, res, next) => {
+    const tenantId = req.user.tenant_id || req.user.tenantId;
+    if (tenantId) {
+      const ent = resolveEntitlements(tenantId);
+      if (!ent?.features?.wa_lga_packet) return res.status(402).json({ error: 'upgrade_required', feature: 'wa_lga_packet' });
+    }
+    next();
+  }, (req, res) => {
     const tmp = db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(req.params.id);
     if (!tmp) return res.status(404).json({ error: 'TMP not found' });
     

@@ -15,6 +15,7 @@ import { loadAsset } from '../assets.js';
 import { deserializeMember, groupDefaults } from '../settings-defs.js';
 import { buildSitePlanSvg } from '../compliance/siteplan.js';
 import { enforceLimit, incrementUsage, resolveEntitlements } from '../saas/entitlements.js';
+import { requireEntitlement } from '../middleware/entitlement.js';
 
 const requirePkg = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 let _PDFDocument = null;
@@ -721,7 +722,7 @@ router.get('/tmp/:id/council-pdf', async (req, res) => {
 });
 
 // GeoJSON export for TMP site plan
-router.get('/tmp/:id/geojson', (req, res) => {
+router.get('/tmp/:id/geojson', requireEntitlement('geojson_export'), (req, res) => {
   const tmp = db.prepare(`
     SELECT t.*, s.name as site_name, s.road_name, s.suburb, s.latitude, s.longitude,
            s.road_class, s.speed_limit, s.pedestrian_activity, s.cyclist_activity,

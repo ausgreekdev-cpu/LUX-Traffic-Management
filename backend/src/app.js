@@ -13,6 +13,8 @@ import projectRoutes from './routes/projects.js';
 import tmpRoutes from './routes/tmps.js';
 import documentRoutes from './routes/documents.js';
 import photoRoutes from './routes/photos.js';
+import { getTenantId } from './middleware/tenant.js';
+import { getLimit } from './saas/tiers.js';
 import dashboardRoutes from './routes/dashboard.js';
 import exportRoutes from './routes/export.js';
 import emailRoutes from './routes/email.js';
@@ -75,6 +77,33 @@ app.use('/api', (req, res, next) => {
     return res.status(503).json({ error: 'Maintenance mode is enabled — the system is read-only. Disable it in Settings to continue.' });
   }
   next();
+});
+
+// Tenant status gate + per-tenant api_calls metering
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth') || req.path === '/health' || req.path === '/ping' || req.path.startsWith('/billing/plans')) return next();
+  const auth = req.headers.authorization;
+  if (!auth) return next();
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return next();
+    const tenant = db.prepare('SELECT plan, status FROM tenants WHERE id = ?').get(tenantId);
+    if (tenant && ['paused','past_due','canceled'].includes(tenant.status)) {
+      return res.status(402).json({ error: 'tenant_inactive', status: tenant.status, message: `Account ${tenant.status}. Please update billing at /billing.` });
+    }
+    try {
+      const plan = tenant?.plan || 'starter';
+      const limit = getLimit(plan, 'api_calls_per_day');
+      if (limit !== Infinity) {
+        const period = new Date().toISOString().slice(0,10);
+        const usedRow = db.prepare("SELECT used FROM usage_counters WHERE tenant_id = ? AND feature_key = 'api_calls_per_day' AND period = ?").get(tenantId, period);
+        const used = usedRow?.used || 0;
+        if (used >= limit) return res.status(429).json({ error: 'rate_limited', message: `API daily limit reached (${limit}). Upgrade plan.` });
+        db.prepare("INSERT INTO usage_counters (tenant_id, feature_key, period, used) VALUES (?, ?, ?, 1) ON CONFLICT(tenant_id, feature_key, period) DO UPDATE SET used = used + 1, updated_at = datetime('now')").run(tenantId, 'api_calls_per_day', period);
+      }
+    } catch {}
+    next();
+  } catch { next(); }
 });
 
 app.use('/api/auth', authRoutes);

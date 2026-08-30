@@ -6,6 +6,7 @@ import { roleAtLeast } from '../middleware/auth.js';
 import { isClientUser, clientOwnedByClient } from '../middleware/scope.js';
 import { validate } from '../middleware/validate.js';
 import { paginateResponse } from '../middleware/pagination.js';
+import { getTenantId } from '../middleware/tenant.js';
 
 const router = Router();
 router.use(authenticate);
@@ -17,7 +18,12 @@ router.get('/', (req, res) => {
       : null;
     return res.json(client ? [client] : []);
   }
-  const clients = db.prepare('SELECT * FROM clients ORDER BY created_at DESC').all();
+  const tenantId = getTenantId(req);
+  let q = 'SELECT * FROM clients';
+  const params = [];
+  if (tenantId) { q += ' WHERE tenant_id = ?'; params.push(tenantId); }
+  q += ' ORDER BY created_at DESC';
+  const clients = db.prepare(q).all(...params);
   res.json(paginateResponse(req, clients));
 });
 
@@ -33,7 +39,9 @@ router.get('/:id', (req, res) => {
 router.post('/', roleAtLeast('staff'), validate('client'), (req, res) => {
   const id = uuid();
   const { name, company, email, phone, address, abn } = req.validated;
-  db.prepare('INSERT INTO clients (id, name, company, email, phone, address, abn) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, name, company || null, email || null, phone || null, address || null, abn || null);
+  const tenantId = getTenantId(req);
+  try { db.prepare('INSERT INTO clients (id, name, company, email, phone, address, abn, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, name, company || null, email || null, phone || null, address || null, abn || null, tenantId); }
+  catch { db.prepare('INSERT INTO clients (id, name, company, email, phone, address, abn) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, name, company || null, email || null, phone || null, address || null, abn || null); }
   res.status(201).json({ id, name, company, email, phone, address, abn });
 });
 
