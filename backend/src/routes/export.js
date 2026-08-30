@@ -14,6 +14,7 @@ import { parseJson, DEFAULT_WATERMARK } from '../branding.js';
 import { loadAsset } from '../assets.js';
 import { deserializeMember, groupDefaults } from '../settings-defs.js';
 import { buildSitePlanSvg } from '../compliance/siteplan.js';
+import { enforceLimit, incrementUsage, resolveEntitlements } from '../saas/entitlements.js';
 
 const requirePkg = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 let _PDFDocument = null;
@@ -25,6 +26,24 @@ function getPDFDocument() {
 
 const router = Router();
 router.use(authenticate);
+
+function checkPdfLimit(req, res) {
+  const tenantId = req.user.tenant_id || req.user.tenantId;
+  if (!tenantId) return true;
+  const ent = resolveEntitlements(tenantId);
+  if (!ent) return true;
+  const used = (() => { try { return db.prepare("SELECT used FROM usage_counters WHERE tenant_id = ? AND feature_key = 'pdf_exports_per_month' AND period = ?").get(tenantId, new Date().toISOString().slice(0,7))?.used || 0; } catch { return 0; } })();
+  const { allowed, limit } = enforceLimit(tenantId, 'pdf_exports_per_month', used);
+  if (!allowed) {
+    res.status(402).json({ error: 'limit_exceeded', limit: 'pdf_exports_per_month', limit_value: limit, current: used, message: `PDF export limit reached (${used}/${limit}). Upgrade at /billing.` });
+    return false;
+  }
+  return true;
+}
+function recordPdfUsage(req) {
+  const tenantId = req.user.tenant_id || req.user.tenantId;
+  if (tenantId) try { incrementUsage(tenantId, 'pdf_exports_per_month', 1); } catch {}
+}
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
@@ -340,6 +359,7 @@ router.delete('/backups/:name', (req, res) => {
 });
 
 router.get('/tmp/:id', async (req, res) => {
+  if (!checkPdfLimit(req, res)) return;
   const tmp = db.prepare(`
     SELECT t.*, s.name as site_name, s.road_name, s.suburb, s.speed_limit, p.name as project_name, c.name as client_name, c.company as client_company
     FROM traffic_management_plans t
@@ -405,6 +425,7 @@ router.get('/tmp/:id', async (req, res) => {
   if (!branding.footerHandled) addFooter(doc);
   doc.fontSize(10).text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
+  recordPdfUsage(req);
 });
 
 router.get('/tmp/:id/site-plan.svg', async (req, res) => {
@@ -426,6 +447,7 @@ router.get('/tmp/:id/site-plan.svg', async (req, res) => {
 });
 
 router.get('/permits-summary', roleAtLeast('staff'), async (req, res) => {
+  if (!checkPdfLimit(req, res)) return;
   const permits = db.prepare(`
     SELECT pe.*, au.name as authority_name, au.short_name as authority_short, t.title as tmp_title, t.reference as tmp_reference
     FROM permits pe
@@ -450,9 +472,11 @@ router.get('/permits-summary', roleAtLeast('staff'), async (req, res) => {
   if (!permits.length) doc.text('No permits found.');
   if (!branding.footerHandled) addFooter(doc);
   doc.end();
+  recordPdfUsage(req);
 });
 
 router.get('/audit-report', roleAtLeast('staff'), async (req, res) => {
+  if (!checkPdfLimit(req, res)) return;
   const activities = db.prepare(`
     SELECT a.*, u.name as user_name, t.title as tmp_title, t.reference as tmp_reference
     FROM plan_activities a
@@ -487,6 +511,7 @@ router.get('/audit-report', roleAtLeast('staff'), async (req, res) => {
   if (!branding.footerHandled) addFooter(doc);
   doc.fontSize(10).text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
+  recordPdfUsage(req);
 });
 
 function csvEscape(v) { const s = String(v || ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; }
@@ -539,6 +564,7 @@ router.get('/permits-csv', roleAtLeast('staff'), (req, res) => {
 
 // Branded PDF coversheet for council application
 router.get('/tmp/:id/council-pdf', async (req, res) => {
+  if (!checkPdfLimit(req, res)) return;
   const tmp = db.prepare(`
     SELECT t.*, s.name as site_name, s.road_name, s.suburb, s.state, s.postcode, s.latitude, s.longitude,
            s.road_class, s.speed_limit, s.aadt, s.pedestrian_activity, s.cyclist_activity,
@@ -691,6 +717,7 @@ router.get('/tmp/:id/council-pdf', async (req, res) => {
   if (!branding.footerHandled) addFooter(doc);
   doc.fontSize(8).fillColor('#94a3b8').text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
+  recordPdfUsage(req);
 });
 
 // GeoJSON export for TMP site plan

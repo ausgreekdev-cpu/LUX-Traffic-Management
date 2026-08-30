@@ -7,12 +7,19 @@ const requireAuth = authenticate;
 
 const router = express.Router();
 
-// GET /api/billing/plans - list tiers
+// GET /api/billing/plans - list tiers with Stripe price IDs (server-provided, no VITE_ leak)
 router.get('/plans', (req, res) => {
+  const priceMap = {
+    starter: { monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY || null, annual: process.env.STRIPE_PRICE_STARTER_ANNUAL || null },
+    pro: { monthly: process.env.STRIPE_PRICE_PRO_MONTHLY || null, annual: process.env.STRIPE_PRICE_PRO_ANNUAL || null },
+    agency: { monthly: process.env.STRIPE_PRICE_AGENCY_MONTHLY || null, annual: process.env.STRIPE_PRICE_AGENCY_ANNUAL || null },
+  };
   res.json(Object.values(TIERS).map(t => ({
     id: t.id, name: t.name, priceMonthly: t.priceMonthly, priceAnnual: t.priceAnnual,
     seatsIncluded: t.seatsIncluded, extraSeatPrice: t.extraSeatPrice,
     limits: t.limits, features: t.features,
+    priceIdMonthly: priceMap[t.id]?.monthly || null,
+    priceIdAnnual: priceMap[t.id]?.annual || null,
   })));
 });
 

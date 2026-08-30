@@ -17,13 +17,16 @@ export default function Billing() {
   useEffect(()=>{ fetch('/api/billing/usage', { headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(setUsage).catch(()=>{}); },[]);
 
   const checkout = async (tier) => {
-    // Prefer backend-provided price mapping via env, fallback to VITE_ prefix for legacy
-    const priceMapMonthly = { starter: import.meta.env.VITE_STRIPE_PRICE_STARTER || import.meta.env.VITE_STRIPE_PRICE_STARTER_MONTHLY, pro: import.meta.env.VITE_STRIPE_PRICE_PRO || import.meta.env.VITE_STRIPE_PRICE_PRO_MONTHLY, agency: import.meta.env.VITE_STRIPE_PRICE_AGENCY || import.meta.env.VITE_STRIPE_PRICE_AGENCY_MONTHLY };
-    const priceMapAnnual = { starter: import.meta.env.VITE_STRIPE_PRICE_STARTER_ANNUAL, pro: import.meta.env.VITE_STRIPE_PRICE_PRO_ANNUAL, agency: import.meta.env.VITE_STRIPE_PRICE_AGENCY_ANNUAL };
-    const priceMap = annual ? priceMapAnnual : priceMapMonthly;
-    const priceId = priceMap[tier];
-    if (!priceId) return alert('Price ID not configured for ' + tier + (annual?' annual':' monthly') + ' — set VITE_STRIPE_PRICE_* env');
-    const res = await fetch('/api/billing/checkout', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('token')}`}, body: JSON.stringify({ priceId, seats })});
+    // Use server-provided priceIds from /api/billing/plans (avoids VITE_ leak)
+    const plan = plans.find(p=>p.id===tier);
+    const priceId = annual ? plan?.priceIdAnnual : plan?.priceIdMonthly;
+    // Fallback to legacy VITE_ env if server has no IDs (Stripe not configured)
+    const fallbackMonthly = { starter: import.meta.env.VITE_STRIPE_PRICE_STARTER || import.meta.env.VITE_STRIPE_PRICE_STARTER_MONTHLY, pro: import.meta.env.VITE_STRIPE_PRICE_PRO || import.meta.env.VITE_STRIPE_PRICE_PRO_MONTHLY, agency: import.meta.env.VITE_STRIPE_PRICE_AGENCY || import.meta.env.VITE_STRIPE_PRICE_AGENCY_MONTHLY };
+    const fallbackAnnual = { starter: import.meta.env.VITE_STRIPE_PRICE_STARTER_ANNUAL, pro: import.meta.env.VITE_STRIPE_PRICE_PRO_ANNUAL, agency: import.meta.env.VITE_STRIPE_PRICE_AGENCY_ANNUAL };
+    const fallbackId = annual ? fallbackAnnual[tier] : fallbackMonthly[tier];
+    const finalPriceId = priceId || fallbackId;
+    if (!finalPriceId) return alert('Price ID not configured for ' + tier + (annual?' annual':' monthly') + ' — set STRIPE_PRICE_* in Netlify env and redeploy');
+    const res = await fetch('/api/billing/checkout', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('token')}`}, body: JSON.stringify({ priceId: finalPriceId, seats })});
     const data = await res.json();
     if (data.url) window.location = data.url;
     else alert(data.error || 'Stripe not configured — contact AusGreek Developments');
