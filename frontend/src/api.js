@@ -24,6 +24,7 @@ async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${BASE()}${path}`, { ...options, headers });
+  if (res.status === 304) return null;
   if (res.status === 401 && !options.skipAuthRedirect) {
     localStorage.removeItem('token');
     // Only bounce when a live session actually just ended. A 401 on a request
@@ -122,7 +123,7 @@ const api = {
     url: (id) => `${BASE()}/photos/${id}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`,
     delete: (id) => request(`/photos/${id}`, { method: 'DELETE' })
   },
-  dashboard: () => request('/dashboard'),
+  dashboard: (opts) => request('/dashboard', opts || {}),
   authorities: {
     list: () => request('/authorities'),
     get: (id) => request(`/authorities/${id}`),

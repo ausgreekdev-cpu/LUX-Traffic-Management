@@ -74,6 +74,58 @@ export function incompleteRequiredStages(entityType, entityId) {
   `).all(...ids, entityType, entityId).map(r => r.name);
 }
 
+export function batchIncompleteRequiredStages(entityType, entityIds) {
+  if (!entityIds.length) return new Map();
+  // Fetch contexts in bulk
+  const ctxMap = new Map();
+  const uniqComplexities = new Set();
+  const uniqAuthorities = new Set();
+  for (const id of entityIds) {
+    const ctx = entityContext(entityType, id);
+    if (ctx) {
+      ctxMap.set(id, ctx);
+      uniqComplexities.add(ctx.complexity);
+      if (ctx.authority_id) uniqAuthorities.add(ctx.authority_id);
+    }
+  }
+  // Bulk fetch stages for all contexts (deduplicate templates)
+  const templateCache = new Map();
+  const stagesByEntity = new Map();
+  for (const [id, ctx] of ctxMap) {
+    const key = `${ctx.complexity}|${ctx.authority_id || ''}`;
+    let stages = templateCache.get(key);
+    if (!stages) {
+      stages = applicableStages(entityType, ctx.complexity, ctx.authority_id);
+      templateCache.set(key, stages);
+    }
+    const required = stages.filter(s => !s.is_optional);
+    stagesByEntity.set(id, required);
+  }
+  // Bulk fetch checklist done states
+  const allRequiredIds = [...new Set([...stagesByEntity.values()].flat().map(s => s.id))];
+  if (!allRequiredIds.length) {
+    const m = new Map();
+    for (const id of entityIds) m.set(id, []);
+    return m;
+  }
+  const placeholders = entityIds.map(() => '?').join(',');
+  const stagePlaceholders = allRequiredIds.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT stage_id, entity_id FROM workflow_checklist
+    WHERE entity_type = ? AND entity_id IN (${placeholders}) AND stage_id IN (${stagePlaceholders}) AND is_done = 1
+  `).all(entityType, ...entityIds, ...allRequiredIds);
+  const doneSet = new Set(rows.map(r => `${r.stage_id}|${r.entity_id}`));
+  const result = new Map();
+  for (const id of entityIds) {
+    const required = stagesByEntity.get(id) || [];
+    const missing = required.filter(s => !doneSet.has(`${s.id}|${id}`)).map(s => s.name);
+    result.set(id, missing);
+  }
+  // Entities with no context
+  for (const id of entityIds) if (!result.has(id)) result.set(id, []);
+  return result;
+}
+
 export function ensureWorkflowSeeds() {
   const stageCount = db.prepare('SELECT COUNT(*) as c FROM workflow_stages').get().c;
   if (stageCount === 0) {

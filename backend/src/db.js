@@ -965,6 +965,19 @@ const MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_usage_tenant ON usage_counters(tenant_id);
       `);
     }
+  },
+  {
+    version: 11,
+    name: 'dashboard_indexes',
+    up() {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_tmps_created ON traffic_management_plans(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_tmps_tenant_status ON traffic_management_plans(tenant_id, status);
+        CREATE INDEX IF NOT EXISTS idx_plan_activities_created ON plan_activities(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_permits_expiry ON permits(expiry_date) WHERE expiry_date IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_permit_fees_status ON permit_fees(status);
+      `);
+    }
   }
 ];
 
