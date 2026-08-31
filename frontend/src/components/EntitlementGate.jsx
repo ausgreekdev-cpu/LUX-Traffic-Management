@@ -10,8 +10,15 @@ export function FeatureGate({ feature, children, fallback }) {
 export function Upsell({ feature, limit }) {
   const labels = {
     gis_generator: { title: 'GIS/TCD Generator', desc: 'Design AS 1742.3-compliant diagrams on Mapbox. Requires Pro.' },
-    dispatch: { title: 'Team Dispatch', desc: 'Rostering + SMS dispatch. Requires Agency.' },
+    geojson_export: { title: 'GeoJSON Export', desc: 'Export TMP site plans as GeoJSON. Requires Pro.' },
+    wa_lga_packet: { title: 'WA LGA Packet', desc: 'Create council permit packets. Requires Pro (single) or Agency (paired MRWA+LGA).' },
+    dispatch: { title: 'Team Dispatch', desc: 'Rostering + SMS dispatch and dispatch lanes. Requires Agency.' },
+    mobile_offline: { title: 'Field Offline Mode', desc: 'Offline caching and photo queue for field crews. Requires Pro.' },
     white_label: { title: 'White-Label', desc: 'Custom domain & branding. Requires Agency.' },
+    api_access: { title: 'API Access', desc: 'External API and integrations (webhooks, correspondence). Requires Agency.' },
+    custom_domain: { title: 'Custom Domain', desc: 'Branded domain mapping. Requires Agency.' },
+    sso_saml: { title: 'Single Sign-On (SSO/SAML)', desc: 'Enterprise SSO via SAML / OAuth2. Requires Enterprise.' },
+    ai_autolayout: { title: 'AI Auto-Layout', desc: 'AI-powered TCD auto-layout. Requires Enterprise.' },
     active_projects: { title: 'Project Limit Reached', desc: limit ? `Limit ${limit} active projects. Upgrade to Pro (25) or Agency (unlimited).` : 'Upgrade required.' },
   };
   const info = labels[feature] || { title: feature, desc: 'This feature requires upgrade.' };

@@ -9,6 +9,7 @@ import { AppTextProvider } from './context/AppText';
 import { AuthProvider, RANK } from './context/Auth';
 import { SettingsStoreProvider } from './stores/SettingsStore';
 import SettingsLayout from './components/settings/SettingsLayout';
+import { FeatureGate } from './components/EntitlementGate';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const TMPList = lazy(() => import('./pages/TMPList'));
@@ -155,7 +156,7 @@ export default function App() {
     },
     {
       path: '/field',
-      element: <ProtectedRoute><FieldLayout user={user} onLogout={handleLogout} /></ProtectedRoute>,
+      element: <ProtectedRoute><FeatureGate feature="mobile_offline"><FieldLayout user={user} onLogout={handleLogout} /></FeatureGate></ProtectedRoute>,
       errorElement: <ChunkErrorElement />,
       children: [
         { index: true, element: <FieldHome /> },

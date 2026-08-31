@@ -2,6 +2,8 @@ import { Router } from 'express';
 import db from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { encryptSecret, SECRET_SETTING_KEYS, shouldPersistSecret } from '../secrets-crypto.js';
+import { can } from '../saas/entitlements.js';
+import { getTenantId } from '../middleware/tenant.js';
 import {
   SETTINGS_GROUPS, SETTINGS_GROUP_NAMES, isGroupedKey, groupMember,
   isSecretMember, deserializeMember, serializeMember, validateGroup, groupDefaults,
@@ -49,6 +51,13 @@ router.get('/groups', authorize('developer'), (req, res) => {
 // never overwritten by the masked placeholder or an empty value.
 router.put('/groups', authorize('developer'), (req, res) => {
   const body = req.body || {};
+  // Gate sso_saml (enterprise) — provider != 'none' requires sso_saml feature
+  if (body.sso && body.sso.provider && body.sso.provider !== 'none') {
+    const tenantId = getTenantId(req);
+    if (tenantId && !can(tenantId, 'sso_saml')) {
+      return res.status(402).json({ error: 'upgrade_required', feature: 'sso_saml', message: 'SSO/SAML requires Enterprise plan.' });
+    }
+  }
   const requested = Object.keys(body).filter((n) => SETTINGS_GROUP_NAMES.includes(n));
   if (!requested.length) return res.status(400).json({ error: 'No valid settings group provided' });
 

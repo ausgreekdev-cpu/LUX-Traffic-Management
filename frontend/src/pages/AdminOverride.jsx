@@ -48,10 +48,19 @@ export default function AdminOverride() {
               <div className="mt-4 flex gap-2">
                 <select value={featureKey} onChange={e=>setFeatureKey(e.target.value)} className="border rounded px-2 py-1">
                   <option value="gis_generator">gis_generator</option>
+                  <option value="geojson_export">geojson_export</option>
+                  <option value="wa_lga_packet">wa_lga_packet</option>
                   <option value="dispatch">dispatch</option>
+                  <option value="mobile_offline">mobile_offline</option>
                   <option value="white_label">white_label</option>
                   <option value="api_access">api_access</option>
+                  <option value="custom_domain">custom_domain</option>
+                  <option value="sso_saml">sso_saml</option>
+                  <option value="ai_autolayout">ai_autolayout</option>
                   <option value="active_projects">active_projects (limit)</option>
+                  <option value="pdf_exports_per_month">pdf_exports_per_month (limit)</option>
+                  <option value="storage_gb">storage_gb (limit)</option>
+                  <option value="api_calls_per_day">api_calls_per_day (limit)</option>
                 </select>
                 <input placeholder="reason" value={reason} onChange={e=>setReason(e.target.value)} className="border rounded px-2 py-1 flex-1" />
                 <button onClick={grant} className="bg-amber-500 text-white px-3 py-1 rounded">Grant</button>

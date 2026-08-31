@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../api';
 import { useAppText } from '../context/AppText';
+import { FeatureGate } from '../components/EntitlementGate';
 
 const REVIEW_BADGES = {
   new: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
@@ -40,6 +41,7 @@ export default function Correspondence() {
   };
 
   return (
+    <FeatureGate feature="api_access">
     <div className="space-y-4">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
@@ -142,5 +144,6 @@ export default function Correspondence() {
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 }

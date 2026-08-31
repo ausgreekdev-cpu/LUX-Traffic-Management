@@ -1,4 +1,30 @@
 // IndexedDB-backed offline cache + photo upload queue for Field mode.
+// Gated by mobile_offline entitlement (pro/agency true, starter false = read-only mobile).
+let _entCache = null;
+let _entCacheAt = 0;
+const ENT_TTL_MS = 5 * 60 * 1000;
+
+async function hasMobileOffline() {
+  const now = Date.now();
+  if (_entCache !== null && now - _entCacheAt < ENT_TTL_MS) return _entCache;
+  try {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) { _entCache = false; _entCacheAt = now; return false; }
+    const res = await fetch('/api/billing/entitlements', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) { _entCache = false; _entCacheAt = now; return false; }
+    const data = await res.json();
+    _entCache = !!data?.features?.mobile_offline;
+    _entCacheAt = now;
+    return _entCache;
+  } catch {
+    _entCache = false; _entCacheAt = now; return false;
+  }
+}
+
+export async function isMobileOfflineAllowed() {
+  return hasMobileOffline();
+}
+export function clearEntitlementCache() { _entCache = null; _entCacheAt = 0; }
 
 const DB_NAME = 'lux-field';
 const DB_VERSION = 1;
@@ -35,6 +61,8 @@ async function tx(store, mode, fn) {
 }
 
 export async function cacheSet(key, value) {
+  // Gate offline cache writes behind mobile_offline — starter is read-only mobile
+  if (!(await hasMobileOffline())) return;
   try {
     await tx(CACHE_STORE, 'readwrite', (s) => s.put({ key, value }));
   } catch { /* offline cache is best-effort */ }
@@ -56,6 +84,7 @@ export async function cacheClear() {
 }
 
 export async function queueUpload(item) {
+  if (!(await hasMobileOffline())) throw new Error('Offline queue requires Pro plan (mobile_offline). Upgrade at /billing.');
   await tx(QUEUE_STORE, 'readwrite', (s) => s.put(item));
 }
 

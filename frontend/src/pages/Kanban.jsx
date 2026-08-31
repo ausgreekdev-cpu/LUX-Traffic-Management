@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../api';
 import { useAuth, hasRole } from '../context/Auth';
 import { useAppText } from '../context/AppText';
+import { useFeature } from '../hooks/useEntitlement';
+import { Upsell } from '../components/EntitlementGate';
 import BoardView from '../components/kanban/BoardView';
 import CardModal from '../components/kanban/CardModal';
 import ColumnEditor from '../components/kanban/ColumnEditor';
@@ -10,6 +12,7 @@ import BoardAnalytics from '../components/kanban/BoardAnalytics';
 export default function Kanban() {
   const { user } = useAuth();
   const { pageTitle } = useAppText();
+  const { allowed: canDispatch } = useFeature('dispatch');
   const [entityType, setEntityType] = useState('tmp');
   const [tab, setTab] = useState('board');
   const [board, setBoard] = useState(null);
@@ -38,11 +41,18 @@ export default function Kanban() {
   };
 
   const handleMove = async (card, payload) => {
+    if (payload?.lane === 'dispatch' && !canDispatch) {
+      notify('Dispatch lanes require Agency plan. Upgrade at /billing.');
+      return;
+    }
     try {
       await api.kanban.move(entityType, card.entity_id, payload);
       await load(entityType);
     } catch (err) {
-      notify(err.message);
+      // Surface 402 upgrade_required cleanly
+      const msg = err.message || '';
+      if (msg.includes('upgrade_required') || msg.toLowerCase().includes('dispatch')) notify(msg);
+      else notify(err.message);
       await load(entityType);
     }
   };
@@ -79,6 +89,9 @@ export default function Kanban() {
         ))}
       </div>
 
+      {!canDispatch && board?.lanes?.includes('dispatch') && (
+        <Upsell feature="dispatch" />
+      )}
       {tab === 'board' && (
         loading ? <p className="text-gray-500">Loading board…</p>
           : !board ? <p className="text-gray-500">No data.</p>

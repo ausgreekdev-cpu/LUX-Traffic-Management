@@ -42,8 +42,18 @@ export async function handler(event) {
         const sub = stripeEvent.data.object;
         const tenant = db.prepare('SELECT id FROM tenants WHERE stripe_customer_id = ?').get(sub.customer);
         if (tenant) {
+          // Base plan price id is first item; extra seats may be second item (price_data or dedicated extra price)
           const priceId = sub.items.data[0]?.price.id;
-          const qty = sub.items.data[0]?.quantity || 1;
+          // Sum quantities across all subscription items to get total seats (base 1 + extras)
+          // Fallback to metadata seats if present (checkout now sets metadata seats)
+          const metaSeats = sub.metadata?.seats ? Number(sub.metadata.seats) : null;
+          const totalQtyFromItems = sub.items.data.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+          // If subscription has 1 base item + extra seat items, total qty = 1 + extraSeats = total seats
+          // But if extra seat price_data items were used, they still appear as items. So sum is correct.
+          // For backward compatibility where old checkout used qty = seats, sum will still be seats.
+          let qty = metaSeats && metaSeats > 0 ? metaSeats : (totalQtyFromItems || 1);
+          // Guard: qty at least seatsIncluded? Use max(totalQtyFromItems,1) if meta missing
+          if (!metaSeats) qty = totalQtyFromItems || 1;
           // Map priceId to plan - include both monthly and annual
           const planMap = {
             [process.env.STRIPE_PRICE_STARTER_MONTHLY]: 'starter',
@@ -53,13 +63,13 @@ export async function handler(event) {
             [process.env.STRIPE_PRICE_AGENCY_MONTHLY]: 'agency',
             [process.env.STRIPE_PRICE_AGENCY_ANNUAL]: 'agency',
           };
-          const plan = planMap[priceId] || tenant.plan || 'pro';
+          const plan = planMap[priceId] || sub.metadata?.plan || tenant.plan || 'pro';
           db.prepare(`INSERT INTO subscriptions (id, tenant_id, stripe_subscription_id, stripe_price_id, status, quantity, current_period_end)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(stripe_subscription_id) DO UPDATE SET status=excluded.status, quantity=excluded.quantity, current_period_end=excluded.current_period_end`).run(
               sub.id, tenant.id, sub.id, priceId, sub.status, qty, new Date(sub.current_period_end * 1000).toISOString()
           );
-          // Sync seats_included from Stripe quantity and plan
+          // Sync seats_included from total seats and plan (base + extra)
           db.prepare('UPDATE tenants SET plan = ?, status = ?, seats_included = ?, current_period_end = ? WHERE id = ?').run(plan, sub.status === 'active' ? 'active' : sub.status, qty, new Date(sub.current_period_end * 1000).toISOString(), tenant.id);
         }
         break;

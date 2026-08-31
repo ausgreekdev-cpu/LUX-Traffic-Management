@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import db from '../db.js';
 import { ingestCorrespondence, reviewCorrespondence } from '../correspondence.js';
 import { authenticate, roleAtLeast } from '../middleware/auth.js';
+import { requireEntitlement } from '../middleware/entitlement.js';
 import { decryptSecret } from '../secrets-crypto.js';
 
 const router = Router();
@@ -70,7 +71,7 @@ router.post('/webhook/:provider', (req, res) => {
   res.status(202).json({ received: true, correspondence_id: result.id, tmp_reference: result.tmp_reference, matched: !!result.permit_id, extracted_status: result.extracted_status });
 });
 
-router.get('/correspondence', authenticate, roleAtLeast('manager'), (req, res) => {
+router.get('/correspondence', authenticate, roleAtLeast('manager'), requireEntitlement('api_access'), (req, res) => {
   let q = 'SELECT * FROM correspondence';
   const where = [];
   const params = [];
@@ -82,7 +83,7 @@ router.get('/correspondence', authenticate, roleAtLeast('manager'), (req, res) =
   res.json({ data: db.prepare(q).all(...params) });
 });
 
-router.post('/correspondence/:id/review', authenticate, roleAtLeast('manager'), (req, res) => {
+router.post('/correspondence/:id/review', authenticate, roleAtLeast('manager'), requireEntitlement('api_access'), (req, res) => {
   const { review_status } = req.body || {};
   const result = reviewCorrespondence(req.params.id, { review_status, by: req.user?.id || null });
   if (!result) return res.status(404).json({ error: 'Correspondence not found' });

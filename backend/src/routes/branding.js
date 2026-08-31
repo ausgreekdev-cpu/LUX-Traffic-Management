@@ -110,7 +110,7 @@ router.post('/assets/:slot', authenticate, authorize('developer'), requireWhiteL
   res.json({ success: true, slot, mime_type: req.file.mimetype, size: req.file.size });
 });
 
-router.delete('/assets/:slot', authenticate, authorize('developer'), async (req, res) => {
+router.delete('/assets/:slot', authenticate, authorize('developer'), requireWhiteLabel, async (req, res) => {
   const slot = String(req.params.slot || '');
   if (!ASSET_SLOTS.has(slot)) return res.status(400).json({ error: 'Unknown asset slot' });
   const domain = scope(req);
@@ -119,7 +119,7 @@ router.delete('/assets/:slot', authenticate, authorize('developer'), async (req,
   res.json({ success: true });
 });
 
-router.post('/reset', authenticate, authorize('developer'), (req, res) => {
+router.post('/reset', authenticate, authorize('developer'), requireWhiteLabel, (req, res) => {
   const domain = scope(req);
   resetBranding(req.user.id, domain);
   res.json({ success: true, summary: getPublicSummary(domain) });
@@ -129,7 +129,7 @@ router.get('/versions', authenticate, authorize('developer'), (req, res) => {
   res.json({ versions: listVersions(parseInt(req.query.limit, 10) || 25, scope(req)) });
 });
 
-router.post('/versions/:id/restore', authenticate, authorize('developer'), (req, res) => {
+router.post('/versions/:id/restore', authenticate, authorize('developer'), requireWhiteLabel, (req, res) => {
   const restored = restoreVersion(parseInt(req.params.id, 10), req.user.id);
   if (!restored) return res.status(404).json({ error: 'Version not found' });
   res.json({ success: true, summary: getPublicSummary(restored.domain || '') });
@@ -139,7 +139,7 @@ router.get('/domain', authenticate, authorize('developer'), (req, res) => {
   res.json({ domains: db.prepare('SELECT * FROM domain_map ORDER BY id').all() });
 });
 
-router.post('/domain', authenticate, authorize('developer'), (req, res) => {
+router.post('/domain', authenticate, authorize('developer'), requireWhiteLabel, (req, res) => {
   const domain = String(req.body?.domain || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) return res.status(400).json({ error: 'Invalid domain' });
   try {
@@ -151,7 +151,7 @@ router.post('/domain', authenticate, authorize('developer'), (req, res) => {
   }
 });
 
-router.delete('/domain/:id', authenticate, authorize('developer'), (req, res) => {
+router.delete('/domain/:id', authenticate, authorize('developer'), requireWhiteLabel, (req, res) => {
   db.prepare('DELETE FROM domain_map WHERE id = ?').run(parseInt(req.params.id, 10));
   res.json({ success: true });
 });

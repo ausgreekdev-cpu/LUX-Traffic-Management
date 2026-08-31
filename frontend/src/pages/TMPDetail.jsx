@@ -7,6 +7,8 @@ import CompliancePanel from '../components/CompliancePanel';
 import NotificationPanel from '../components/NotificationPanel';
 import { useAppText } from '../context/AppText';
 import { useAuth, hasRole } from '../context/Auth';
+import { useFeature } from '../hooks/useEntitlement';
+import { Upsell } from '../components/EntitlementGate';
 
 const previewable = (name) => /\.(pdf|png|jpe?g|gif|webp)$/i.test(name);
 
@@ -17,6 +19,8 @@ export default function TMPDetail() {
   const { user } = useAuth();
   const canEdit = hasRole(user, 'staff');
   const canDelete = hasRole(user, 'manager');
+  const { allowed: canGeoJson } = useFeature('geojson_export');
+  const { allowed: canWaPacket } = useFeature('wa_lga_packet');
   const [tmp, setTmp] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -69,8 +73,17 @@ export default function TMPDetail() {
   };
 
   const handleExportGeoJSON = async () => {
+    if (!canGeoJson) {
+      alert('GeoJSON export requires Pro plan. Upgrade at /billing.');
+      return;
+    }
     try {
       const res = await api.export.geoJSON(id);
+      if (res.status === 402) {
+        const j = await res.json().catch(()=>({}));
+        alert(j.message || 'GeoJSON export requires upgrade (402).');
+        return;
+      }
       if (!res.ok) throw new Error('GeoJSON export failed');
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
@@ -93,8 +106,17 @@ export default function TMPDetail() {
   };
 
   const handleCreatePermits = async () => {
+    if (!canWaPacket) {
+      alert('WA LGA packet requires Pro (single) or Agency (paired). Upgrade at /billing.');
+      return;
+    }
     try {
-      const res = await api.tmps.createPermits(id);
+      const res = await fetch(`/api/tmps/${id}/create-permits`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' } });
+      if (res.status === 402) {
+        const j = await res.json().catch(()=>({}));
+        alert(j.message || 'Upgrade required for WA LGA packet (402).');
+        return;
+      }
       if (!res.ok) throw new Error('Failed to create permits');
       const data = await res.json();
       alert(`Created ${data.permits?.length || 0} permit(s) for ${data.jurisdiction?.toUpperCase()} jurisdiction`);
@@ -138,12 +160,14 @@ export default function TMPDetail() {
         <div className="flex gap-2 flex-wrap">
           {canEdit && <button onClick={handleExportPDF} className="btn btn-secondary">Export PDF</button>}
           {canEdit && <button onClick={handleExportCouncilPDF} className="btn btn-secondary">Council PDF</button>}
-          {canEdit && <button onClick={handleExportGeoJSON} className="btn btn-secondary">GeoJSON</button>}
+          {canEdit && <button onClick={handleExportGeoJSON} className={`btn ${canGeoJson ? 'btn-secondary' : 'btn-secondary opacity-60'}`} title={canGeoJson ? 'Export GeoJSON (Pro)' : 'Requires Pro – GeoJSON export'}>GeoJSON {!canGeoJson && '🔒'}</button>}
           {canEdit && <button onClick={handleExportSitePlanSVG} className="btn btn-secondary">Site Plan SVG</button>}
-          {canEdit && tmp.jurisdiction && <button onClick={handleCreatePermits} className="btn btn-primary">Create Permits</button>}
+          {canEdit && tmp.jurisdiction && <button onClick={handleCreatePermits} className={`btn ${canWaPacket ? 'btn-primary' : 'btn-secondary opacity-60'}`} title={canWaPacket ? 'Create WA LGA packet' : 'Requires Pro (single) / Agency (paired)'}>Create Permits {!canWaPacket && '🔒'}</button>}
           {canEdit && <Link to={`/tmps/${id}/edit`} className="btn btn-primary">Edit</Link>}
           {canDelete && <button onClick={handleDelete} className="btn btn-danger">Delete</button>}
         </div>
+        {!canGeoJson && canEdit && <p className="text-xs text-amber-600 mt-1">GeoJSON export locked — <a href="/billing" className="underline">Upgrade to Pro</a></p>}
+        {!canWaPacket && canEdit && tmp.jurisdiction && <p className="text-xs text-amber-600 mt-1">WA LGA packet locked — <a href="/billing" className="underline">Upgrade to Pro</a></p>}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">

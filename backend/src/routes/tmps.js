@@ -12,6 +12,8 @@ import { unresolvedComplianceViolations, latestComplianceSummary } from '../comp
 import { getWorkTypeList, createTmpFromTemplate } from '../tmp-templates.js';
 import { deriveJurisdiction, getRelevantAuthorities, getPermitPacketConfig } from '../jurisdiction.js';
 import { enforceLimit, resolveEntitlements } from '../saas/entitlements.js';
+import { requireEntitlement } from '../middleware/entitlement.js';
+import { getTenantId } from '../middleware/tenant.js';
 
 const router = Router();
 router.use(authenticate);
@@ -233,24 +235,26 @@ router.post('/bulk', roleAtLeast('staff'), (req, res) => {
 res.json({ success: true, count: ids.length });
   });
 
-  // Create paired permits based on jurisdiction
-  router.post('/:id/create-permits', roleAtLeast('staff'), (req, res, next) => {
-    const tenantId = req.user.tenant_id || req.user.tenantId;
-    if (tenantId) {
-      const ent = resolveEntitlements(tenantId);
-      if (!ent?.features?.wa_lga_packet) return res.status(402).json({ error: 'upgrade_required', feature: 'wa_lga_packet' });
-    }
-    next();
-  }, (req, res) => {
+  // Create paired permits based on jurisdiction — gated by wa_lga_packet (starter false, pro single, agency paired)
+  router.post('/:id/create-permits', roleAtLeast('staff'), requireEntitlement('wa_lga_packet'), (req, res) => {
     const tmp = db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(req.params.id);
     if (!tmp) return res.status(404).json({ error: 'TMP not found' });
-    
+
     const config = getPermitPacketConfig(tmp.jurisdiction);
-    const authorities = getRelevantAuthorities({ 
-      jurisdiction: tmp.jurisdiction, 
-      authority_id: tmp.authority_id, 
-      site_id: tmp.site_id 
+    let authorities = getRelevantAuthorities({
+      jurisdiction: tmp.jurisdiction,
+      authority_id: tmp.authority_id,
+      site_id: tmp.site_id
     });
+    // Enforce tiered packet: pro/trial = single LGA, agency/enterprise = paired MRWA+LGA
+    const tenantId = getTenantId(req) || req.tenantId;
+    const ent = tenantId ? resolveEntitlements(tenantId) : null;
+    const tierId = ent?.tier?.id || ent?.tenant?.plan || 'starter';
+    const allowsPaired = tierId === 'agency' || tierId === 'enterprise';
+    if (!allowsPaired && authorities.length > 1) {
+      // Pro/trial single packet — keep first authority only (MRWA preferred if present else LGA)
+      authorities = authorities.slice(0, 1);
+    }
     
     if (authorities.length === 0) {
       return res.status(400).json({ error: 'No relevant authorities found for permit creation' });

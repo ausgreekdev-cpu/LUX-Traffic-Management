@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { roleAtLeast } from '../middleware/auth.js';
+import { getTenantId } from '../middleware/tenant.js';
 
 const router = Router();
 router.use(authenticate);
@@ -10,6 +11,7 @@ router.use(roleAtLeast('staff'));
 router.get('/approval-times', (req, res) => {
   const periodDays = parseInt(req.query.period_days || '90');
   const cutoff = new Date(Date.now() - periodDays * 86400000).toISOString().slice(0,10);
+  const tenantId = getTenantId(req);
   let q = `SELECT a.id as authority_id,a.name as authority_name,a.short_name as authority_short,a.type as authority_type,
     COUNT(p.id) as sample_count, AVG(julianday(p.approval_date)-julianday(p.submission_date)) as avg_days,
     MIN(julianday(p.approval_date)-julianday(p.submission_date)) as min_days,
@@ -17,9 +19,15 @@ router.get('/approval-times', (req, res) => {
     FROM permits p LEFT JOIN authorities a ON p.authority_id=a.id
     WHERE p.approval_date IS NOT NULL AND p.submission_date IS NOT NULL AND p.submission_date>=?`;
   const params = [cutoff];
+  if (tenantId) { try { q += ' AND p.tenant_id = ?'; params.push(tenantId); } catch {} }
   if (req.query.authority_id) { q += ' AND p.authority_id=?'; params.push(req.query.authority_id); }
   q += ' GROUP BY a.id ORDER BY avg_days ASC';
-  const metrics = db.prepare(q).all(...params).map(r => ({ authority_id: r.authority_id, authority_name: r.authority_name, authority_short: r.authority_short, sample_count: r.sample_count, avg_approval_days: r.avg_days ? Math.round(r.avg_days*10)/10 : null, min_approval_days: r.min_days ? Math.round(r.min_days) : null, max_approval_days: r.max_days ? Math.round(r.max_days) : null }));
+  let metrics;
+  try { metrics = db.prepare(q).all(...params).map(r => ({ authority_id: r.authority_id, authority_name: r.authority_name, authority_short: r.authority_short, sample_count: r.sample_count, avg_approval_days: r.avg_days ? Math.round(r.avg_days*10)/10 : null, min_approval_days: r.min_days ? Math.round(r.min_days) : null, max_approval_days: r.max_days ? Math.round(r.max_days) : null })); }
+  catch { // fallback without tenant
+    let q2 = `SELECT a.id as authority_id,a.name as authority_name,a.short_name as authority_short,a.type as authority_type, COUNT(p.id) as sample_count, AVG(julianday(p.approval_date)-julianday(p.submission_date)) as avg_days, MIN(julianday(p.approval_date)-julianday(p.submission_date)) as min_days, MAX(julianday(p.approval_date)-julianday(p.submission_date)) as max_days FROM permits p LEFT JOIN authorities a ON p.authority_id=a.id WHERE p.approval_date IS NOT NULL AND p.submission_date IS NOT NULL AND p.submission_date>=?`;
+    const p2=[cutoff]; if (req.query.authority_id) { q2+=' AND p.authority_id=?'; p2.push(req.query.authority_id); } q2+=' GROUP BY a.id ORDER BY avg_days ASC'; metrics = db.prepare(q2).all(...p2).map(r => ({ authority_id: r.authority_id, authority_name: r.authority_name, authority_short: r.authority_short, sample_count: r.sample_count, avg_approval_days: r.avg_days ? Math.round(r.avg_days*10)/10 : null, min_approval_days: r.min_days ? Math.round(r.min_days) : null, max_approval_days: r.max_days ? Math.round(r.max_days) : null }));
+  }
   res.json({ metrics, total_authorities: metrics.length, period_days: periodDays });
 });
 
@@ -48,8 +56,17 @@ router.get('/rejection-analysis', (req, res) => {
 router.get('/financial-summary', (req, res) => {
   const periodDays = parseInt(req.query.period_days || '90');
   const cutoff = new Date(Date.now() - periodDays * 86400000).toISOString().slice(0,10);
-  const fees = db.prepare('SELECT * FROM permit_fees WHERE created_at>=?').all(cutoff);
-  const times = db.prepare('SELECT * FROM time_entries WHERE date>=?').all(cutoff);
+  const tenantId = getTenantId(req);
+  let fees, times;
+  try {
+    if (tenantId) {
+      fees = db.prepare('SELECT * FROM permit_fees WHERE created_at>=? AND tenant_id = ?').all(cutoff, tenantId);
+      times = db.prepare('SELECT * FROM time_entries WHERE date>=? AND tenant_id = ?').all(cutoff, tenantId);
+    } else throw new Error('no tenant');
+  } catch {
+    fees = db.prepare('SELECT * FROM permit_fees WHERE created_at>=?').all(cutoff);
+    times = db.prepare('SELECT * FROM time_entries WHERE date>=?').all(cutoff);
+  }
   const fs = { application_fees:0, occupancy_fees:0, bonds_held:0, bonds_returned:0, total_fees:0, total_paid:0, total_pending:0 };
   fees.forEach(f => { if (['application_fee','assessment_fee'].includes(f.fee_type)) fs.application_fees+=f.amount; else if (['daily_occupancy_fee','lane_usage_fee'].includes(f.fee_type)) fs.occupancy_fees+=f.amount; else if (f.fee_type==='bond') { if (f.bond_returned) fs.bonds_returned+=f.amount; else fs.bonds_held+=f.amount; } fs.total_fees+=f.amount; if (f.status==='paid') fs.total_paid+=f.amount; else if (f.status==='pending') fs.total_pending+=f.amount; });
   let billableH=0, nonBillableH=0, billableC=0;
@@ -59,15 +76,31 @@ router.get('/financial-summary', (req, res) => {
 });
 
 router.get('/dashboard', (req, res) => {
-  const totalPermits = db.prepare('SELECT COUNT(*) as c FROM permits').get().c;
-  const activePermits = db.prepare("SELECT COUNT(*) as c FROM permits WHERE status NOT IN ('completed','expired','rejected','cancelled')").get().c;
-  const pendingApproval = db.prepare("SELECT COUNT(*) as c FROM permits WHERE status IN ('submitted','under_review')").get().c;
-  const openTriggers = db.prepare('SELECT COUNT(*) as c FROM workflow_triggers WHERE is_resolved=0').get().c;
-  const totalFeesOwed = db.prepare("SELECT COALESCE(SUM(amount),0) as s FROM permit_fees WHERE status='pending'").get().s;
-  const totalBondHeld = db.prepare("SELECT COALESCE(SUM(amount),0) as s FROM permit_fees WHERE fee_type='bond' AND bond_returned=0").get().s;
-  const permitsByAuthority = db.prepare('SELECT a.short_name,a.type,COUNT(p.id) as count FROM permits p LEFT JOIN authorities a ON p.authority_id=a.id GROUP BY a.id ORDER BY count DESC').all();
-  const permitsByStatus = db.prepare('SELECT status,COUNT(*) as count FROM permits GROUP BY status').all();
-  const urgentPermits = db.prepare('SELECT p.id,p.status,p.expiry_date,a.short_name FROM permits p LEFT JOIN authorities a ON p.authority_id=a.id WHERE p.expiry_date IS NOT NULL AND p.expiry_date>datetime(\'now\') ORDER BY p.expiry_date ASC LIMIT 5').all();
+  const tenantId = getTenantId(req);
+  let totalPermits, activePermits, pendingApproval, openTriggers, totalFeesOwed, totalBondHeld, permitsByAuthority, permitsByStatus, urgentPermits;
+  try {
+    if (tenantId) {
+      totalPermits = db.prepare('SELECT COUNT(*) as c FROM permits WHERE tenant_id = ?').get(tenantId).c;
+      activePermits = db.prepare("SELECT COUNT(*) as c FROM permits WHERE status NOT IN ('completed','expired','rejected','cancelled') AND tenant_id = ?").get(tenantId).c;
+      pendingApproval = db.prepare("SELECT COUNT(*) as c FROM permits WHERE status IN ('submitted','under_review') AND tenant_id = ?").get(tenantId).c;
+      openTriggers = db.prepare('SELECT COUNT(*) as c FROM workflow_triggers WHERE is_resolved=0 AND tenant_id = ?').get(tenantId).c;
+      totalFeesOwed = db.prepare("SELECT COALESCE(SUM(amount),0) as s FROM permit_fees WHERE status='pending' AND tenant_id = ?").get(tenantId).s;
+      totalBondHeld = db.prepare("SELECT COALESCE(SUM(amount),0) as s FROM permit_fees WHERE fee_type='bond' AND bond_returned=0 AND tenant_id = ?").get(tenantId).s;
+      permitsByAuthority = db.prepare('SELECT a.short_name,a.type,COUNT(p.id) as count FROM permits p LEFT JOIN authorities a ON p.authority_id=a.id WHERE p.tenant_id = ? GROUP BY a.id ORDER BY count DESC').all(tenantId);
+      permitsByStatus = db.prepare('SELECT status,COUNT(*) as count FROM permits WHERE tenant_id = ? GROUP BY status').all(tenantId);
+      urgentPermits = db.prepare('SELECT p.id,p.status,p.expiry_date,a.short_name FROM permits p LEFT JOIN authorities a ON p.authority_id=a.id WHERE p.expiry_date IS NOT NULL AND p.expiry_date>datetime(\'now\') AND p.tenant_id = ? ORDER BY p.expiry_date ASC LIMIT 5').all(tenantId);
+    } else throw new Error('no tenant');
+  } catch {
+    totalPermits = db.prepare('SELECT COUNT(*) as c FROM permits').get().c;
+    activePermits = db.prepare("SELECT COUNT(*) as c FROM permits WHERE status NOT IN ('completed','expired','rejected','cancelled')").get().c;
+    pendingApproval = db.prepare("SELECT COUNT(*) as c FROM permits WHERE status IN ('submitted','under_review')").get().c;
+    openTriggers = db.prepare('SELECT COUNT(*) as c FROM workflow_triggers WHERE is_resolved=0').get().c;
+    totalFeesOwed = db.prepare("SELECT COALESCE(SUM(amount),0) as s FROM permit_fees WHERE status='pending'").get().s;
+    totalBondHeld = db.prepare("SELECT COALESCE(SUM(amount),0) as s FROM permit_fees WHERE fee_type='bond' AND bond_returned=0").get().s;
+    permitsByAuthority = db.prepare('SELECT a.short_name,a.type,COUNT(p.id) as count FROM permits p LEFT JOIN authorities a ON p.authority_id=a.id GROUP BY a.id ORDER BY count DESC').all();
+    permitsByStatus = db.prepare('SELECT status,COUNT(*) as count FROM permits GROUP BY status').all();
+    urgentPermits = db.prepare('SELECT p.id,p.status,p.expiry_date,a.short_name FROM permits p LEFT JOIN authorities a ON p.authority_id=a.id WHERE p.expiry_date IS NOT NULL AND p.expiry_date>datetime(\'now\') ORDER BY p.expiry_date ASC LIMIT 5').all();
+  }
   res.json({ stats: { total_permits: totalPermits, active_permits: activePermits, pending_approval: pendingApproval, open_triggers: openTriggers, total_fees_owed: totalFeesOwed, total_bond_held: totalBondHeld }, permits_by_authority: permitsByAuthority, permits_by_status: permitsByStatus, urgent_permits: urgentPermits });
 });
 

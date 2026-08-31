@@ -23,7 +23,7 @@ npm run electron:msix
 # Output: release/Delux TPM CRM 1.2.3.msix  (+ .blockmap)
 ```
 
-The MSIX uses `build/appx/*Logo.png` generated from `assets/icon.png` (256) + `frontend/public/pwa-512x512.png` (512). Replace with professionally rendered Store scales (50, 44, 150, 310) before final submission if possible — electron-builder will auto-scale the single source but Store review prefers crisp assets.
+The MSIX uses `build/appx/*Logo.png` scaled from `assets/icon.png` (256) + `frontend/public/pwa-512x512.png` (512) with full Store scale sets (100/125/150/200/400) — generate via `npm run build:appx-icons` or `python3 scripts/generate-appx-icons.py`. Each logical asset (StoreLogo 50×50, Square44×44 44×44, Square150×150 150×150, Wide310×150 310×150, LargeTile 310×310, SmallTile 71×71, SplashScreen 620×300) has .scale-100/.125/.150/.200/.400 variants (e.g. `StoreLogo.scale-100.png` 50px, `.scale-400.png` 200px). Commit the generated `build/appx/` scales; electron-builder will embed the correct assets in the appx manifest. Replace with professionally rendered assets before final submission if possible.
 
 **Test sideload (unsigned):**
 ```powershell
@@ -55,14 +55,14 @@ Artifacts expire in 14 days. Download from Actions → `build-msix` → `msix-pa
 | **Long Description** | Use `frontend/public/screenshot-wide.png` + `screenshot-narrow.png` as hero; describe GIS CAD, WA LGA rule engine, offline field, audit log. |
 | **Category / Subcategory** | Business > Project Management |
 | **Keywords** | traffic management, TMP, TGS, Main Roads WA, LGA, permit |
-| **Pricing** | Free download + IAP (Starter $79 / Pro $199 / Agency $499) or Paid one-time — match `backend/src/saas/tiers.js` |
-| **Privacy Policy URL** | `https://lux-official.netlify.app/privacy` (create page — Store requires HTTPS privacy URL) |
-| **Support URL / Contact** | `https://lux-official.netlify.app/support` or `info@ausgreek.dev` |
+| **Pricing** | Free download + IAP — AUD ex GST: Starter $79/mo ($756/yr –20%), Pro $199/mo ($1,908/yr), Agency $499/mo ($4,788/yr), Enterprise custom. Extra seats beyond included (Starter 2, Pro 5, Agency 15): $39/$39/$29 per seat/mo (annual ×12×0.8). Trial Pro 14d. Pricing matches `backend/src/saas/tiers.js` — update both if changed. |
+| **Privacy Policy URL** | `https://lux-official.netlify.app/privacy` (frontend route `/privacy`, also footer link in `frontend/src/components/Layout.jsx` — Store requires HTTPS privacy URL) |
+| **Support URL / Contact** | `https://lux-official.netlify.app/support` (frontend route `/support`, footer link) or `info@ausgreek.dev` |
 | **Copyright** | `© AusGreek Developments 2026` |
 | **Age Rating (IARC)** | Complete questionnaire — Business/Productivity → **Everyone (3+)** / `E` |
 | **Capabilities** | `internetClient`, `runFullTrust` (for `better-sqlite3` native + `localhost:3001`), optionally `privateNetworkClientServer` if intranet sync |
 | **Screenshots** | Min 1 Desktop 1366×768 @100%, recommended 4 × 3840×2160. Capture `frontend/dist` at 1366×768 and 1920×1080. Source: `frontend/public/screenshot-wide.png` (1280×720) + `screenshot-narrow.png` (720×1280). |
-| **Store Logos** | `build/appx/StoreLogo.png` (50×50), `Square44x44Logo.png`, `Square150x150Logo.png`, `Wide310x150Logo.png`, `LargeTile`, `SplashScreen` — already in `build/appx/` (generated from `assets/icon.png` / `pwa-512x512.png`). |
+| **Store Logos** | `build/appx/StoreLogo.png` (50×50) + `.scale-100/125/150/200/400`, `Square44x44Logo.png` (44×44) + scales, `Square150x150Logo.png` (150×150) + scales, `Wide310x150Logo.png` (310×150) + scales, `LargeTile` (310×310) + scales, `SmallTile` (71×71) + scales, `SplashScreen` (620×300) + scales — all generated with scales via `scripts/generate-appx-icons.py` from `assets/icon.png` / `pwa-512x512.png`. |
 
 ## 5. Upload to Partner Center
 

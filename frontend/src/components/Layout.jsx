@@ -230,6 +230,14 @@ export default function Layout({ user, onLogout }) {
           )}
         </div>
         <Outlet />
+        <footer className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-4 flex flex-wrap gap-4 justify-center text-xs text-gray-500">
+          <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
+          <Link to="/support" className="hover:underline">Support</Link>
+          <Link to="/billing" className="hover:underline">Billing</Link>
+          <a href="https://lux-official.netlify.app/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">Store Privacy</a>
+          <a href="https://lux-official.netlify.app/support" target="_blank" rel="noopener noreferrer" className="hover:underline">Store Support</a>
+          <span>© AusGreek Developments 2026</span>
+        </footer>
       </main>
     </div>
   );

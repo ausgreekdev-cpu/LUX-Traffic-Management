@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
-import { requireEntitlement } from '../middleware/entitlement.js';
+import { requireEntitlement, meterUsage } from '../middleware/entitlement.js';
 import { incrementUsage, enforceLimit, resolveEntitlements } from '../saas/entitlements.js';
 import db from '../db.js';
 
@@ -17,14 +17,14 @@ router.post('/tgs', authenticate, requireEntitlement('gis_generator'), (req, res
   res.json({ id, tmp_id });
 });
 
-// GET /api/gis/export/:tmpId/pdf - metered
-router.get('/export/:tmpId/pdf', authenticate, requireEntitlement('gis_generator'), (req, res) => {
+// GET /api/gis/export/:tmpId/pdf - metered via meterUsage + limit guard
+router.get('/export/:tmpId/pdf', authenticate, requireEntitlement('gis_generator'), meterUsage('pdf_exports_per_month'), (req, res) => {
   const tenantId = req.tenantId || req.user.tenant_id;
   if (tenantId) {
     const used = (() => { try { return db.prepare("SELECT used FROM usage_counters WHERE tenant_id = ? AND feature_key = 'pdf_exports_per_month' AND period = ?").get(tenantId, new Date().toISOString().slice(0,7))?.used || 0; } catch { return 0; } })();
     const { allowed, limit } = enforceLimit(tenantId, 'pdf_exports_per_month', used);
     if (!allowed) return res.status(402).json({ error: 'limit_exceeded', limit: 'pdf_exports_per_month', limit_value: limit, current: used });
-    incrementUsage(tenantId, 'pdf_exports_per_month', 1);
+    // meterUsage will increment on success; avoid double increment here - rely on meterUsage
   }
   res.json({ message: 'PDF export stub — integrate council exporters (Phase 4) here. Counts toward pdf_exports_per_month.' });
 });

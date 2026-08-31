@@ -3,6 +3,7 @@ import { useSettingsGroup } from '../../../hooks/useSettingsGroup';
 import { Field, SelectField, TextField } from '../../../components/settings/fields';
 import SectionCard from '../../../components/settings/SectionCard';
 import SaveBar from '../../../components/settings/SaveBar';
+import { FeatureGate } from '../../../components/EntitlementGate';
 
 export default function SsoTab() {
   const { draft, setValue, save, reset, saving, saved, error } = useSettingsGroup('sso', 'sso');
@@ -13,8 +14,9 @@ export default function SsoTab() {
   const isOAuth = draft.provider === 'oauth2';
 
   return (
+    <FeatureGate feature="sso_saml">
     <div>
-      <SectionCard title="Single sign-on" description="Enterprise SSO configuration (SAML / OAuth2). Credentials are stored encrypted and masked. JWT login remains active until an identity provider is wired end-to-end.">
+      <SectionCard title="Single sign-on" description="Enterprise SSO configuration (SAML / OAuth2). Credentials are stored encrypted and masked. JWT login remains active until an identity provider is wired end-to-end. Requires Enterprise.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Provider">
             <SelectField value={draft.provider || 'none'} onChange={(v) => setValue('provider', v)}
@@ -60,5 +62,6 @@ export default function SsoTab() {
         <SaveBar onSave={() => save()} onReset={reset} saving={saving} saved={saved} error={error} saveLabel="Save SSO configuration" />
       </SectionCard>
     </div>
+    </FeatureGate>
   );
 }

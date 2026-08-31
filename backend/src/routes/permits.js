@@ -6,6 +6,7 @@ import { roleAtLeast, roleRank } from '../middleware/auth.js';
 import { isClientUser, permitOwnedByClient } from '../middleware/scope.js';
 import { validate } from '../middleware/validate.js';
 import { incompleteRequiredStages, swapTemplateForEntity } from './workflows.js';
+import { getTenantId } from '../middleware/tenant.js';
 import { emitEvent } from '../events.js';
 
 const router = Router();
@@ -45,13 +46,15 @@ function checkTriggers(permitId, tmpId) {
   const triggers = [];
   const tmp = db.prepare('SELECT * FROM traffic_management_plans WHERE id = ?').get(tmpId);
   if (!tmp || !tmp.site_id) return triggers;
+  const permitTenant = (() => { try { return db.prepare('SELECT tenant_id FROM permits WHERE id = ?').get(permitId)?.tenant_id || null; } catch { return null; } })();
 
   const withinSignals = db.prepare('SELECT COUNT(*) as c FROM signalised_intersections si LEFT JOIN permits p ON p.authority_id = si.authority_id WHERE p.id = ?').get(permitId);
   if (withinSignals && withinSignals.c > 0) {
     const existing = db.prepare("SELECT id FROM workflow_triggers WHERE permit_id = ? AND trigger_type = 'signalised_intersection_30m' AND is_resolved = 0").get(permitId);
     if (!existing) {
       const id = uuid();
-      db.prepare("INSERT INTO workflow_triggers (id, permit_id, trigger_type, description) VALUES (?, ?, ?, ?)").run(id, permitId, 'signalised_intersection_30m', 'Site within 30m of signalised intersection - MRWA referral required');
+      try { db.prepare("INSERT INTO workflow_triggers (id, permit_id, trigger_type, description, tenant_id) VALUES (?, ?, ?, ?, ?)").run(id, permitId, 'signalised_intersection_30m', 'Site within 30m of signalised intersection - MRWA referral required', permitTenant); }
+      catch { db.prepare("INSERT INTO workflow_triggers (id, permit_id, trigger_type, description) VALUES (?, ?, ?, ?)").run(id, permitId, 'signalised_intersection_30m', 'Site within 30m of signalised intersection - MRWA referral required'); }
       triggers.push({ id, type: 'signalised_intersection_30m' });
     }
   }
@@ -63,7 +66,8 @@ function checkTriggers(permitId, tmpId) {
       const permit = db.prepare('SELECT * FROM permits WHERE id = ?').get(permitId);
       if (permit && permit.requires_mrwa) {
         const id = uuid();
-        db.prepare("INSERT INTO workflow_triggers (id, permit_id, trigger_type, description) VALUES (?, ?, ?, ?)").run(id, permitId, 'mrwa_referral_required', 'MRWA referral required but no MRWA permit exists');
+        try { db.prepare("INSERT INTO workflow_triggers (id, permit_id, trigger_type, description, tenant_id) VALUES (?, ?, ?, ?, ?)").run(id, permitId, 'mrwa_referral_required', 'MRWA referral required but no MRWA permit exists', permitTenant); }
+        catch { db.prepare("INSERT INTO workflow_triggers (id, permit_id, trigger_type, description) VALUES (?, ?, ?, ?)").run(id, permitId, 'mrwa_referral_required', 'MRWA referral required but no MRWA permit exists'); }
         triggers.push({ id, type: 'mrwa_referral_required' });
       }
     }
@@ -80,6 +84,8 @@ router.get('/', (req, res) => {
     LEFT JOIN traffic_management_plans t ON p.tmp_id = t.id`;
   const params = [];
   const conditions = [];
+  const tenantId = getTenantId(req);
+  if (tenantId) { try { conditions.push('p.tenant_id = ?'); params.push(tenantId); } catch {} }
   const clientScope = isClientUser(req.user)
     ? { cond: 'p.tmp_id IN (SELECT t2.id FROM traffic_management_plans t2 INNER JOIN tmp_projects pp ON pp.id = t2.project_id WHERE pp.client_id = ?)', param: req.user.clientId }
     : null;
@@ -110,12 +116,23 @@ router.get('/:id', (req, res) => {
     LEFT JOIN traffic_management_plans t ON p.tmp_id = t.id WHERE p.id = ?
   `).get(req.params.id);
   if (!permit) return res.status(404).json({ error: 'Permit not found' });
+  const tenantId = getTenantId(req);
+  if (tenantId && permit.tenant_id && permit.tenant_id !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
   if (isClientUser(req.user) && !permitOwnedByClient(permit, req.user.clientId)) {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
-  const fees = db.prepare('SELECT * FROM permit_fees WHERE permit_id = ?').all(req.params.id);
-  const triggers = db.prepare('SELECT * FROM workflow_triggers WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id);
-  const subTasks = db.prepare('SELECT pt.*, au.name as authority_name FROM permit_sub_tasks pt LEFT JOIN authorities au ON pt.authority_id = au.id WHERE pt.permit_id = ?').all(req.params.id);
+  let fees, triggers, subTasks;
+  try {
+    if (tenantId) {
+      fees = db.prepare('SELECT * FROM permit_fees WHERE permit_id = ? AND tenant_id = ? ORDER BY created_at DESC').all(req.params.id, tenantId);
+      triggers = db.prepare('SELECT * FROM workflow_triggers WHERE permit_id = ? AND tenant_id = ? ORDER BY created_at DESC').all(req.params.id, tenantId);
+      subTasks = db.prepare('SELECT pt.*, au.name as authority_name FROM permit_sub_tasks pt LEFT JOIN authorities au ON pt.authority_id = au.id WHERE pt.permit_id = ? AND (pt.tenant_id = ? OR pt.tenant_id IS NULL)').all(req.params.id, tenantId);
+    } else throw new Error('no tenant');
+  } catch {
+    fees = db.prepare('SELECT * FROM permit_fees WHERE permit_id = ?').all(req.params.id);
+    triggers = db.prepare('SELECT * FROM workflow_triggers WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id);
+    subTasks = db.prepare('SELECT pt.*, au.name as authority_name FROM permit_sub_tasks pt LEFT JOIN authorities au ON pt.authority_id = au.id WHERE pt.permit_id = ?').all(req.params.id);
+  }
   let slaInfo = null;
   if (permit.submission_date && permit.complexity) {
     slaInfo = calculateSLA(permit.authority_id, permit.complexity, permit.submission_date);
@@ -126,13 +143,18 @@ router.get('/:id', (req, res) => {
 router.post('/', roleAtLeast('staff'), validate('permit'), (req, res) => {
   const id = uuid();
   const { tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa } = req.validated;
-  const tmp = db.prepare('SELECT id, complexity FROM traffic_management_plans WHERE id = ?').get(tmp_id);
+  const tmp = db.prepare('SELECT id, complexity, tenant_id FROM traffic_management_plans WHERE id = ?').get(tmp_id);
   if (!tmp) return res.status(404).json({ error: 'TMP not found' });
-  const authority = db.prepare('SELECT id FROM authorities WHERE id = ?').get(authority_id);
+  const tenantId = getTenantId(req);
+  if (tenantId && tmp.tenant_id && tmp.tenant_id !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
+  const effectiveTenantId = tenantId || tmp.tenant_id || null;
+  const authority = db.prepare('SELECT id, tenant_id FROM authorities WHERE id = ?').get(authority_id);
   if (!authority) return res.status(400).json({ error: 'Authority not found' });
+  if (effectiveTenantId && authority.tenant_id && authority.tenant_id !== effectiveTenantId) return res.status(403).json({ error: 'Authority tenant mismatch' });
   const subDate = submission_date || new Date().toISOString().slice(0, 10);
   const permitComplexity = complexity || tmp.complexity || 'standard';
-  db.prepare('INSERT INTO permits (id, tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, tmp_id, authority_id, status || 'draft', permitComplexity, subDate, approval_date || null, expiry_date || null, rejection_reason || null, is_within_30m_signals ? 1 : 0, requires_mrwa ? 1 : 0, req.user.id);
+  try { db.prepare('INSERT INTO permits (id, tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa, created_by, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, tmp_id, authority_id, status || 'draft', permitComplexity, subDate, approval_date || null, expiry_date || null, rejection_reason || null, is_within_30m_signals ? 1 : 0, requires_mrwa ? 1 : 0, req.user.id, effectiveTenantId); }
+  catch { db.prepare('INSERT INTO permits (id, tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, tmp_id, authority_id, status || 'draft', permitComplexity, subDate, approval_date || null, expiry_date || null, rejection_reason || null, is_within_30m_signals ? 1 : 0, requires_mrwa ? 1 : 0, req.user.id); }
 
   if (status === 'submitted' || status === 'under_review') {
     const sla = calculateSLA(authority_id, permitComplexity, subDate);
@@ -149,6 +171,8 @@ router.post('/', roleAtLeast('staff'), validate('permit'), (req, res) => {
 router.put('/:id', roleAtLeast('staff'), validate('permit'), (req, res) => {
   const existing = db.prepare('SELECT * FROM permits WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Permit not found' });
+  const tenantId = getTenantId(req);
+  if (tenantId && existing.tenant_id && existing.tenant_id !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
   const { tmp_id, authority_id, status, complexity, submission_date, approval_date, expiry_date, rejection_reason, is_within_30m_signals, requires_mrwa } = req.validated;
   const nextStatus = status || existing.status;
   if ((nextStatus === 'approved' || nextStatus === 'completed') && nextStatus !== existing.status) {
@@ -228,43 +252,63 @@ router.post('/bulk', roleAtLeast('staff'), (req, res) => {
 });
 
 router.delete('/:id', roleAtLeast('manager'), (req, res) => {
-  const result = db.prepare('DELETE FROM permits WHERE id = ?').run(req.params.id);
+  const tenantId = getTenantId(req);
+  let result;
+  try { if (tenantId) result = db.prepare('DELETE FROM permits WHERE id = ? AND tenant_id = ?').run(req.params.id, tenantId); else result = db.prepare('DELETE FROM permits WHERE id = ?').run(req.params.id); }
+  catch { result = db.prepare('DELETE FROM permits WHERE id = ?').run(req.params.id); }
   if (result.changes === 0) return res.status(404).json({ error: 'Permit not found' });
   res.json({ success: true });
 });
 
 // Fees
 router.get('/:id/fees', (req, res) => {
-  const permit = db.prepare('SELECT id, tmp_id FROM permits WHERE id = ?').get(req.params.id);
+  const permit = db.prepare('SELECT id, tmp_id, tenant_id FROM permits WHERE id = ?').get(req.params.id);
   if (!permit) return res.status(404).json({ error: 'Permit not found' });
+  const tenantId = getTenantId(req);
+  if (tenantId && permit.tenant_id && permit.tenant_id !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
   if (isClientUser(req.user) && !permitOwnedByClient(permit, req.user.clientId)) {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
-  const fees = db.prepare('SELECT * FROM permit_fees WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id);
+  let fees;
+  try { if (tenantId) fees = db.prepare('SELECT * FROM permit_fees WHERE permit_id = ? AND tenant_id = ? ORDER BY created_at DESC').all(req.params.id, tenantId); else throw new Error('no tenant'); } catch { fees = db.prepare('SELECT * FROM permit_fees WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id); }
   res.json(fees);
 });
 
 router.post('/:id/fees', roleAtLeast('staff'), validate('permitFee'), (req, res) => {
+  const permit = db.prepare('SELECT id, tenant_id FROM permits WHERE id = ?').get(req.params.id);
+  if (!permit) return res.status(404).json({ error: 'Permit not found' });
+  const tenantId = getTenantId(req);
+  if (tenantId && permit.tenant_id && permit.tenant_id !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
+  const effectiveTenantId = tenantId || permit.tenant_id || null;
   const id = uuid();
   const { fee_type, amount, status, bond_returned, due_date, paid_date } = req.validated;
-  db.prepare('INSERT INTO permit_fees (id, permit_id, fee_type, amount, status, bond_returned, due_date, paid_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, req.params.id, fee_type, amount, status || 'pending', bond_returned ? 1 : 0, due_date || null, paid_date || null);
-  emitEvent('fee.created', { id, permit_id: req.params.id, fee_type, amount, status: status || 'pending' }, { by: req.user.id });
+  try { db.prepare('INSERT INTO permit_fees (id, permit_id, fee_type, amount, status, bond_returned, due_date, paid_date, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, req.params.id, fee_type, amount, status || 'pending', bond_returned ? 1 : 0, due_date || null, paid_date || null, effectiveTenantId); }
+  catch { db.prepare('INSERT INTO permit_fees (id, permit_id, fee_type, amount, status, bond_returned, due_date, paid_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, req.params.id, fee_type, amount, status || 'pending', bond_returned ? 1 : 0, due_date || null, paid_date || null); }
+  emitEvent('fee.created', { id, permit_id: req.params.id, fee_type, amount, status: status || 'pending', tenant_id: effectiveTenantId }, { by: req.user.id });
   res.status(201).json({ id, fee_type, amount });
 });
 
 // Triggers
 router.get('/:id/triggers', (req, res) => {
-  const permit = db.prepare('SELECT id, tmp_id FROM permits WHERE id = ?').get(req.params.id);
+  const permit = db.prepare('SELECT id, tmp_id, tenant_id FROM permits WHERE id = ?').get(req.params.id);
   if (!permit) return res.status(404).json({ error: 'Permit not found' });
+  const tenantId = getTenantId(req);
+  if (tenantId && permit.tenant_id && permit.tenant_id !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
   if (isClientUser(req.user) && !permitOwnedByClient(permit, req.user.clientId)) {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
-  const triggers = db.prepare('SELECT * FROM workflow_triggers WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id);
+  let triggers;
+  try { if (tenantId) triggers = db.prepare('SELECT * FROM workflow_triggers WHERE permit_id = ? AND tenant_id = ? ORDER BY created_at DESC').all(req.params.id, tenantId); else throw new Error('no tenant'); } catch { triggers = db.prepare('SELECT * FROM workflow_triggers WHERE permit_id = ? ORDER BY created_at DESC').all(req.params.id); }
   res.json(triggers);
 });
 
 router.put('/:permitId/triggers/:triggerId/resolve', roleAtLeast('staff'), (req, res) => {
-  const result = db.prepare('UPDATE workflow_triggers SET is_resolved = 1, resolved_at = datetime(\'now\'), resolved_by = ? WHERE id = ? AND permit_id = ?').run(req.user.id, req.params.triggerId, req.params.permitId);
+  const tenantId = getTenantId(req);
+  let result;
+  try {
+    if (tenantId) result = db.prepare('UPDATE workflow_triggers SET is_resolved = 1, resolved_at = datetime(\'now\'), resolved_by = ? WHERE id = ? AND permit_id = ? AND tenant_id = ?').run(req.user.id, req.params.triggerId, req.params.permitId, tenantId);
+    else result = db.prepare('UPDATE workflow_triggers SET is_resolved = 1, resolved_at = datetime(\'now\'), resolved_by = ? WHERE id = ? AND permit_id = ?').run(req.user.id, req.params.triggerId, req.params.permitId);
+  } catch { result = db.prepare('UPDATE workflow_triggers SET is_resolved = 1, resolved_at = datetime(\'now\'), resolved_by = ? WHERE id = ? AND permit_id = ?').run(req.user.id, req.params.triggerId, req.params.permitId); }
   if (result.changes === 0) return res.status(404).json({ error: 'Trigger not found' });
   res.json({ success: true });
 });

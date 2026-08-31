@@ -15,6 +15,7 @@ import documentRoutes from './routes/documents.js';
 import photoRoutes from './routes/photos.js';
 import { getTenantId } from './middleware/tenant.js';
 import { getLimit } from './saas/tiers.js';
+import jwt from 'jsonwebtoken';
 import dashboardRoutes from './routes/dashboard.js';
 import exportRoutes from './routes/export.js';
 import emailRoutes from './routes/email.js';
@@ -79,13 +80,28 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-// Tenant status gate + per-tenant api_calls metering
+// Tenant status gate + per-tenant api_calls metering (tiered)
 app.use('/api', (req, res, next) => {
   if (req.path.startsWith('/auth') || req.path === '/health' || req.path === '/ping' || req.path.startsWith('/billing/plans')) return next();
   const auth = req.headers.authorization;
   if (!auth) return next();
   try {
-    const tenantId = getTenantId(req);
+    let tenantId = null;
+    // Prefer explicit header, then JWT-derived tenant (req.user not yet populated here), then fallback
+    if (req.headers['x-tenant-id']) tenantId = req.headers['x-tenant-id'];
+    else if (auth && auth.startsWith('Bearer ')) {
+      try {
+        const token = auth.slice(7);
+        const payload = jwt.decode(token);
+        if (payload?.userId) {
+          const link = db.prepare('SELECT tenant_id FROM tenant_users WHERE user_id = ? LIMIT 1').get(payload.userId);
+          if (link?.tenant_id) tenantId = link.tenant_id;
+        }
+        if (!tenantId && payload?.tenant_id) tenantId = payload.tenant_id;
+        if (!tenantId && payload?.tenantId) tenantId = payload.tenantId;
+      } catch {}
+    }
+    if (!tenantId) tenantId = getTenantId(req);
     if (!tenantId) return next();
     const tenant = db.prepare('SELECT plan, status FROM tenants WHERE id = ?').get(tenantId);
     if (tenant && ['paused','past_due','canceled'].includes(tenant.status)) {

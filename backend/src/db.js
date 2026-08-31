@@ -978,6 +978,83 @@ const MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_permit_fees_status ON permit_fees(status);
       `);
     }
+  },
+  {
+    version: 12,
+    name: 'tenant_scoping_remaining',
+    up() {
+      const addTenantCol = (table) => {
+        try {
+          const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+          if (!cols.includes('tenant_id')) {
+            db.exec(`ALTER TABLE ${table} ADD COLUMN tenant_id TEXT REFERENCES tenants(id)`);
+          }
+        } catch {}
+        try { db.exec(`CREATE INDEX IF NOT EXISTS idx_${table}_tenant ON ${table}(tenant_id)`); } catch {}
+      };
+      const tables = [
+        'documents',
+        'site_photos',
+        'time_entries',
+        'authorities',
+        'permit_fees',
+        'workflow_triggers',
+        'workflow_templates',
+        'workflow_stages',
+        'workflow_checklist',
+        'notifications',
+        'permit_sub_tasks',
+        'plan_activities',
+        'sla_rules',
+        'signalised_intersections',
+        'tgs',
+        'resident_notices',
+        'automation_rules',
+        'automation_runs',
+        'email_logs',
+        'correspondence',
+        'agent_runs',
+        'compliance_rules',
+        'board_columns',
+        'board_cards',
+        'email_templates',
+        'branding',
+        'branding_assets'
+      ];
+      for (const t of tables) { try { addTenantCol(t); } catch {} }
+      // Backfill existing rows to default tenant
+      try {
+        const row = db.prepare('SELECT id FROM tenants LIMIT 1').get();
+        const id = row?.id;
+        if (id) {
+          for (const t of tables) {
+            try { db.prepare(`UPDATE ${t} SET tenant_id = ? WHERE tenant_id IS NULL`).run(id); } catch {}
+          }
+          // Also ensure plan_activities linked via TMP inherits tenant if still null after direct backfill
+          try {
+            db.prepare(`UPDATE plan_activities SET tenant_id = (SELECT tenant_id FROM traffic_management_plans WHERE traffic_management_plans.id = plan_activities.tmp_id) WHERE tenant_id IS NULL AND tmp_id IS NOT NULL`).run();
+          } catch {}
+          try {
+            db.prepare(`UPDATE permit_fees SET tenant_id = (SELECT tenant_id FROM permits WHERE permits.id = permit_fees.permit_id) WHERE tenant_id IS NULL AND permit_id IS NOT NULL`).run();
+          } catch {}
+          try {
+            db.prepare(`UPDATE workflow_triggers SET tenant_id = (SELECT tenant_id FROM permits WHERE permits.id = workflow_triggers.permit_id) WHERE tenant_id IS NULL AND permit_id IS NOT NULL`).run();
+          } catch {}
+          try {
+            db.prepare(`UPDATE documents SET tenant_id = (SELECT tenant_id FROM traffic_management_plans WHERE traffic_management_plans.id = documents.tmp_id) WHERE tenant_id IS NULL AND tmp_id IS NOT NULL`).run();
+          } catch {}
+          try {
+            db.prepare(`UPDATE site_photos SET tenant_id = (SELECT tenant_id FROM traffic_management_plans WHERE traffic_management_plans.id = site_photos.tmp_id) WHERE tenant_id IS NULL AND tmp_id IS NOT NULL`).run();
+          } catch {}
+          try {
+            db.prepare(`UPDATE time_entries SET tenant_id = (SELECT tenant_id FROM traffic_management_plans WHERE traffic_management_plans.id = time_entries.tmp_id) WHERE tenant_id IS NULL AND tmp_id IS NOT NULL`).run();
+          } catch {}
+          try {
+            db.prepare(`UPDATE notifications SET tenant_id = (SELECT tenant_id FROM tenant_users WHERE tenant_users.user_id = notifications.user_id LIMIT 1) WHERE tenant_id IS NULL AND user_id IS NOT NULL`).run();
+          } catch {}
+        }
+      } catch {}
+    }
   }
 ];
 

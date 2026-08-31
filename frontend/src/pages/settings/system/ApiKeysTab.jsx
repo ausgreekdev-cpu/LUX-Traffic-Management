@@ -2,14 +2,16 @@ import { useSettingsGroup } from '../../../hooks/useSettingsGroup';
 import { Field, SelectField, TextField } from '../../../components/settings/fields';
 import SectionCard from '../../../components/settings/SectionCard';
 import SaveBar from '../../../components/settings/SaveBar';
+import { FeatureGate } from '../../../components/EntitlementGate';
 
 export default function ApiKeysTab() {
   const { draft, setValue, save, reset, saving, saved, error } = useSettingsGroup('api_keys', 'api_keys');
   if (!draft) return <p className="text-gray-500">Loading…</p>;
 
   return (
+    <FeatureGate feature="api_access">
     <div>
-      <SectionCard title="Environment & API keys" description="External service credentials used by the traffic engine — mapping, geocoding, weather and SMS. Stored encrypted; secrets show as a placeholder and are only replaced when a new value is typed.">
+      <SectionCard title="Environment & API keys" description="External service credentials used by the traffic engine — mapping, geocoding, weather and SMS. Stored encrypted; secrets show as a placeholder and are only replaced when a new value is typed. Requires Agency.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Mapbox token" hint="Map tiles and geocoding for the map viewer.">
             <input type="password" className="input w-full font-mono" value={draft.mapbox_token || ''}
@@ -47,5 +49,6 @@ export default function ApiKeysTab() {
         <SaveBar onSave={() => save()} onReset={reset} saving={saving} saved={saved} error={error} saveLabel="Save API keys" />
       </SectionCard>
     </div>
+    </FeatureGate>
   );
 }

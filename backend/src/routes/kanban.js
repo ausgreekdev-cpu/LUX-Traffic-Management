@@ -5,6 +5,8 @@ import { authenticate } from '../middleware/auth.js';
 import { roleAtLeast } from '../middleware/auth.js';
 import { isClientUser } from '../middleware/scope.js';
 import { emitEvent } from '../events.js';
+import { can } from '../saas/entitlements.js';
+import { getTenantId } from '../middleware/tenant.js';
 import { entityContext as workflowContext, applicableStages as workflowApplicableStages } from './workflows.js';
 import {
   BOARD_ENTITY_TYPES, ensureBoardCard, backfillBoard, defaultColumn,
@@ -215,6 +217,14 @@ router.put('/cards/:entityType/:entityId', (req, res) => {
   const columnChanged = targetColumn.id !== card.column_id;
   const laneChanged = nextLane !== card.lane;
   const isEmergency = nextLane === 'emergency';
+
+  // dispatch lanes are Agency-only (pro = list view only). Gate lane === 'dispatch'.
+  if (nextLane && String(nextLane).toLowerCase() === 'dispatch') {
+    const tenantId = getTenantId(req);
+    if (tenantId && !can(tenantId, 'dispatch')) {
+      return res.status(402).json({ error: 'upgrade_required', feature: 'dispatch', message: 'Dispatch lanes require Agency plan. Upgrade to Agency.' });
+    }
+  }
 
   if (columnChanged && !isEmergency) {
     const { missing } = columnRequiresValidation(entityType, entityId, targetColumn, nextLane);

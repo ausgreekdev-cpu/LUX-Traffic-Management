@@ -4,6 +4,7 @@ import db from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { roleAtLeast } from '../middleware/auth.js';
 import { isClientUser, tmpOwnedByClient, permitOwnedByClient } from '../middleware/scope.js';
+import { getTenantId } from '../middleware/tenant.js';
 import { emitEvent } from '../events.js';
 
 const router = Router();
@@ -23,21 +24,40 @@ export function entityContext(entityType, entityId) {
   return null;
 }
 
-export function resolveTemplate(entityType, complexity, authorityId = null) {
+export function resolveTemplate(entityType, complexity, authorityId = null, tenantId = null) {
+  const hasTenant = (() => { try { return db.prepare('PRAGMA table_info(workflow_templates)').all().map(c=>c.name).includes('tenant_id'); } catch { return false; } })();
   const q = 'SELECT * FROM workflow_templates WHERE entity_type = ?';
+  const tenantFilter = hasTenant && tenantId ? ' AND tenant_id = ?' : '';
+  const tenantParam = hasTenant && tenantId ? [tenantId] : [];
   if (authorityId && complexity) {
-    const t = db.prepare(`${q} AND authority_id = ? AND complexity = ?`).get(entityType, authorityId, complexity);
-    if (t) return t;
+    try {
+      const t = db.prepare(`${q} AND authority_id = ? AND complexity = ?${tenantFilter}`).get(entityType, authorityId, complexity, ...tenantParam);
+      if (t) return t;
+    } catch {}
+    const t2 = db.prepare(`${q} AND authority_id = ? AND complexity = ?`).get(entityType, authorityId, complexity);
+    if (t2) return t2;
   }
   if (complexity) {
+    try {
+      if (hasTenant && tenantId) {
+        const t = db.prepare(`${q} AND authority_id IS NULL AND complexity = ?${tenantFilter}`).get(entityType, complexity, ...tenantParam);
+        if (t) return t;
+      }
+    } catch {}
     const t = db.prepare(`${q} AND authority_id IS NULL AND complexity = ?`).get(entityType, complexity);
     if (t) return t;
   }
+  try {
+    if (hasTenant && tenantId) {
+      const t = db.prepare(`${q} AND is_default = 1${tenantFilter}`).get(entityType, ...tenantParam);
+      if (t) return t;
+    }
+  } catch {}
   return db.prepare(`${q} AND is_default = 1`).get(entityType) || null;
 }
 
-export function applicableStages(entityType, complexity, authorityId = null) {
-  const template = resolveTemplate(entityType, complexity, authorityId);
+export function applicableStages(entityType, complexity, authorityId = null, tenantId = null) {
+  const template = resolveTemplate(entityType, complexity, authorityId, tenantId);
   if (template) {
     return db.prepare('SELECT * FROM workflow_stages WHERE template_id = ? ORDER BY sort_order').all(template.id);
   }
@@ -47,7 +67,8 @@ export function applicableStages(entityType, complexity, authorityId = null) {
 export function swapTemplateForEntity(entityType, entityId) {
   const ctx = entityContext(entityType, entityId);
   if (!ctx) return;
-  const stages = applicableStages(entityType, ctx.complexity, ctx.authority_id);
+  const tenantId = (() => { try { const e = entityType === 'tmp' ? db.prepare('SELECT tenant_id FROM traffic_management_plans WHERE id = ?').get(entityId) : db.prepare('SELECT tenant_id FROM permits WHERE id = ?').get(entityId); return e?.tenant_id || null; } catch { return null; } })();
+  const stages = applicableStages(entityType, ctx.complexity, ctx.authority_id, tenantId);
   const ids = stages.map(s => s.id);
   if (!ids.length) return;
   const placeholders = ids.map(() => '?').join(',');
@@ -58,7 +79,8 @@ export function swapTemplateForEntity(entityType, entityId) {
 export function incompleteRequiredStages(entityType, entityId) {
   const ctx = entityContext(entityType, entityId);
   if (!ctx) return [];
-  const stages = applicableStages(entityType, ctx.complexity, ctx.authority_id);
+  const tenantId = (() => { try { const e = entityType === 'tmp' ? db.prepare('SELECT tenant_id FROM traffic_management_plans WHERE id = ?').get(entityId) : db.prepare('SELECT tenant_id FROM permits WHERE id = ?').get(entityId); return e?.tenant_id || null; } catch { return null; } })();
+  const stages = applicableStages(entityType, ctx.complexity, ctx.authority_id, tenantId);
   const required = stages.filter(s => !s.is_optional);
   if (!required.length) return [];
   const ids = required.map(s => s.id);
@@ -224,36 +246,64 @@ export function ensureWorkflowSeeds() {
 
 router.get('/templates', (req, res) => {
   const entityType = req.query.entity_type;
+  const tenantId = getTenantId(req);
   const params = [];
   let q = `
     SELECT wt.*, au.name as authority_name, au.short_name as authority_short,
       (SELECT COUNT(*) FROM workflow_stages s WHERE s.template_id = wt.id) as stage_count
     FROM workflow_templates wt
     LEFT JOIN authorities au ON wt.authority_id = au.id`;
-  if (entityType) { q += ' WHERE wt.entity_type = ?'; params.push(entityType); }
+  const conds = [];
+  if (entityType) { conds.push('wt.entity_type = ?'); params.push(entityType); }
+  if (tenantId) {
+    try {
+      const cols = db.prepare('PRAGMA table_info(workflow_templates)').all().map(c=>c.name);
+      if (cols.includes('tenant_id')) { conds.push('(wt.tenant_id = ? OR wt.tenant_id IS NULL)'); params.push(tenantId); }
+    } catch {}
+  }
+  if (conds.length) q += ' WHERE ' + conds.join(' AND ');
   q += ' ORDER BY wt.entity_type, wt.complexity NULLS LAST, wt.name';
-  res.json(db.prepare(q).all(...params));
+  try { res.json(db.prepare(q).all(...params)); }
+  catch { // fallback without tenant
+    let q2 = `SELECT wt.*, au.name as authority_name, au.short_name as authority_short, (SELECT COUNT(*) FROM workflow_stages s WHERE s.template_id = wt.id) as stage_count FROM workflow_templates wt LEFT JOIN authorities au ON wt.authority_id = au.id`;
+    const p2 = []; if (entityType) { q2 += ' WHERE wt.entity_type = ?'; p2.push(entityType); } q2 += ' ORDER BY wt.entity_type, wt.complexity NULLS LAST, wt.name'; res.json(db.prepare(q2).all(...p2));
+  }
 });
 
 router.post('/templates', authorize('developer'), (req, res) => {
   const { name, description, entity_type, complexity, authority_id, is_default } = req.body || {};
   if (!entity_type || !['tmp', 'permit'].includes(entity_type)) return res.status(400).json({ error: 'Valid entity_type required (tmp or permit)' });
   if (!name || !name.trim()) return res.status(400).json({ error: 'Template name required' });
+  const tenantId = getTenantId(req);
   if (is_default) {
-    db.prepare('UPDATE workflow_templates SET is_default = 0 WHERE entity_type = ?').run(entity_type);
+    try { if (tenantId) db.prepare('UPDATE workflow_templates SET is_default = 0 WHERE entity_type = ? AND tenant_id = ?').run(entity_type, tenantId); else db.prepare('UPDATE workflow_templates SET is_default = 0 WHERE entity_type = ?').run(entity_type); } catch { db.prepare('UPDATE workflow_templates SET is_default = 0 WHERE entity_type = ?').run(entity_type); }
     const id = uuid();
-    db.prepare('INSERT INTO workflow_templates (id, name, description, entity_type, complexity, authority_id, is_default) VALUES (?, ?, ?, ?, ?, NULL, 1)')
-      .run(id, name.trim(), description || null, entity_type);
+    try {
+      const cols = db.prepare('PRAGMA table_info(workflow_templates)').all().map(c=>c.name);
+      if (cols.includes('tenant_id')) {
+        db.prepare('INSERT INTO workflow_templates (id, name, description, entity_type, complexity, authority_id, is_default, tenant_id) VALUES (?, ?, ?, ?, ?, NULL, 1, ?)').run(id, name.trim(), description || null, entity_type, tenantId);
+        return res.status(201).json(db.prepare('SELECT * FROM workflow_templates WHERE id = ?').get(id));
+      }
+    } catch {}
+    db.prepare('INSERT INTO workflow_templates (id, name, description, entity_type, complexity, authority_id, is_default) VALUES (?, ?, ?, ?, ?, NULL, 1)').run(id, name.trim(), description || null, entity_type);
+    try { if (tenantId) db.prepare('UPDATE workflow_templates SET tenant_id = ? WHERE id = ?').run(tenantId, id); } catch {}
     return res.status(201).json(db.prepare('SELECT * FROM workflow_templates WHERE id = ?').get(id));
   }
   const complexityVal = complexity || 'standard';
   if (!COMPLEXITIES.includes(complexityVal)) return res.status(400).json({ error: 'Valid complexity required (simple, standard, complex, complex_with_notice)' });
   const authId = authority_id || null;
   if (authId && !db.prepare('SELECT id FROM authorities WHERE id = ?').get(authId)) return res.status(404).json({ error: 'Authority not found' });
-  if (!authId) db.prepare('DELETE FROM workflow_templates WHERE entity_type = ? AND complexity = ? AND authority_id IS NULL').run(entity_type, complexityVal);
+  try { if (!authId) { if (tenantId) db.prepare('DELETE FROM workflow_templates WHERE entity_type = ? AND complexity = ? AND authority_id IS NULL AND tenant_id = ?').run(entity_type, complexityVal, tenantId); else db.prepare('DELETE FROM workflow_templates WHERE entity_type = ? AND complexity = ? AND authority_id IS NULL').run(entity_type, complexityVal); } } catch {}
   const id = uuid();
-  db.prepare('INSERT INTO workflow_templates (id, name, description, entity_type, complexity, authority_id, is_default) VALUES (?, ?, ?, ?, ?, ?, 0)')
-    .run(id, name.trim(), description || null, entity_type, complexityVal, authId);
+  try {
+    const cols = db.prepare('PRAGMA table_info(workflow_templates)').all().map(c=>c.name);
+    if (cols.includes('tenant_id')) {
+      db.prepare('INSERT INTO workflow_templates (id, name, description, entity_type, complexity, authority_id, is_default, tenant_id) VALUES (?, ?, ?, ?, ?, ?, 0, ?)').run(id, name.trim(), description || null, entity_type, complexityVal, authId, tenantId);
+      return res.status(201).json(db.prepare('SELECT * FROM workflow_templates WHERE id = ?').get(id));
+    }
+  } catch {}
+  db.prepare('INSERT INTO workflow_templates (id, name, description, entity_type, complexity, authority_id, is_default) VALUES (?, ?, ?, ?, ?, ?, 0)').run(id, name.trim(), description || null, entity_type, complexityVal, authId);
+  try { if (tenantId) db.prepare('UPDATE workflow_templates SET tenant_id = ? WHERE id = ?').run(tenantId, id); } catch {}
   res.status(201).json(db.prepare('SELECT * FROM workflow_templates WHERE id = ?').get(id));
 });
 
@@ -278,14 +328,26 @@ router.delete('/templates/:id', authorize('developer'), (req, res) => {
 router.get('/stages', (req, res) => {
   const entityType = req.query.entity_type;
   const templateId = req.query.template_id;
+  const tenantId = getTenantId(req);
   const params = [];
   let q = 'SELECT * FROM workflow_stages';
   const conds = [];
   if (templateId) { conds.push('template_id = ?'); params.push(templateId); }
   else if (entityType) { conds.push('entity_type = ? AND template_id IS NULL'); params.push(entityType); }
+  if (tenantId) {
+    try {
+      const cols = db.prepare('PRAGMA table_info(workflow_stages)').all().map(c=>c.name);
+      if (cols.includes('tenant_id')) { conds.push('(tenant_id = ? OR tenant_id IS NULL)'); params.push(tenantId); }
+    } catch {}
+  }
   if (conds.length) q += ' WHERE ' + conds.join(' AND ');
   q += ' ORDER BY sort_order';
-  res.json(db.prepare(q).all(...params));
+  try { res.json(db.prepare(q).all(...params)); }
+  catch {
+    let q2 = 'SELECT * FROM workflow_stages'; const p2=[]; const c2=[];
+    if (templateId) { c2.push('template_id = ?'); p2.push(templateId); } else if (entityType) { c2.push('entity_type = ? AND template_id IS NULL'); p2.push(entityType); }
+    if (c2.length) q2 += ' WHERE ' + c2.join(' AND '); q2 += ' ORDER BY sort_order'; res.json(db.prepare(q2).all(...p2));
+  }
 });
 
 router.post('/stages', authorize('developer'), (req, res) => {
@@ -294,12 +356,20 @@ router.post('/stages', authorize('developer'), (req, res) => {
   const type = template ? template.entity_type : entity_type;
   if (!type || !['tmp', 'permit'].includes(type)) return res.status(400).json({ error: 'Valid entity_type required (tmp or permit)' });
   if (!name || !name.trim()) return res.status(400).json({ error: 'Stage name required' });
+  const tenantId = getTenantId(req);
   const maxOrder = template_id
     ? (db.prepare('SELECT MAX(sort_order) as m FROM workflow_stages WHERE template_id = ?').get(template_id).m || 0)
     : (db.prepare('SELECT MAX(sort_order) as m FROM workflow_stages WHERE entity_type = ? AND template_id IS NULL').get(type).m || 0);
   const id = uuid();
-  db.prepare('INSERT INTO workflow_stages (id, entity_type, name, description, is_optional, sort_order, template_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(id, type, name.trim(), description || null, is_optional ? 1 : 0, maxOrder + 1, template_id || null);
+  try {
+    const cols = db.prepare('PRAGMA table_info(workflow_stages)').all().map(c=>c.name);
+    if (cols.includes('tenant_id')) {
+      db.prepare('INSERT INTO workflow_stages (id, entity_type, name, description, is_optional, sort_order, template_id, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, type, name.trim(), description || null, is_optional ? 1 : 0, maxOrder + 1, template_id || null, tenantId);
+      return res.status(201).json(db.prepare('SELECT * FROM workflow_stages WHERE id = ?').get(id));
+    }
+  } catch {}
+  db.prepare('INSERT INTO workflow_stages (id, entity_type, name, description, is_optional, sort_order, template_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, type, name.trim(), description || null, is_optional ? 1 : 0, maxOrder + 1, template_id || null);
+  try { if (tenantId) db.prepare('UPDATE workflow_stages SET tenant_id = ? WHERE id = ?').run(tenantId, id); } catch {}
   res.status(201).json(db.prepare('SELECT * FROM workflow_stages WHERE id = ?').get(id));
 });
 
@@ -321,6 +391,13 @@ router.delete('/stages/:id', authorize('developer'), (req, res) => {
 router.get('/checklist/:entityType/:entityId', (req, res) => {
   const { entityType, entityId } = req.params;
   if (!['tmp', 'permit'].includes(entityType)) return res.status(400).json({ error: 'Invalid entity type' });
+  const tenantId = getTenantId(req);
+  if (tenantId) {
+    try {
+      const entTenant = entityType === 'tmp' ? db.prepare('SELECT tenant_id FROM traffic_management_plans WHERE id = ?').get(entityId)?.tenant_id : db.prepare('SELECT tenant_id FROM permits WHERE id = ?').get(entityId)?.tenant_id;
+      if (entTenant && entTenant !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
+    } catch {}
+  }
   if (isClientUser(req.user)) {
     const owned = entityType === 'tmp'
       ? db.prepare('SELECT project_id FROM traffic_management_plans WHERE id = ?').get(entityId)
@@ -331,8 +408,12 @@ router.get('/checklist/:entityType/:entityId', (req, res) => {
     if (!isOwner) return res.status(403).json({ error: 'Insufficient permissions' });
   }
   const ctx = entityContext(entityType, entityId);
-  const stages = ctx ? applicableStages(entityType, ctx.complexity, ctx.authority_id) : [];
-  const checklist = db.prepare('SELECT stage_id, is_done, done_by, done_at FROM workflow_checklist WHERE entity_type = ? AND entity_id = ?').all(entityType, entityId);
+  const stages = ctx ? applicableStages(entityType, ctx.complexity, ctx.authority_id, tenantId) : [];
+  let checklist;
+  try {
+    if (tenantId) checklist = db.prepare('SELECT stage_id, is_done, done_by, done_at FROM workflow_checklist WHERE entity_type = ? AND entity_id = ? AND (tenant_id = ? OR tenant_id IS NULL)').all(entityType, entityId, tenantId);
+    else checklist = db.prepare('SELECT stage_id, is_done, done_by, done_at FROM workflow_checklist WHERE entity_type = ? AND entity_id = ?').all(entityType, entityId);
+  } catch { checklist = db.prepare('SELECT stage_id, is_done, done_by, done_at FROM workflow_checklist WHERE entity_type = ? AND entity_id = ?').all(entityType, entityId); }
   const byStage = Object.fromEntries(checklist.map(c => [c.stage_id, c]));
   const data = stages.map(s => ({
     ...s,
@@ -346,16 +427,38 @@ router.get('/checklist/:entityType/:entityId', (req, res) => {
 router.post('/checklist/:entityType/:entityId', roleAtLeast('staff'), (req, res) => {
   const { entityType, entityId } = req.params;
   if (!['tmp', 'permit'].includes(entityType)) return res.status(400).json({ error: 'Invalid entity type' });
+  const tenantId = getTenantId(req);
+  if (tenantId) {
+    try {
+      const entTenant = entityType === 'tmp' ? db.prepare('SELECT tenant_id FROM traffic_management_plans WHERE id = ?').get(entityId)?.tenant_id : db.prepare('SELECT tenant_id FROM permits WHERE id = ?').get(entityId)?.tenant_id;
+      if (entTenant && entTenant !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
+    } catch {}
+  }
   const { stageId, done } = req.body || {};
   const stage = db.prepare('SELECT * FROM workflow_stages WHERE id = ?').get(stageId);
   if (!stage || stage.entity_type !== entityType) return res.status(404).json({ error: 'Stage not found' });
+  if (tenantId && stage.tenant_id && stage.tenant_id !== tenantId) return res.status(403).json({ error: 'Stage tenant mismatch' });
   const now = new Date().toISOString();
+  try {
+    const cols = db.prepare('PRAGMA table_info(workflow_checklist)').all().map(c=>c.name);
+    if (cols.includes('tenant_id')) {
+      db.prepare(`
+        INSERT INTO workflow_checklist (id, stage_id, entity_type, entity_id, is_done, done_at, done_by, tenant_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(stage_id, entity_type, entity_id)
+        DO UPDATE SET is_done = excluded.is_done, done_at = excluded.done_at, done_by = excluded.done_by, tenant_id = excluded.tenant_id
+      `).run(uuid(), stageId, entityType, entityId, done ? 1 : 0, done ? now : null, done ? req.user.id : null, tenantId);
+      if (done) emitEvent('stage.completed', { stage_id: stageId, stage_name: stage.name, entity_type: entityType, entity_id: entityId, done_by: req.user.id, tenant_id: tenantId });
+      return res.json({ success: true });
+    }
+  } catch {}
   db.prepare(`
     INSERT INTO workflow_checklist (id, stage_id, entity_type, entity_id, is_done, done_at, done_by)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(stage_id, entity_type, entity_id)
     DO UPDATE SET is_done = excluded.is_done, done_at = excluded.done_at, done_by = excluded.done_by
   `).run(uuid(), stageId, entityType, entityId, done ? 1 : 0, done ? now : null, done ? req.user.id : null);
+  try { if (tenantId) db.prepare('UPDATE workflow_checklist SET tenant_id = ? WHERE stage_id = ? AND entity_type = ? AND entity_id = ?').run(tenantId, stageId, entityType, entityId); } catch {}
   if (done) {
     emitEvent('stage.completed', { stage_id: stageId, stage_name: stage.name, entity_type: entityType, entity_id: entityId, done_by: req.user.id });
   }

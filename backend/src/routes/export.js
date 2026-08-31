@@ -15,7 +15,7 @@ import { loadAsset } from '../assets.js';
 import { deserializeMember, groupDefaults } from '../settings-defs.js';
 import { buildSitePlanSvg } from '../compliance/siteplan.js';
 import { enforceLimit, incrementUsage, resolveEntitlements } from '../saas/entitlements.js';
-import { requireEntitlement } from '../middleware/entitlement.js';
+import { requireEntitlement, meterUsage } from '../middleware/entitlement.js';
 
 const requirePkg = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 let _PDFDocument = null;
@@ -42,7 +42,9 @@ function checkPdfLimit(req, res) {
   return true;
 }
 function recordPdfUsage(req) {
-  const tenantId = req.user.tenant_id || req.user.tenantId;
+  if (req._pdfCounted) return;
+  req._pdfCounted = true;
+  const tenantId = req.user?.tenant_id || req.user?.tenantId;
   if (tenantId) try { incrementUsage(tenantId, 'pdf_exports_per_month', 1); } catch {}
 }
 
@@ -359,7 +361,7 @@ router.delete('/backups/:name', (req, res) => {
   res.json({ success: true });
 });
 
-router.get('/tmp/:id', async (req, res) => {
+router.get('/tmp/:id', meterUsage('pdf_exports_per_month'), async (req, res) => {
   if (!checkPdfLimit(req, res)) return;
   const tmp = db.prepare(`
     SELECT t.*, s.name as site_name, s.road_name, s.suburb, s.speed_limit, p.name as project_name, c.name as client_name, c.company as client_company
@@ -381,6 +383,9 @@ router.get('/tmp/:id', async (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${tmp.reference || 'TMP'}.pdf"`);
   doc.pipe(res);
+  doc.on('end', () => recordPdfUsage(req));
+  // Fallback: also record on res finish in case doc end races with stream flush
+  res.on('finish', () => { try { recordPdfUsage(req); } catch {} });
 
   const branding = await applyBranding(doc, tmp).catch(() => ({ footerHandled: false, headerHandled: false }));
 
@@ -426,7 +431,6 @@ router.get('/tmp/:id', async (req, res) => {
   if (!branding.footerHandled) addFooter(doc);
   doc.fontSize(10).text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
-  recordPdfUsage(req);
 });
 
 router.get('/tmp/:id/site-plan.svg', async (req, res) => {
@@ -447,7 +451,7 @@ router.get('/tmp/:id/site-plan.svg', async (req, res) => {
   res.send(svg);
 });
 
-router.get('/permits-summary', roleAtLeast('staff'), async (req, res) => {
+router.get('/permits-summary', roleAtLeast('staff'), meterUsage('pdf_exports_per_month'), async (req, res) => {
   if (!checkPdfLimit(req, res)) return;
   const permits = db.prepare(`
     SELECT pe.*, au.name as authority_name, au.short_name as authority_short, t.title as tmp_title, t.reference as tmp_reference
@@ -461,6 +465,8 @@ router.get('/permits-summary', roleAtLeast('staff'), async (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="permits-summary.pdf"');
   doc.pipe(res);
+  doc.on('end', () => recordPdfUsage(req));
+  res.on('finish', () => { try { recordPdfUsage(req); } catch {} });
 
   const branding = await applyWatermarkFooter(doc, 'approved').catch(() => ({ footerHandled: false }));
 
@@ -473,10 +479,9 @@ router.get('/permits-summary', roleAtLeast('staff'), async (req, res) => {
   if (!permits.length) doc.text('No permits found.');
   if (!branding.footerHandled) addFooter(doc);
   doc.end();
-  recordPdfUsage(req);
 });
 
-router.get('/audit-report', roleAtLeast('staff'), async (req, res) => {
+router.get('/audit-report', roleAtLeast('staff'), meterUsage('pdf_exports_per_month'), async (req, res) => {
   if (!checkPdfLimit(req, res)) return;
   const activities = db.prepare(`
     SELECT a.*, u.name as user_name, t.title as tmp_title, t.reference as tmp_reference
@@ -492,6 +497,8 @@ router.get('/audit-report', roleAtLeast('staff'), async (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="audit-report.pdf"');
   doc.pipe(res);
+  doc.on('end', () => recordPdfUsage(req));
+  res.on('finish', () => { try { recordPdfUsage(req); } catch {} });
 
   const branding = await applyWatermarkFooter(doc, 'completed').catch(() => ({ footerHandled: false }));
 
@@ -512,7 +519,6 @@ router.get('/audit-report', roleAtLeast('staff'), async (req, res) => {
   if (!branding.footerHandled) addFooter(doc);
   doc.fontSize(10).text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
-  recordPdfUsage(req);
 });
 
 function csvEscape(v) { const s = String(v || ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; }
@@ -564,7 +570,7 @@ router.get('/permits-csv', roleAtLeast('staff'), (req, res) => {
 // ---- Phase 4: Council Application Exporters ----
 
 // Branded PDF coversheet for council application
-router.get('/tmp/:id/council-pdf', async (req, res) => {
+router.get('/tmp/:id/council-pdf', meterUsage('pdf_exports_per_month'), async (req, res) => {
   if (!checkPdfLimit(req, res)) return;
   const tmp = db.prepare(`
     SELECT t.*, s.name as site_name, s.road_name, s.suburb, s.state, s.postcode, s.latitude, s.longitude,
@@ -595,6 +601,8 @@ router.get('/tmp/:id/council-pdf', async (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${tmp.reference || 'TMP'}-council-application.pdf"`);
   doc.pipe(res);
+  doc.on('end', () => recordPdfUsage(req));
+  res.on('finish', () => { try { recordPdfUsage(req); } catch {} });
 
   const branding = await applyBranding(doc, tmp).catch(() => ({ footerHandled: false, headerHandled: false }));
 
@@ -718,7 +726,6 @@ router.get('/tmp/:id/council-pdf', async (req, res) => {
   if (!branding.footerHandled) addFooter(doc);
   doc.fontSize(8).fillColor('#94a3b8').text(`Generated: ${fmtDate(new Date().toISOString())}`, { align: 'right' });
   doc.end();
-  recordPdfUsage(req);
 });
 
 // GeoJSON export for TMP site plan

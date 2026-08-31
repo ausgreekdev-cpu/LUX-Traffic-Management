@@ -8,6 +8,7 @@ import { validate } from '../middleware/validate.js';
 import { paginateResponse } from '../middleware/pagination.js';
 import { deserializeAuthority, upsertDirectoryEntries } from '../seed-directory.js';
 import { buildDirectory } from '../lga-directory.js';
+import { getTenantId } from '../middleware/tenant.js';
 
 const requirePdf = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 let _PDFParse = null;
@@ -62,12 +63,21 @@ function toStore(value) {
   return value == null ? null : JSON.stringify(value);
 }
 
-function listAuthorities() {
+function listAuthorities(req) {
+  const tenantId = getTenantId(req);
+  if (tenantId) {
+    try {
+      const cols = db.prepare('PRAGMA table_info(authorities)').all().map(c => c.name);
+      if (cols.includes('tenant_id')) {
+        return db.prepare('SELECT * FROM authorities WHERE tenant_id = ? ORDER BY name').all(tenantId).map(deserializeAuthority);
+      }
+    } catch {}
+  }
   return stmt.list.all().map(deserializeAuthority);
 }
 
 router.get('/', (req, res) => {
-  res.json(paginateResponse(req, listAuthorities()));
+  res.json(paginateResponse(req, listAuthorities(req)));
 });
 
 router.get('/cost-codes', (req, res) => {
@@ -98,13 +108,30 @@ router.get('/signalised-intersections', (req, res) => {
 router.post('/signalised-intersections', roleAtLeast('staff'), (req, res) => {
   const id = uuid();
   const { authority_id, intersection_name, road_name, suburb, distance_meters, is_mandatory, notes } = req.body;
+  const tenantId = getTenantId(req);
+  if (tenantId) {
+    try {
+      const a = db.prepare('SELECT tenant_id FROM authorities WHERE id = ?').get(authority_id);
+      if (a?.tenant_id && a.tenant_id !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
+    } catch {}
+  }
+  try {
+    const cols = db.prepare('PRAGMA table_info(signalised_intersections)').all().map(c => c.name);
+    if (cols.includes('tenant_id') && tenantId) {
+      db.prepare('INSERT INTO signalised_intersections (id, authority_id, intersection_name, road_name, suburb, distance_meters, is_mandatory, notes, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, authority_id, intersection_name, road_name || null, suburb || null, distance_meters || 30, is_mandatory !== undefined ? (is_mandatory ? 1 : 0) : 1, notes || null, tenantId);
+      return res.status(201).json({ id, intersection_name });
+    }
+  } catch {}
   stmt.insertIntersection.run(id, authority_id, intersection_name, road_name || null, suburb || null, distance_meters || 30, is_mandatory !== undefined ? (is_mandatory ? 1 : 0) : 1, notes || null);
+  try { if (tenantId) db.prepare('UPDATE signalised_intersections SET tenant_id = ? WHERE id = ?').run(tenantId, id); } catch {}
   res.status(201).json({ id, intersection_name });
 });
 
 router.get('/:id', (req, res) => {
   const authority = stmt.get.get(req.params.id);
   if (!authority) return res.status(404).json({ error: 'Authority not found' });
+  const tenantId = getTenantId(req);
+  if (tenantId && authority.tenant_id && authority.tenant_id !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
   const slaRules = stmt.getSlaRules.all(req.params.id);
   const intersections = stmt.getIntersections.all(req.params.id);
   res.json({ ...deserializeAuthority(authority), sla_rules: slaRules, signalised_intersections: intersections });
@@ -114,6 +141,17 @@ router.post('/', roleAtLeast('staff'), validate('authority'), (req, res) => {
   const id = uuid();
   const { name, short_name, type, email, phone, website, address, contact_person } = req.validated;
   const d = req.validated;
+  const tenantId = getTenantId(req);
+  try { db.prepare('PRAGMA table_info(authorities)').all().map(c => c.name).includes('tenant_id'); } catch {}
+  try {
+    if (tenantId) {
+      const cols = db.prepare('PRAGMA table_info(authorities)').all().map(c => c.name);
+      if (cols.includes('tenant_id')) {
+        db.prepare(`INSERT INTO authorities (id, name, short_name, type, email, phone, website, address, contact_person, council_type, abn, band, suburb, postcode, mayor, deputy, ceo, councillors, executive_team, suburbs, meeting_schedule, map_coordinates, zone, statistics, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, name, short_name || null, type || 'other', email || null, phone || null, website || null, address || null, contact_person || null, d.council_type || null, d.abn || null, d.band ?? null, d.suburb || null, d.postcode || null, d.mayor || null, d.deputy || null, d.ceo || null, toStore(d.councillors), d.executive_team || null, toStore(d.suburbs), d.meeting_schedule || null, d.map_coordinates || null, d.zone || null, toStore(d.statistics), tenantId);
+        return res.status(201).json({ id, name, short_name });
+      }
+    }
+  } catch {}
   stmt.insertAuthority.run({
     id, name, short_name: short_name || null, type: type || 'other',
     email: email || null, phone: phone || null, website: website || null,
@@ -125,12 +163,15 @@ router.post('/', roleAtLeast('staff'), validate('authority'), (req, res) => {
     meeting_schedule: d.meeting_schedule || null, map_coordinates: d.map_coordinates || null,
     zone: d.zone || null, statistics: toStore(d.statistics)
   });
+  try { if (tenantId) db.prepare('UPDATE authorities SET tenant_id = ? WHERE id = ?').run(tenantId, id); } catch {}
   res.status(201).json({ id, name, short_name });
 });
 
 router.put('/:id', roleAtLeast('staff'), validate('authority'), (req, res) => {
   const existing = stmt.get.get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Authority not found' });
+  const tenantId = getTenantId(req);
+  if (tenantId && existing.tenant_id && existing.tenant_id !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
   const v = req.validated;
   const val = (key, fallback) => (v[key] !== undefined ? v[key] : fallback);
   const jsonVal = (key, fallback) => (v[key] !== undefined ? toStore(v[key]) : fallback);
@@ -179,9 +220,14 @@ router.post('/import-directory', authorize('developer'), upload.single('pdf'), a
 router.delete('/:id', roleAtLeast('manager'), (req, res) => {
   const existing = stmt.get.get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Authority not found' });
+  const tenantId = getTenantId(req);
+  if (tenantId && existing.tenant_id && existing.tenant_id !== tenantId) return res.status(403).json({ error: 'Tenant mismatch' });
   const permitCount = stmt.countPermits.get(req.params.id).c;
   const taskCount = stmt.countSubTasks.get(req.params.id).c;
   if (permitCount || taskCount) return res.status(400).json({ error: `Authority is used by ${permitCount} permits and ${taskCount} sub-tasks - delete them first` });
+  if (tenantId) {
+    try { const r = db.prepare('DELETE FROM authorities WHERE id = ? AND tenant_id = ?').run(req.params.id, tenantId); if (r.changes === 0) return res.status(404).json({ error: 'Authority not found' }); return res.json({ success: true }); } catch {}
+  }
   stmt.deleteAuthority.run(req.params.id);
   res.json({ success: true });
 });

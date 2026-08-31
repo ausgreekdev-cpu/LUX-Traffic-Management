@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../api';
 import { useBranding } from '../context/Branding';
+import { FeatureGate } from '../components/EntitlementGate';
 import ThemeEditor from '../components/branding/ThemeEditor';
 import AssetsManager from '../components/branding/AssetsManager';
 import FontManager from '../components/branding/FontManager';
@@ -109,6 +110,7 @@ export default function Branding() {
   if (loading) return <div className="text-gray-500">Loading branding…</div>;
 
   return (
+    <FeatureGate feature="white_label">
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <div>
@@ -168,6 +170,7 @@ export default function Branding() {
           <PreviewPanel pdfLayout={pdfLayout} watermark={watermark} assets={assets} />
         </div>
       </div>
-    </div>
+      </div>
+    </FeatureGate>
   );
 }
