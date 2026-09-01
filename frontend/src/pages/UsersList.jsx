@@ -13,14 +13,18 @@ export default function UsersList() {
   const { pageTitle, column } = useAppText();
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
+  const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ email: '', password: '', name: '', role: 'staff', client_id: '' });
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('staff');
   const [editId, setEditId] = useState(null);
 
   const loadUsers = () => api.users.list().then(setUsers).catch(() => setUsers([]));
   const loadClients = () => api.clients.list().then(setClients).catch(() => setClients([]));
+  const loadInvites = () => fetch('/api/users/invitations', { headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(setInvites).catch(()=>setInvites([]));
   useEffect(() => {
-    Promise.all([loadUsers(), loadClients()]).finally(() => setLoading(false));
+    Promise.all([loadUsers(), loadClients(), loadInvites()]).finally(() => setLoading(false));
   }, []);
 
   const handleSubmit = async (e) => {
@@ -46,6 +50,18 @@ export default function UsersList() {
   const handleDelete = async (id) => {
     if (!confirm('Delete this user?')) return;
     try { await api.users.delete(id); await loadUsers(); } catch (err) { alert(err.message); }
+  };
+
+  const handleInvite = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/users/invite', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('token')}`}, body: JSON.stringify({ email: inviteEmail, role: inviteRole })});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Invite failed');
+      alert(`Invitation created for ${data.email}. Share link: ${window.location.origin}/accept?token=${data.token}`);
+      setInviteEmail('');
+      await loadInvites();
+    } catch (err) { alert(err.message); }
   };
 
   const handleCancel = () => {
@@ -99,6 +115,27 @@ export default function UsersList() {
         <button type="submit" className="btn btn-primary">{editId ? 'Update' : 'Add User'}</button>
         {editId && <button type="button" onClick={handleCancel} className="text-gray-500 text-sm px-2 py-1.5">Cancel</button>}
       </form>
+      <div className="card p-4">
+        <h3 className="font-semibold text-sm">Invite by Email — Same Company Sandbox (Domain)</h3>
+        <p className="text-xs text-gray-500 mt-1">Invite teammates with same email domain and they’ll join your company sandbox automatically. Personal emails (gmail) get private workspace.</p>
+        <form onSubmit={handleInvite} className="flex gap-2 mt-3">
+          <input type="email" placeholder="teammate@acme.com.au" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} className="input flex-1" required />
+          <select value={inviteRole} onChange={e=>setInviteRole(e.target.value)} className="input w-32">
+            <option value="staff">Staff</option>
+            <option value="manager">Manager</option>
+            <option value="client">Client</option>
+          </select>
+          <button type="submit" className="btn btn-secondary">Invite</button>
+        </form>
+        {invites.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs font-medium">Pending invites</p>
+            <ul className="text-xs mt-1 space-y-1">
+              {invites.map(inv => <li key={inv.id} className="flex justify-between bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded"><span>{inv.email} • {inv.role} • {inv.status}</span><span className="text-gray-400">{new Date(inv.expires_at).toLocaleDateString()}</span></li>)}
+            </ul>
+          </div>
+        )}
+      </div>
       {users.length === 0 ? (
         <div className="empty-state">
           <span className="text-4xl mb-2">🔐</span>

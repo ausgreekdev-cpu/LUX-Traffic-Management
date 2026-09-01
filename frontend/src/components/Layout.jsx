@@ -62,6 +62,7 @@ export default function Layout({ user, onLogout }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
   const [loadingBell, setLoadingBell] = useState(false);
+  const [tenant, setTenant] = useState(null);
   const bellRef = useRef(null);
 
   const refreshNotifications = async (showLoading) => {
@@ -83,6 +84,8 @@ export default function Layout({ user, onLogout }) {
   useEffect(() => {
     api.notifications.scan().catch(() => {});
     refreshNotifications(false);
+    // Load tenant for sandbox display
+    fetch('/api/billing/tenant', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }).then(r=>r.json()).then(t=>{ if(t?.id) setTenant(t); }).catch(()=>{});
     const interval = setInterval(() => {
       api.notifications.unreadCount().then(({ count }) => setUnreadCount(count)).catch(() => {});
     }, 60000);
@@ -148,6 +151,7 @@ export default function Layout({ user, onLogout }) {
               <div className="min-w-0 ml-2.5 text-left">
                 <p className="font-bold text-sm leading-tight truncate">{appName('LUX Traffic')}</p>
                 <p className="text-[10px] text-gray-400 leading-tight">Management</p>
+                {tenant && <p className="text-[10px] text-lux-400 truncate" title={tenant.name}>🏢 {tenant.name}</p>}
               </div>
             )}
           </button>

@@ -1,13 +1,35 @@
 import db from '../db.js';
 
 export function getTenantId(req) {
+  // Primary: JWT-bound tenant (prevents header spoof)
   if (req.user?.tenant_id) return req.user.tenant_id;
   if (req.user?.tenantId) return req.user.tenantId;
-  if (req.headers['x-tenant-id']) return req.headers['x-tenant-id'];
-  try {
-    const row = db.prepare('SELECT id FROM tenants LIMIT 1').get();
-    return row?.id || null;
-  } catch { return null; }
+  // Fallback for old JWTs without tenant_id: lookup tenant_users
+  if (req.user?.id) {
+    try {
+      const link = db.prepare('SELECT tenant_id FROM tenant_users WHERE user_id = ? LIMIT 1').get(req.user.id);
+      if (link?.tenant_id) return link.tenant_id;
+    } catch {}
+  }
+  // Header only if user is actually member of that tenant
+  const headerTenant = req.headers['x-tenant-id'];
+  if (headerTenant && req.user?.id) {
+    try {
+      const ok = db.prepare('SELECT 1 FROM tenant_users WHERE user_id = ? AND tenant_id = ?').get(req.user.id, String(headerTenant).trim());
+      if (ok) return String(headerTenant).trim();
+    } catch {}
+  } else if (headerTenant) {
+    // For unauthenticated, allow header but log (used for public branding)
+    return String(headerTenant).trim();
+  }
+  // No fallback LIMIT 1 - require explicit tenant; for dev single-tenant, caller should handle fallback
+  return null;
+}
+
+export function getTenantIdWithFallback(req) {
+  const id = getTenantId(req);
+  if (id) return id;
+  try { return db.prepare('SELECT id FROM tenants LIMIT 1').get()?.id || null; } catch { return null; }
 }
 
 export function requireTenant(req, res, next) {

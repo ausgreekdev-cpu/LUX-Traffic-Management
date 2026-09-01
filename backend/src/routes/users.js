@@ -9,6 +9,50 @@ import { paginateResponse } from '../middleware/pagination.js';
 
 const router = Router();
 router.use(authenticate);
+
+// Invitations - manager+ can invite, developer can list
+router.get('/invitations', (req, res) => {
+  const tenantId = req.user.tenant_id || req.user.tenantId;
+  if (!tenantId) return res.json([]);
+  const rows = db.prepare('SELECT * FROM invitations WHERE tenant_id = ? ORDER BY created_at DESC').all(tenantId);
+  res.json(rows);
+});
+
+router.post('/invite', authorize('manager'), asyncHandler(async (req, res) => {
+  const { email, role = 'staff', client_id } = req.body || {};
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) return res.status(400).json({ error: 'Valid email required' });
+  const lowerEmail = String(email).toLowerCase().trim();
+  const tenantId = req.user.tenant_id || req.user.tenantId;
+  if (!tenantId) return res.status(400).json({ error: 'No tenant' });
+  // Domain check: personal domains can be invited but warn
+  // Seat check
+  const { resolveEntitlements, enforceLimit } = await import('../saas/entitlements.js');
+  const ent = resolveEntitlements(tenantId);
+  if (ent) {
+    const used = db.prepare('SELECT count(*) as c FROM tenant_users WHERE tenant_id = ?').get(tenantId).c;
+    const pending = db.prepare("SELECT count(*) as c FROM invitations WHERE tenant_id = ? AND status = 'pending'").get(tenantId).c;
+    const { allowed, limit } = enforceLimit(tenantId, 'seats', used + pending);
+    if (!allowed) return res.status(402).json({ error: 'limit_exceeded', limit: 'seats', limit_value: limit, current: used, pending, message: `Seat limit reached (${used}/${limit}). Upgrade at /billing.` });
+  }
+  if (db.prepare('SELECT id FROM users WHERE email = ?').get(lowerEmail)) return res.status(409).json({ error: 'User already exists' });
+  if (db.prepare("SELECT id FROM invitations WHERE email = ? AND tenant_id = ? AND status = 'pending'").get(lowerEmail, tenantId)) return res.status(409).json({ error: 'Invitation already pending' });
+  const token = uuid() + '-' + uuid();
+  const id = uuid();
+  const expiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
+  db.prepare('INSERT INTO invitations (id, tenant_id, email, role, client_id, token, invited_by, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, tenantId, lowerEmail, role, client_id || null, token, req.user.id, expiresAt);
+  // In production, send email via emailer.js; for now return token for manual share
+  res.status(201).json({ id, email: lowerEmail, role, token, expires_at: expiresAt, invite_url: `/accept?token=${token}` });
+}));
+
+router.post('/invitations/:id/revoke', authorize('manager'), (req, res) => {
+  const tenantId = req.user.tenant_id || req.user.tenantId;
+  const inv = db.prepare('SELECT * FROM invitations WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
+  if (!inv) return res.status(404).json({ error: 'Invitation not found' });
+  db.prepare("UPDATE invitations SET status = 'revoked' WHERE id = ?").run(req.params.id);
+  res.json({ ok: true });
+});
+
+// Existing user management below is developer-only
 router.use(authorize('developer'));
 
 router.get('/', (req, res) => {

@@ -81,6 +81,7 @@ export default function Login({ onLogin }) {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+          <p className="text-center text-sm mt-4"><Link to="/register" className="text-lux-600 hover:underline">No workspace? Create one</Link> • <Link to="/accept" className="text-gray-500 hover:underline">Have an invite?</Link></p>
           <div className="mt-4 border-t border-gray-100 dark:border-gray-700 pt-3">
             <button type="button" onClick={() => setShowDemo(!showDemo)}
               className="text-xs text-gray-500 dark:text-gray-400 hover:text-lux-600 dark:hover:text-lux-400 font-medium">

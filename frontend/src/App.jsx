@@ -39,6 +39,8 @@ const AdminOverride = lazy(() => import('./pages/AdminOverride'));
 const GisGenerator = lazy(() => import('./pages/GisGenerator'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Support = lazy(() => import('./pages/Support'));
+const Register = lazy(() => import('./pages/Register'));
+const AcceptInvite = lazy(() => import('./pages/AcceptInvite'));
 
 // Settings hub panels
 const SystemPanel = lazy(() => import('./pages/settings/SystemPanel'));
@@ -114,6 +116,8 @@ export default function App() {
     },
     { path: '/privacy', element: <Privacy />, errorElement: <ChunkErrorElement /> },
     { path: '/support', element: <Support />, errorElement: <ChunkErrorElement /> },
+    { path: '/register', element: user ? <Navigate to="/" replace /> : <Register />, errorElement: <ChunkErrorElement /> },
+    { path: '/accept', element: <AcceptInvite />, errorElement: <ChunkErrorElement /> },
     {
       path: '/',
       element: <ProtectedRoute><Layout user={user} onLogout={handleLogout} /></ProtectedRoute>,

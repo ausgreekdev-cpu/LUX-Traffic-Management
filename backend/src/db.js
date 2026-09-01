@@ -1055,6 +1055,55 @@ const MIGRATIONS = [
         }
       } catch {}
     }
+  },
+  {
+    version: 13,
+    name: 'company_sandbox',
+    up() {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS invitations (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          email TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('developer','manager','staff','client')),
+          client_id TEXT REFERENCES clients(id),
+          token TEXT UNIQUE NOT NULL,
+          invited_by TEXT REFERENCES users(id),
+          status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','expired','revoked')),
+          expires_at TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_invitations_tenant ON invitations(tenant_id);
+        CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email);
+        CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
+      `);
+      // Add domain + allowed_domains to tenants
+      try {
+        const cols = db.prepare('PRAGMA table_info(tenants)').all().map(c => c.name);
+        if (!cols.includes('domain')) db.exec('ALTER TABLE tenants ADD COLUMN domain TEXT');
+        if (!cols.includes('allowed_domains')) db.exec('ALTER TABLE tenants ADD COLUMN allowed_domains TEXT');
+      } catch {}
+      try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_domain ON tenants(domain) WHERE domain IS NOT NULL'); } catch {}
+      // Add tenant_id to settings for per-tenant branding scoping
+      try {
+        const cols = db.prepare('PRAGMA table_info(settings)').all().map(c => c.name);
+        if (!cols.includes('tenant_id')) db.exec('ALTER TABLE settings ADD COLUMN tenant_id TEXT REFERENCES tenants(id)');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_settings_tenant ON settings(tenant_id)');
+      } catch {}
+      // Backfill domain for default tenant from first user email domain if missing
+      try {
+        const tenant = db.prepare('SELECT id, domain FROM tenants LIMIT 1').get();
+        if (tenant && !tenant.domain) {
+          const user = db.prepare('SELECT email FROM users LIMIT 1').get();
+          if (user?.email) {
+            const domain = String(user.email).split('@')[1]?.toLowerCase();
+            if (domain && !['gmail.com','yahoo.com','outlook.com','hotmail.com','icloud.com'].includes(domain)) {
+              db.prepare('UPDATE tenants SET domain = ? WHERE id = ?').run(domain, tenant.id);
+            }
+          }
+        }
+      } catch {}
+    }
   }
 ];
 
