@@ -1,6 +1,6 @@
 # Microsoft Store Submission Guide — Delux TPM CRM
 
-**App:** Delux TPM CRM (`com.ausgreek.deluxtpmcrm`, `1.2.3`)  
+**App:** Delux TPM CRM (`com.ausgreek.deluxtpmcrm`, `1.2.4`)  
 **Publisher:** AusGreek Developments (`CN=AusGreek Developments`)  
 **Category:** Business > Project Management
 
@@ -20,7 +20,7 @@ npm run build:frontend
 
 # 2. Build MSIX (requires electron-builder)
 npm run electron:msix
-# Output: release/Delux TPM CRM 1.2.3.msix  (+ .blockmap)
+# Output: release/Delux TPM CRM 1.2.4.msix  (+ .blockmap)
 ```
 
 The MSIX uses `build/appx/*Logo.png` scaled from `assets/icon.png` (256) + `frontend/public/pwa-512x512.png` (512) with full Store scale sets (100/125/150/200/400) — generate via `npm run build:appx-icons` or `python3 scripts/generate-appx-icons.py`. Each logical asset (StoreLogo 50×50, Square44×44 44×44, Square150×150 150×150, Wide310×150 310×150, LargeTile 310×310, SmallTile 71×71, SplashScreen 620×300) has .scale-100/.125/.150/.200/.400 variants (e.g. `StoreLogo.scale-100.png` 50px, `.scale-400.png` 200px). Commit the generated `build/appx/` scales; electron-builder will embed the correct assets in the appx manifest. Replace with professionally rendered assets before final submission if possible.

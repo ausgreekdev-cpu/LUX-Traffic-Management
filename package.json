@@ -1,6 +1,6 @@
 {
   "name": "delux-tpm-crm",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Delux TPM CRM powered by AusGreek Developments",
   "main": "electron/main.js",
   "author": "AusGreek Developments",
