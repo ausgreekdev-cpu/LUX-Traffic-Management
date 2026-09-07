@@ -5,6 +5,18 @@ import App from './App';
 import { BrandingProvider } from './context/Branding';
 import './index.css';
 
+// Register generated service worker for PWA manifest (web only — skip in Capacitor native shell).
+// vite-plugin-pwa injects /sw.js + /manifest.webmanifest; this import enables autoUpdate lifecycle.
+if (typeof window !== 'undefined' && Capacitor.getPlatform() === 'web') {
+  import('virtual:pwa-register').then(({ registerSW }) => {
+    registerSW({
+      immediate: true,
+      onNeedRefresh() {},
+      onOfflineReady() {},
+    });
+  }).catch(() => {});
+}
+
 // Native (Capacitor) shell: the SPA is served from a local scheme, so API calls
 // must target a deployed origin. Candidates are probed in order and the first
 // one that answers /api/ping wins, so the app stays usable when the primary

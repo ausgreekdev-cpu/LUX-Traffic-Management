@@ -7,6 +7,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: null,
+      strategies: 'generateSW',
+      devOptions: { enabled: false, navigateFallback: 'index.html', type: 'module' },
       includeAssets: ['favicon.svg', 'favicon.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Delux TPM CRM',
@@ -72,6 +75,9 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/assets\//],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         runtimeCaching: [
           {

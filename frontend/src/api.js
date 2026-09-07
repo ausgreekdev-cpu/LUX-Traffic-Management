@@ -23,7 +23,17 @@ async function request(path, options = {}) {
   const token = localStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${BASE()}${path}`, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(`${BASE()}${path}`, { ...options, headers });
+  } catch (err) {
+    // Network failure (backend down, CORS, offline, wrong Node version) — surface the base so
+    // the UI never shows the opaque "Request failed" from the json fallback.
+    const base = BASE();
+    const cause = err?.message || String(err);
+    // e.g. "Failed to fetch" when vite proxy has no backend on :3001
+    throw new Error(cause.includes('Failed to fetch') ? `Cannot reach API at ${base}${path} — is the backend running? (${cause})` : cause);
+  }
   if (res.status === 304) return null;
   if (res.status === 401 && !options.skipAuthRedirect) {
     localStorage.removeItem('token');
