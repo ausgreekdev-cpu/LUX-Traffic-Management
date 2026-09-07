@@ -22,3 +22,6 @@ mobile/android/app/src/main/assets/
 mobile/ios/App/App/public/
 mobile/ios/App/Pods/
 mobile/ios/App/Podfile.lock
+mobile/android/app/upload.p12
+mobile/android/app/key.properties
+play-assets/
