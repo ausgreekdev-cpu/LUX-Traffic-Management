@@ -30,19 +30,24 @@ async function loadBranding() {
 }
 
 async function registerBrandFont(doc, typography) {
+  const tmpPaths = [];
   const tryRegister = async (src, name) => {
     if (!src) return false;
     const bytes = await loadAsset(src).catch(() => null);
     if (!bytes || !bytes.length) return false;
     try {
-      const tmpPath = path.join(os.tmpdir(), `lux-font-${Date.now()}-${String(src).replace(/[^a-zA-Z0-9_-]/g, '_')}`);
+      const tmpPath = path.join(os.tmpdir(), `lux-font-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${String(src).replace(/[^a-zA-Z0-9_-]/g, '_')}`);
       fs.writeFileSync(tmpPath, bytes);
+      tmpPaths.push(tmpPath);
       doc.registerFont(name, tmpPath);
       return true;
     } catch { return false; }
   };
   const uiOk = await tryRegister(typography?.ui?.src, 'BrandFont');
   const displayOk = await tryRegister(typography?.display?.src, 'BrandDisplay');
+  const cleanup = () => { for (const p of tmpPaths) { try { fs.unlinkSync(p); } catch {} } };
+  doc.once('end', cleanup);
+  doc.once('error', cleanup);
   return uiOk || displayOk;
 }
 

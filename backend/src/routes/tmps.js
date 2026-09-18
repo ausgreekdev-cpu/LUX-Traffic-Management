@@ -27,11 +27,6 @@ function generateReference() {
 }
 
 router.get('/', (req, res) => {
-  let q = `SELECT t.*, s.name as site_name, p.name as project_name, u.name as creator_name
-    FROM traffic_management_plans t
-    LEFT JOIN sites s ON t.site_id = s.id
-    LEFT JOIN tmp_projects p ON t.project_id = p.id
-    LEFT JOIN users u ON t.created_by = u.id`;
   const params = [];
   const conditions = [];
   if (isClientUser(req.user)) {
@@ -41,16 +36,23 @@ router.get('/', (req, res) => {
   }
   if (req.query.status) { conditions.push('t.status = ?'); params.push(req.query.status); }
   if (req.query.search) { conditions.push('(t.title LIKE ? OR t.reference LIKE ? OR s.name LIKE ?)'); const s = `%${req.query.search}%`; params.push(s, s, s); }
-  if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
-  q += ' ORDER BY t.created_at DESC';
+  const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+  // Build the count query independently (never regex-transform the SELECT) so
+  // search terms can't corrupt it and arbitrary FROM/JOIN text is harmless.
+  const countQ = `SELECT COUNT(*) as total FROM traffic_management_plans t
+    LEFT JOIN sites s ON t.site_id = s.id
+    LEFT JOIN tmp_projects p ON t.project_id = p.id
+    LEFT JOIN users u ON t.created_by = u.id${where}`;
+  const total = db.prepare(countQ).get(...params).total;
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const countQ = q.replace(/SELECT t\.[\s\S]*?FROM/, 'SELECT COUNT(*) as total FROM');
-  const total = db.prepare(countQ).get(...params).total;
-  q += ' LIMIT ? OFFSET ?';
-  params.push(limit, offset);
-  const data = db.prepare(q).all(...params);
+  const dataQ = `SELECT t.*, s.name as site_name, p.name as project_name, u.name as creator_name
+    FROM traffic_management_plans t
+    LEFT JOIN sites s ON t.site_id = s.id
+    LEFT JOIN tmp_projects p ON t.project_id = p.id
+    LEFT JOIN users u ON t.created_by = u.id${where} ORDER BY t.created_at DESC LIMIT ? OFFSET ?`;
+  const data = db.prepare(dataQ).all(...params, limit, offset);
   res.json({ data, total, page, limit, pages: Math.ceil(total / limit) });
 });
 

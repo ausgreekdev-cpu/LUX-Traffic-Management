@@ -11,7 +11,7 @@ export const apiUrl = (path) => `${BASE()}${path}`;
 
 const isNativeShell = () => (typeof window !== 'undefined' && !!window.__LUX_API_BASE__);
 
-const isLoginScreen = () => (typeof window !== 'undefined' && window.location.pathname === '/login');
+const isLoginScreen = () => (typeof window !== 'undefined' && window.location.pathname.replace(/\/+$/, '') === '/login');
 
 // Short TTL cache for settings (app name, labels, branding). AppText and
 // Settings both fetch settings; this avoids duplicate requests and speeds up
