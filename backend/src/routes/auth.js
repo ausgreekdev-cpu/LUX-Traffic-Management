@@ -9,8 +9,10 @@ import { getJwtSecret } from '../secrets.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 
 const router = Router();
-const JWT_SECRET = getJwtSecret();
 const PERSONAL_DOMAINS = new Set(['gmail.com','yahoo.com','outlook.com','hotmail.com','icloud.com','protonmail.com','aol.com']);
+// Read the JWT secret per-request (never at import) so a serverless DB
+// restore that changes the persisted secret is picked up immediately.
+const secret = () => getJwtSecret();
 
 function domainFromEmail(email) {
   return String(email).split('@')[1]?.toLowerCase().trim() || '';
@@ -27,7 +29,7 @@ router.post('/login', rateLimit('login', 10, 15), validate('login'), asyncHandle
   const link = db.prepare('SELECT tenant_id FROM tenant_users WHERE user_id = ? LIMIT 1').get(user.id);
   const tenantId = link?.tenant_id || db.prepare('SELECT id FROM tenants LIMIT 1').get()?.id || null;
   const minutes = parseInt(db.prepare("SELECT value FROM settings WHERE key = 'session_timeout_minutes'").get()?.value || '1440', 10) || 1440;
-  const token = jwt.sign({ userId: user.id, role: user.role, clientId: user.client_id, tenant_id: tenantId, tenantId }, JWT_SECRET, { expiresIn: `${Math.max(5, minutes)}m` });
+  const token = jwt.sign({ userId: user.id, role: user.role, clientId: user.client_id, tenant_id: tenantId, tenantId }, secret(), { expiresIn: `${Math.max(5, minutes)}m` });
   res.json({
     token,
     user: { id: user.id, email: user.email, name: user.name, role: user.role, client_id: user.client_id, clientId: user.client_id, tenant_id: tenantId, tenantId },
@@ -79,7 +81,7 @@ router.post('/register', rateLimit('register', 5, 60), asyncHandler(async (req, 
   db.prepare('INSERT INTO users (id, email, password, name, role) VALUES (?, ?, ?, ?, ?)').run(userId, lowerEmail, hash, String(name).trim(), 'manager');
   db.prepare('INSERT INTO tenant_users (tenant_id, user_id, role) VALUES (?, ?, ?)').run(tenantId, userId, 'manager');
   const minutes = 1440;
-  const token = jwt.sign({ userId, role: 'manager', tenant_id: tenantId, tenantId }, JWT_SECRET, { expiresIn: `${minutes}m` });
+  const token = jwt.sign({ userId, role: 'manager', tenant_id: tenantId, tenantId }, secret(), { expiresIn: `${minutes}m` });
   res.status(201).json({ token, user: { id: userId, email: lowerEmail, name, role: 'manager', tenant_id: tenantId, tenantId }, tenant: db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId) });
 }));
 
@@ -87,7 +89,7 @@ router.get('/me', (req, res) => {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'No token' });
   try {
-    const payload = jwt.verify(header.slice(7), JWT_SECRET);
+    const payload = jwt.verify(header.slice(7), secret());
     const user = db.prepare('SELECT id, email, name, role, client_id FROM users WHERE id = ?').get(payload.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
@@ -113,7 +115,7 @@ router.post('/accept', asyncHandler(async (req, res) => {
   db.prepare('INSERT INTO users (id, email, password, name, role, client_id) VALUES (?, ?, ?, ?, ?, ?)').run(userId, lowerEmail, hash, finalName, inv.role || 'staff', inv.client_id || null);
   db.prepare('INSERT INTO tenant_users (tenant_id, user_id, role) VALUES (?, ?, ?)').run(inv.tenant_id, userId, inv.role || 'staff');
   db.prepare("UPDATE invitations SET status = 'accepted' WHERE id = ?").run(inv.id);
-  const jwtToken = jwt.sign({ userId, role: inv.role || 'staff', tenant_id: inv.tenant_id, tenantId: inv.tenant_id }, JWT_SECRET, { expiresIn: '1440m' });
+  const jwtToken = jwt.sign({ userId, role: inv.role || 'staff', tenant_id: inv.tenant_id, tenantId: inv.tenant_id }, secret(), { expiresIn: '1440m' });
   res.json({ token: jwtToken, user: { id: userId, email: lowerEmail, name: finalName, role: inv.role, tenant_id: inv.tenant_id } });
 }));
 
