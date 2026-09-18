@@ -20,9 +20,10 @@ export default function UsersList() {
   const [inviteRole, setInviteRole] = useState('staff');
   const [editId, setEditId] = useState(null);
 
-  const loadUsers = () => api.users.list().then(setUsers).catch(() => setUsers([]));
-  const loadClients = () => api.clients.list().then(setClients).catch(() => setClients([]));
-  const loadInvites = () => fetch('/api/users/invitations', { headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(setInvites).catch(()=>setInvites([]));
+  const [error, setError] = useState('');
+  const loadUsers = () => api.users.list().then(setUsers).catch((e) => { if (e.status===403) setError('You do not have permission to list users — requires Developer.'); else setError(e.message); setUsers([]); });
+  const loadClients = () => api.clients.list().then(setClients).catch((e) => { setError(e.message); setClients([]); });
+  const loadInvites = () => api.users.listInvitations().then(setInvites).catch(()=>setInvites([]));
   useEffect(() => {
     Promise.all([loadUsers(), loadClients(), loadInvites()]).finally(() => setLoading(false));
   }, []);
@@ -55,9 +56,7 @@ export default function UsersList() {
   const handleInvite = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/users/invite', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('token')}`}, body: JSON.stringify({ email: inviteEmail, role: inviteRole })});
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Invite failed');
+      const data = await api.users.invite({ email: inviteEmail, role: inviteRole });
       alert(`Invitation created for ${data.email}. Share link: ${window.location.origin}/accept?token=${data.token}`);
       setInviteEmail('');
       await loadInvites();
@@ -73,6 +72,7 @@ export default function UsersList() {
 
   return (
     <div className="space-y-4">
+      {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       <div>
         <h1 className="page-header">{pageTitle('users', 'User Management')}</h1>
         <p className="page-sub">Create and manage accounts and roles</p>

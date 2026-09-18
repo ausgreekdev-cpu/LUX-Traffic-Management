@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FeatureGate } from '../components/EntitlementGate';
-import api from '../api';
+import api, { apiUrl } from '../api';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const SIGNS = [
@@ -70,12 +70,13 @@ export default function GisGenerator() {
     try {
       if (type === 'pdf') {
         const res = await api.export.councilPDF(tmpId);
-        // export.councilPDF returns fetch Response, need to handle
+        if (!res.ok) { const j = await res.json().catch(()=>({error:'Export failed'})); throw Object.assign(new Error(j.error||j.message||'Export failed'), {status: res.status}); }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = `${tmpId}-tcd.pdf`; a.click(); URL.revokeObjectURL(url);
       } else if (type === 'geojson') {
         const res = await api.export.geoJSON(tmpId);
+        if (!res.ok) { const j = await res.json().catch(()=>({error:'Export failed'})); throw Object.assign(new Error(j.error||j.message||'Export failed'), {status: res.status}); }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = `${tmpId}.geojson`; a.click(); URL.revokeObjectURL(url);
@@ -90,9 +91,11 @@ export default function GisGenerator() {
     if (!tmpId) return alert('Enter TMP ID');
     const layout = { signs, center: mapInstance.current?.getCenter(), zoom: mapInstance.current?.getZoom(), chainage: '0+000', scale: '1:500' };
     try {
-      await fetch('/api/gis/tgs', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('token')}`}, body: JSON.stringify({ tmp_id: tmpId, layout_json: layout })});
+      const res = await fetch(apiUrl('/gis/tgs'), { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('token')}`}, body: JSON.stringify({ tmp_id: tmpId, layout_json: layout })});
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(data.error || data.message || 'Save failed');
       alert('TCD saved');
-    } catch (e) { alert(e.message); }
+    } catch (e) { alert(e.status===402? e.message+' — Upgrade at Billing.' : e.message); }
   };
 
   return (

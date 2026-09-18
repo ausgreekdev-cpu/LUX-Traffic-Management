@@ -51,12 +51,17 @@ async function request(path, options = {}) {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }));
-    const e = new Error(err.error || 'Request failed');
+    const e = new Error(err.error || err.message || 'Request failed');
+    e.status = res.status;
     if (err.hint) e.hint = err.hint;
     if (err.code) e.code = err.code;
     if (err.transport) e.transport = err.transport;
+    if (err.feature) e.feature = err.feature;
+    if (res.status === 402) e.message = err.message || `Upgrade required${err.feature ? ` (${err.feature})` : ''}. Visit Billing.`;
     if (res.status === 429 && err.retryAfter) {
       e.message += ` Please try again in ${Math.ceil(err.retryAfter)} seconds.`;
+    } else if (res.status === 429) {
+      e.message = err.message || 'Daily limit reached. Upgrade plan.';
     }
     throw e;
   }
@@ -70,6 +75,8 @@ const api = {
   },
   users: {
     list: () => request('/users'),
+    listInvitations: () => request('/users/invitations'),
+    invite: (data) => request('/users/invite', { method: 'POST', body: JSON.stringify(data) }),
     create: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/users/${id}`, { method: 'DELETE' })

@@ -8,7 +8,8 @@ export function useEntitlements() {
     let cancelled = false;
     async function fetchEnt() {
       try {
-        const res = await fetch('/api/billing/entitlements', {
+        const { apiUrl } = await import('../api');
+        const res = await fetch(apiUrl('/billing/entitlements'), {
           headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
         });
         if (res.ok) {

@@ -2,8 +2,6 @@ import jwt from 'jsonwebtoken';
 import db from '../db.js';
 import { getJwtSecret } from '../secrets.js';
 
-const JWT_SECRET = getJwtSecret();
-
 export const ROLE_RANK = { developer: 4, manager: 3, staff: 2, client: 1 };
 
 export function roleRank(role) {
@@ -17,6 +15,7 @@ export function authenticate(req, res, next) {
   }
   try {
     const token = header.slice(7);
+    const JWT_SECRET = getJwtSecret();
     const payload = jwt.verify(token, JWT_SECRET);
     const user = db.prepare('SELECT id, email, name, role, client_id FROM users WHERE id = ?').get(payload.userId);
     if (!user) return res.status(401).json({ error: 'User not found', requestId: req.requestId });

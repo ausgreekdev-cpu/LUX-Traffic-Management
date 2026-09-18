@@ -45,6 +45,7 @@ import { seedDatabase, seedAdminFromEnv, ensureDemoUsers } from './seed.js';
 import { globalRateLimit } from './middleware/rate-limit.js';
 import { requestLogger } from './middleware/request-log.js';
 import { notFound, errorHandler } from './middleware/error-handler.js';
+import { getJwtSecret } from './secrets.js';
 import { ensureEncryptionKey, encryptLegacySecrets } from './secrets-crypto.js';
 import { snapshotDbNow, snapshotStatus } from './persistence.js';
 import { dataDir } from './media-store.js';
@@ -53,7 +54,7 @@ import './automation-engine.js';
 const app = express();
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-official.netlify.app', 'https://main--lux-official.netlify.app', 'https://lux-tmp.netlify.app', 'https://localhost', 'capacitor://localhost', 'http://localhost'] }));
+app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:3001', 'https://lux-official.netlify.app', 'https://main--lux-official.netlify.app', 'https://lux-tmp.netlify.app', 'https://lux-traffic-planning.netlify.app', 'https://localhost', 'capacitor://localhost', 'http://localhost'], credentials: false }));
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 app.use(requestLogger);
 
@@ -61,12 +62,15 @@ app.use('/api', globalRateLimit(300, 1));
 
 app.use('/api', (req, res, next) => {
   const mutating = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
-  // Snapshot the DB after mutating requests — INCLUDING /auth/* — so the
-  // persisted jwt_secret (and any login-time writes) are uploaded to Blobs
-  // and survive instance recycles on serverless.
+  // Don't block auth responses — snapshot async after response ends so login is instant
+  const isAuth = req.path.startsWith('/auth');
   if (mutating) {
-    const origSend = res.send.bind(res);
-    res.send = (body) => snapshotDbNow().finally(() => origSend(body));
+    if (isAuth) {
+      res.on('finish', () => { snapshotDbNow().catch(()=>{}); });
+    } else {
+      const origSend = res.send.bind(res);
+      res.send = (body) => snapshotDbNow().finally(() => origSend(body));
+    }
   }
   next();
 });
@@ -87,12 +91,12 @@ app.use('/api', (req, res, next) => {
   if (!auth) return next();
   try {
     let tenantId = null;
-    // Prefer explicit header, then JWT-derived tenant (req.user not yet populated here), then fallback
+    // Prefer explicit header, then JWT-derived tenant verified with secret (not blind decode)
     if (req.headers['x-tenant-id']) tenantId = req.headers['x-tenant-id'];
     else if (auth && auth.startsWith('Bearer ')) {
       try {
         const token = auth.slice(7);
-        const payload = jwt.decode(token);
+        const payload = jwt.verify(token, getJwtSecret());
         if (payload?.userId) {
           const link = db.prepare('SELECT tenant_id FROM tenant_users WHERE user_id = ? LIMIT 1').get(payload.userId);
           if (link?.tenant_id) tenantId = link.tenant_id;

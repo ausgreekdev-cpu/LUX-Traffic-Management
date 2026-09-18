@@ -1,9 +1,6 @@
 import { useEffect } from 'react';
 import { useRouteError, isRouteErrorResponse } from 'react-router-dom';
 
-// Module-level so repeated chunk failures in one page session never loop.
-let autoReloaded = false;
-
 const CHUNK_RE = /dynamically imported module|loading chunk|failed to fetch/i;
 
 export default function ChunkErrorElement() {
@@ -14,9 +11,13 @@ export default function ChunkErrorElement() {
     : (error && (error.message || String(error))) || 'Unknown error';
 
   useEffect(() => {
-    if (!is404 && !autoReloaded && CHUNK_RE.test(message)) {
-      autoReloaded = true;
-      window.location.reload();
+    if (!is404 && CHUNK_RE.test(message)) {
+      const key = `lux_chunk_reload_${message.slice(0,40)}`;
+      const last = Number(sessionStorage.getItem(key) || 0);
+      if (Date.now() - last > 60000) {
+        sessionStorage.setItem(key, String(Date.now()));
+        window.location.reload();
+      }
     }
   }, [is404, message]);
 

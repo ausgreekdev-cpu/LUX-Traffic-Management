@@ -22,17 +22,19 @@ export default function PermitList() {
   const [selected, setSelected] = useState(new Set());
   const [bulkStatus, setBulkStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => { api.authorities.list().then(setAuthorities).catch(() => {}); }, []);
 
   useEffect(() => {
     setLoading(true);
+    setError('');
     setSelected(new Set());
     const params = { page, limit: 20 };
     if (filter) params.status = filter;
     if (authFilter) params.authority_id = authFilter;
     if (search) params.search = search;
-    api.permits.list(params).then(setData).catch(() => {}).finally(() => setLoading(false));
+    api.permits.list(params).then(setData).catch((e) => setError(e.status===402?e.message:e.message)).finally(() => setLoading(false));
   }, [filter, authFilter, page, search]);
 
   const toggle = (id) => setSelected(prev => {
@@ -127,6 +129,7 @@ export default function PermitList() {
           <button onClick={() => setSelected(new Set())} className="text-sm text-gray-500 hover:underline">Clear</button>
         </div>
       )}
+      {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       {loading ? <p className="text-gray-500">Loading...</p> : data.data.length === 0 ? (
         <div className="empty-state">
           <span className="text-4xl mb-2">📄</span>

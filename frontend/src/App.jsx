@@ -58,9 +58,18 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+function Forbidden({ needed }) {
+  return (
+    <div className="max-w-lg mx-auto mt-24 p-6 card text-center space-y-3">
+      <h2 className="text-lg font-bold text-red-500">403 — Insufficient permissions</h2>
+      <p className="text-sm text-gray-500">Your role does not have access to this page. {needed ? `Requires ${needed}.` : ''}</p>
+      <a href="/" className="btn btn-primary inline-flex">Back to dashboard</a>
+    </div>
+  );
+}
 function RoleRoute({ user, minRole, children }) {
   if (!user) return <Navigate to="/login" replace />;
-  if ((RANK[user.role] || 0) < (RANK[minRole] || 0)) return <Navigate to="/" replace />;
+  if ((RANK[user.role] || 0) < (RANK[minRole] || 0)) return <Forbidden needed={minRole} />;
   return children;
 }
 
@@ -172,9 +181,10 @@ export default function App() {
     },
     // Legacy settings-adjacent routes now live inside the /settings hub.
     { path: '/branding', element: <RoleRoute user={user} minRole="developer"><Navigate to="/settings/branding" replace /></RoleRoute> },
-    { path: '/workflows', element: <RoleRoute user={user} minRole="developer"><Navigate to="/settings/traffic?tab=workflows" replace /></RoleRoute> },
-    { path: '/automations', element: <RoleRoute user={user} minRole="developer"><Navigate to="/settings/traffic?tab=automations" replace /></RoleRoute> },
-    { path: '/users', element: <RoleRoute user={user} minRole="developer"><Navigate to="/settings/security?tab=users" replace /></RoleRoute> }
+    { path: '/workflows', element: <RoleRoute user={user} minRole="staff"><Navigate to="/settings/traffic?tab=workflows" replace /></RoleRoute> },
+    { path: '/automations', element: <RoleRoute user={user} minRole="staff"><Navigate to="/settings/traffic?tab=automations" replace /></RoleRoute> },
+    { path: '/users', element: <RoleRoute user={user} minRole="manager"><Navigate to="/settings/security?tab=users" replace /></RoleRoute> },
+    { path: '*', element: <ChunkErrorElement />, errorElement: <ChunkErrorElement /> }
   ]), [user]);
 
   if (authLoading) {

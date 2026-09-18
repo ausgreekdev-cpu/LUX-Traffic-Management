@@ -85,7 +85,7 @@ export default function Layout({ user, onLogout }) {
     api.notifications.scan().catch(() => {});
     refreshNotifications(false);
     // Load tenant for sandbox display
-    fetch('/api/billing/tenant', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }).then(r=>r.json()).then(t=>{ if(t?.id) setTenant(t); }).catch(()=>{});
+    fetch(apiUrl('/billing/tenant'), { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }).then(r=>r.json()).then(t=>{ if(t?.id) setTenant(t); }).catch(()=>{});
     const interval = setInterval(() => {
       api.notifications.unreadCount().then(({ count }) => setUnreadCount(count)).catch(() => {});
     }, 60000);

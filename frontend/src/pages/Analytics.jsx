@@ -10,18 +10,21 @@ export default function Analytics() {
   const [financial, setFinancial] = useState(null);
   const [rejection, setRejection] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const load = async (tab) => {
     setLoading(true);
+    setError('');
     const params = { period_days: period };
     const promises = [];
-    if (tab === 'overview' || tab === 'approval') promises.push(api.analytics.approvalTimes(params).then(setApproval));
-    if (tab === 'overview' || tab === 'financial') promises.push(api.analytics.financialSummary(params).then(setFinancial));
-    if (tab === 'overview' || tab === 'rejection') promises.push(api.analytics.rejectionAnalysis(params).then(setRejection));
+    if (tab === 'overview' || tab === 'approval') promises.push(api.analytics.approvalTimes(params).then(setApproval).catch(e=>{ throw e; }));
+    if (tab === 'overview' || tab === 'financial') promises.push(api.analytics.financialSummary(params).then(setFinancial).catch(e=>{ throw e; }));
+    if (tab === 'overview' || tab === 'rejection') promises.push(api.analytics.rejectionAnalysis(params).then(setRejection).catch(e=>{ throw e; }));
     try {
       await Promise.all(promises);
     } catch (err) {
-      alert(err.message);
+      const msg = err.status === 402 ? 'Analytics requires a higher plan — see Billing.' : err.status === 403 ? 'You do not have permission to view analytics.' : err.message;
+      setError(msg);
     }
     setLoading(false);
   };
@@ -45,6 +48,7 @@ export default function Analytics() {
         {tabs.map(t => <button key={t} onClick={() => setTab(t)} className={`tab capitalize ${tab === t ? 'tab-active' : 'tab-inactive'}`}>{t}</button>)}
       </div>
 
+      {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       {loading ? <p className="text-gray-500">Loading...</p> : (
         <div className="space-y-6">
           {(tab === 'overview' || tab === 'approval') && approval && (
