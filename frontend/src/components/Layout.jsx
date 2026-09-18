@@ -143,14 +143,14 @@ export default function Layout({ user, onLogout }) {
                 <img src={branding.assets.logoLight} alt="logo" className="h-9 w-auto max-w-40 object-contain rounded" />
               ) : (
                 <div className="h-9 w-9 rounded-lg bg-lux-500 flex items-center justify-center shadow-lg shadow-lux-500/25 shrink-0">
-                  <span className="font-black text-gray-900 text-sm tracking-tight">LUX</span>
+                  <span className="font-display text-gray-900 text-sm tracking-tight">LUX</span>
                 </div>
               )}
             </div>
             {sidebarOpen && (
               <div className="min-w-0 ml-2.5 text-left">
-                <p className="font-bold text-sm leading-tight truncate">{appName('LUX Traffic')}</p>
-                <p className="text-[10px] text-gray-400 leading-tight">Management</p>
+                <p className="font-display text-sm leading-tight truncate">{appName('LUX Traffic')}</p>
+                <p className="text-[10px] text-gray-400 leading-tight tracking-wide font-display">Management</p>
                 {tenant && <p className="text-[10px] text-lux-400 truncate" title={tenant.name}>🏢 {tenant.name}</p>}
               </div>
             )}

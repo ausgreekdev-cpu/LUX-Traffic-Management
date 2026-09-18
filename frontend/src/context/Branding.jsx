@@ -42,10 +42,16 @@ function setStyle(id, css) {
   }
 }
 
+function formatToCss(format) {
+  if (format === 'ttf') return 'truetype';
+  if (format === 'otf') return 'opentype';
+  if (format === 'woff') return 'woff';
+  return 'woff2';
+}
 function injectFonts(fonts) {
   if (!fonts) return;
   const css = Object.values(fonts).filter(Boolean).map((f) =>
-    `@font-face { font-family: '${f.family}'; src: url('${f.url}') format('${f.format === 'ttf' ? 'truetype' : 'woff2'}'); font-display: swap; }`
+    `@font-face { font-family: '${f.family}'; src: url('${f.url}') format('${formatToCss(f.format)}'); font-display: swap; }`
   ).join('\n');
   setStyle('lux-brand-fonts', css);
 }
@@ -61,6 +67,9 @@ export function applyBranding(summary) {
   const uiFont = summary.fonts?.ui;
   root.style.setProperty('--font-ui', uiFont ? `'${uiFont.family}', ${DEFAULT_FONT_UI}` : DEFAULT_FONT_UI);
   if (summary.fonts?.map) root.style.setProperty('--font-map', `'${summary.fonts.map.family}', sans-serif`);
+  const displayFont = summary.fonts?.display;
+  if (displayFont) root.style.setProperty('--font-display', `'${displayFont.family}', 'BFC Shine', cursive`);
+  else root.style.setProperty('--font-display', "'BFC Shine', ui-serif, Georgia, cursive");
 
   injectFonts(summary.fonts);
   setStyle('lux-brand-css', summary.css_override || '');

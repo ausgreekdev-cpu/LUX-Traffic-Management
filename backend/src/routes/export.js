@@ -94,19 +94,23 @@ async function loadBranding() {
 }
 
 async function registerBrandFont(doc, typography) {
-  const src = typography && typography.ui && typography.ui.src;
-  if (!src) return false;
-  const bytes = await loadAsset(src).catch(() => null);
-  if (!bytes || !bytes.length) return false;
-  try {
-    const tmpPath = path.join(os.tmpdir(), `lux-font-${Date.now()}-${String(src).replace(/[^a-zA-Z0-9_-]/g, '_')}`);
-    fs.writeFileSync(tmpPath, bytes);
-    doc.registerFont('brand', tmpPath);
-    return true;
-  } catch (err) {
-    console.warn('Brand font registration failed:', err.message);
-    return false;
-  }
+  const tryRegister = async (src, name) => {
+    if (!src) return false;
+    const bytes = await loadAsset(src).catch(() => null);
+    if (!bytes || !bytes.length) return false;
+    try {
+      const tmpPath = path.join(os.tmpdir(), `lux-font-${Date.now()}-${String(src).replace(/[^a-zA-Z0-9_-]/g, '_')}`);
+      fs.writeFileSync(tmpPath, bytes);
+      doc.registerFont(name, tmpPath);
+      return true;
+    } catch (err) {
+      console.warn(`Brand font ${name} registration failed:`, err.message);
+      return false;
+    }
+  };
+  const uiOk = await tryRegister(typography?.ui?.src, 'brand');
+  const displayOk = await tryRegister(typography?.display?.src, 'BrandDisplay');
+  return uiOk || displayOk;
 }
 
 function watermarkText(wm, status) {

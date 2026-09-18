@@ -75,10 +75,10 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/assets\//],
-        cleanupOutdatedCaches: true,
+cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2,ttf,otf}'],
         runtimeCaching: [
           {
             // Navigations are network-first so a fresh deploy's index.html is

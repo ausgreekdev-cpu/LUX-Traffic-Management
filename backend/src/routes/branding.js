@@ -15,7 +15,7 @@ import {
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
 
-const ASSET_SLOTS = new Set(['logo_light', 'logo_dark', 'favicon', 'apple_touch', 'pwa_192', 'pwa_512', 'splash', 'seal', 'font_ui', 'font_map']);
+const ASSET_SLOTS = new Set(['logo_light', 'logo_dark', 'favicon', 'apple_touch', 'pwa_192', 'pwa_512', 'splash', 'seal', 'font_ui', 'font_map', 'font_display']);
 
 // Brand scope: explicit ?domain= query ('' = global). Only the public summary
 // and asset stream ever fall back to the Host header.
@@ -30,8 +30,9 @@ const SLOT_ALLOWED_MIME = {
   pwa_512: ['image/png'],
   splash: ['image/png'],
   seal: ['image/png', 'image/svg+xml'],
-  font_ui: ['font/ttf', 'font/otf', 'application/x-font-ttf', 'application/octet-stream'],
-  font_map: ['font/ttf', 'font/otf', 'application/x-font-ttf', 'application/octet-stream']
+  font_ui: ['font/ttf', 'font/otf', 'font/woff', 'font/woff2', 'application/x-font-ttf', 'application/octet-stream'],
+  font_map: ['font/ttf', 'font/otf', 'font/woff', 'font/woff2', 'application/x-font-ttf', 'application/octet-stream'],
+  font_display: ['font/ttf', 'font/otf', 'font/woff', 'font/woff2', 'application/x-font-ttf', 'application/octet-stream', 'application/font-woff', 'application/font-woff2']
 };
 
 // Public: consumed pre-login at boot to white-label the login page + app shell.
@@ -94,11 +95,17 @@ router.post('/assets/:slot', authenticate, authorize('developer'), requireWhiteL
   if (allowed && !allowed.includes(req.file.mimetype)) {
     return res.status(400).json({ error: `Unsupported file type "${req.file.mimetype}". Allowed: ${allowed.join(', ')}` });
   }
-  const isFont = slot === 'font_ui' || slot === 'font_map';
+  const isFont = slot === 'font_ui' || slot === 'font_map' || slot === 'font_display';
   if (isFont) {
     const ext = path.extname(req.file.originalname || '').toLowerCase();
-    if (!['.ttf', '.otf'].includes(ext) && req.file.mimetype !== 'font/ttf' && !String(req.file.mimetype).includes('truetype')) {
-      return res.status(400).json({ error: 'Only .ttf or .otf font files are supported (WOFF2 is not embeddable in PDFs).' });
+    const isTtfOtf = ['.ttf', '.otf'].includes(ext) || req.file.mimetype === 'font/ttf' || String(req.file.mimetype).includes('truetype') || String(req.file.mimetype).includes('opentype');
+    const isWoff = ['.woff', '.woff2'].includes(ext) || String(req.file.mimetype).includes('woff');
+    if (!isTtfOtf && !isWoff) {
+      return res.status(400).json({ error: 'Only .ttf, .otf, .woff or .woff2 font files are supported (PDFKit embeds TTF/OTF only — WOFF/WOFF2 is web-only).' });
+    }
+    // Display font: BFC Shine — WOFF2 preferred for web; TTF/OTF also accepted for PDF embedding
+    if (slot === 'font_display' && isWoff) {
+      // allow through — web-only, PDF fallback will be used
     }
   }
   const domain = scope(req);

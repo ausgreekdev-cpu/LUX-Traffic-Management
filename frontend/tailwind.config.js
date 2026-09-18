@@ -24,7 +24,9 @@ export default {
       },
       fontFamily: {
         sans: ['var(--font-ui)'],
-        map: ['var(--font-map)']
+        map: ['var(--font-map)'],
+        display: ['var(--font-display)'],
+        feature: ['var(--font-display)']
       }
     }
   },

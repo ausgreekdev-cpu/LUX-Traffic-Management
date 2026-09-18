@@ -43,7 +43,7 @@ export const DEFAULT_WATERMARK = {
 
 export const DEFAULT_PDF_LAYOUT = { header: [], footer: [] };
 export const DEFAULT_EMAIL = { enabled: false, from_name: '', from_email: '', accent: '#f57f17', footer: '' };
-export const DEFAULT_TYPOGRAPHY = { ui: null, map: null };
+export const DEFAULT_TYPOGRAPHY = { ui: null, map: null, display: null };
 
 // ---------------------------------------------------------------- colour math
 
@@ -324,7 +324,7 @@ export function getPublicSummary(domain = '') {
       favicon: pick('favicon'),
       seal: pick('seal')
     },
-    fonts: { ui: fontFace('ui'), map: fontFace('map') }
+    fonts: { ui: fontFace('ui'), map: fontFace('map'), display: fontFace('display') }
   };
 }
 
