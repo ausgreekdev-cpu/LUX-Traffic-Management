@@ -8,7 +8,7 @@ export const MASK_PLACEHOLDER = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202
 // through the shared registry (feeds the UnsavedPrompt blocker) and strips
 // masked/empty secrets before saving so stored credentials are never clobbered.
 export function useSettingsGroup(prefix, id) {
-  const { groups, refreshGroups, setDirty } = useSettingsStore();
+  const { groups, groupsError, refreshGroups, setDirty } = useSettingsStore();
   const server = groups?.[prefix];
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -48,5 +48,5 @@ export function useSettingsGroup(prefix, id) {
     }
   };
 
-  return { group: server, draft, setValue, save, reset, saving, saved, error, dirty };
+  return { group: server, draft, setValue, save, reset, saving, saved, error, dirty, groupsError };
 }

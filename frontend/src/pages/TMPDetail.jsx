@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import api from '../api';
+import api, { apiUrl } from '../api';
 import WorkflowChecklist from '../components/WorkflowChecklist';
 import PhotoGallery from '../components/PhotoGallery';
 import CompliancePanel from '../components/CompliancePanel';
@@ -23,6 +23,7 @@ export default function TMPDetail() {
   const { allowed: canWaPacket } = useFeature('wa_lga_packet');
   const [tmp, setTmp] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
   const [agentRuns, setAgentRuns] = useState([]);
@@ -32,7 +33,12 @@ export default function TMPDetail() {
     api.tmps.get(id),
     api.agents.runs({ entity_type: 'tmp', entity_id: id }).then(r => r.data)
   ]).then(([t, runs]) => { setTmp(t); setAgentRuns(runs); });
-  useEffect(() => { loadTmp().catch(() => setTmp(null)).finally(() => setLoading(false)); }, [id]);
+  useEffect(() => {
+    setLoading(true); setError('');
+    loadTmp()
+      .catch((e) => { setTmp(null); setError(e.status === 404 ? 'TMP not found.' : e.message || 'Failed to load TMP.'); })
+      .finally(() => setLoading(false));
+  }, [id]);
 
   const handleDelete = async () => {
     if (!confirm('Delete this TMP?')) return;
@@ -111,7 +117,7 @@ export default function TMPDetail() {
       return;
     }
     try {
-      const res = await fetch(`/api/tmps/${id}/create-permits`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' } });
+      const res = await fetch(apiUrl(`/tmps/${id}/create-permits`), { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' } });
       if (res.status === 402) {
         const j = await res.json().catch(()=>({}));
         alert(j.message || 'Upgrade required for WA LGA packet (402).');
@@ -147,7 +153,7 @@ export default function TMPDetail() {
   };
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
-  if (!tmp) return <p className="text-red-500">TMP not found</p>;
+  if (!tmp) return <div className="p-4"><div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error || 'TMP not found'}</div></div>;
 
   return (
     <div className="space-y-6">

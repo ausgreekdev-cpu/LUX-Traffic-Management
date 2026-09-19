@@ -25,8 +25,9 @@ export default function Correspondence() {
   const [filter, setFilter] = useState(params.get('review_status') || '');
   const [saved, setSaved] = useState('');
   const [selected, setSelected] = useState(null);
+  const [error, setError] = useState('');
 
-  const load = () => api.correspondence.list(filter ? { review_status: filter } : {}).then(r => setRows(r.data)).catch(() => setRows([])).finally(() => setLoading(false));
+  const load = () => api.correspondence.list(filter ? { review_status: filter } : {}).then(r => setRows(r.data)).catch((e) => setError(e.status === 402 ? 'API access requires the Agency plan — upgrade at /billing.' : e.status === 403 ? 'You do not have permission to view correspondence.' : (e.message || 'Failed to load correspondence.'))).finally(() => setLoading(false));
 
   useEffect(() => { setLoading(true); load(); /* eslint-disable-next-line */ }, [filter]);
 
@@ -59,6 +60,7 @@ export default function Correspondence() {
       </div>
 
       {saved && <p className="text-sm text-green-600 dark:text-green-400">{saved}</p>}
+      {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
 
       {loading && rows.length === 0 ? (
         <p className="text-gray-500 text-sm">Loading…</p>

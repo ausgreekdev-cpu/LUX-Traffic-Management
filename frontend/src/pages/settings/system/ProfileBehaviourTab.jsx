@@ -18,6 +18,7 @@ export default function ProfileBehaviourTab() {
   const [saved, setSaved] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     api.settings.get()
@@ -40,7 +41,7 @@ export default function ProfileBehaviourTab() {
         setTheme(t);
         document.documentElement.classList.toggle('dark', t === 'dark');
       })
-      .catch(() => {})
+      .catch(() => setError('Failed to load settings — fields shown as defaults.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -70,6 +71,7 @@ export default function ProfileBehaviourTab() {
 
   return (
     <div>
+      {error && <div className="p-3 mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       <SectionCard title="Company profile" description="Shown on exported documents and reports.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Company name"><TextField value={form.company_name} onChange={(v) => setForm(f => ({ ...f, company_name: v }))} placeholder="e.g. LUX Traffic Management" /></Field>

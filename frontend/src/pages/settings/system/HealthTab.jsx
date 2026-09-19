@@ -13,10 +13,11 @@ function fmtBytes(n) {
 
 export default function HealthTab() {
   const [health, setHealth] = useState(null);
+  const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    api.health().then(setHealth).catch(() => {});
+    api.health().then(setHealth).catch((e) => setError(e.message || 'Failed to load health.'));
   }, [refreshKey]);
 
   const up = Math.floor((health?.uptime_seconds || 0) / 3600);
@@ -26,8 +27,10 @@ export default function HealthTab() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-gray-500 dark:text-gray-400">Server status, database integrity and resource usage.</p>
-        <button onClick={() => setRefreshKey(k => k + 1)} className="btn btn-ghost text-sm">Refresh</button>
+        <button onClick={() => { setError(''); setRefreshKey(k => k + 1); }} className="btn btn-ghost text-sm">Refresh</button>
       </div>
+
+      {error && <div className="p-3 mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
 
       <SectionCard title="Status" description="Public health endpoint: /api/health">
         {health ? (

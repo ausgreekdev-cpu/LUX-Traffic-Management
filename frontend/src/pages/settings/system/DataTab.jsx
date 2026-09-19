@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import api from '../../../api';
+import api, { apiUrl } from '../../../api';
 import { Field, NumberField, ToggleField } from '../../../components/settings/fields';
 import SectionCard from '../../../components/settings/SectionCard';
 import SaveBar from '../../../components/settings/SaveBar';
@@ -7,7 +7,9 @@ import { useAuth } from '../../../context/Auth';
 
 const authFetch = (path, options = {}) => {
   const token = localStorage.getItem('token');
-  return fetch(path, { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
+  // apiUrl already includes the /api prefix — strip a leading one if present
+  const clean = path.startsWith('/api') ? path.slice(4) : path;
+  return fetch(apiUrl(clean), { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
 };
 
 export default function DataTab() {

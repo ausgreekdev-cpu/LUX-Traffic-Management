@@ -11,8 +11,9 @@ export default function SiteList() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: '', road_name: '', suburb: '', state: 'WA', postcode: '', description: '', road_class: '', speed_limit: '', aadt: '', pedestrian_activity: '', cyclist_activity: '', rail_corridor: false, school_zone: false });
+  const [error, setError] = useState('');
 
-  useEffect(() => { api.sites.list().then(setSites).catch(() => {}); }, []);
+  useEffect(() => { api.sites.list().then(setSites).catch((e) => setError(e.message || 'Failed to load sites.')); }, []);
 
   const resetForm = () => { setForm({ name: '', road_name: '', suburb: '', state: 'WA', postcode: '', description: '', road_class: '', speed_limit: '', aadt: '', pedestrian_activity: '', cyclist_activity: '', rail_corridor: false, school_zone: false }); setEditId(null); setShowForm(false); };
 
@@ -39,6 +40,7 @@ export default function SiteList() {
 
   return (
     <div className="space-y-4">
+      {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="page-header">{pageTitle('sites', 'Sites')}</h1>

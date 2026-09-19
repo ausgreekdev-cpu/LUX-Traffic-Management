@@ -27,13 +27,15 @@ export default function WorkflowSettings() {
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState(null);
   const [saved, setSaved] = useState('');
+  const [error, setError] = useState('');
 
   const flash = (msg) => { setSaved(msg); setTimeout(() => setSaved(''), 2500); };
 
-  const loadTemplates = () => api.workflows.templates(entityType).then(setTemplates).catch(() => setTemplates([]));
+  const loadTemplates = () => api.workflows.templates(entityType).then(setTemplates).catch((e) => { setTemplates([]); setError(e.message || 'Failed to load templates.'); });
 
   useEffect(() => {
     setLoading(true);
+    setError('');
     api.authorities.list().then(setAuthorities).catch(() => {});
     loadTemplates()
       .then(() => { setSelection('global'); setStages([]); setStageForm({ name: '', description: '', is_optional: false }); setEditingStageId(null); })
@@ -42,8 +44,8 @@ export default function WorkflowSettings() {
   }, [entityType]);
 
   const loadStages = () => {
-    if (selection === 'global') return api.workflows.stages(entityType).then(setStages).catch(() => setStages([]));
-    return api.workflows.stages(null, selection).then(setStages).catch(() => setStages([]));
+    if (selection === 'global') return api.workflows.stages(entityType).then(setStages).catch((e) => { setStages([]); setError(e.message || 'Failed to load stages.'); });
+    return api.workflows.stages(null, selection).then(setStages).catch((e) => { setStages([]); setError(e.message || 'Failed to load stages.'); });
   };
 
   useEffect(() => { loadStages().catch(() => {}); }, [selection, entityType]);
@@ -133,6 +135,7 @@ export default function WorkflowSettings() {
 
   return (
     <div className="space-y-6">
+      {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       <div>
         <h1 className="page-header">{pageTitle('workflows', 'Workflow Templates')}</h1>
         <p className="page-sub mt-1">Stages now branch by <b>complexity</b> and <b>authority</b>. A record uses the most specific template that matches (authority + complexity → complexity → default → global fallback). Required stages gate approval/completion; optional ones are tracked but not enforced.</p>

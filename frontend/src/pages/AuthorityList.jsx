@@ -30,9 +30,10 @@ export default function AuthorityList() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [importing, setImporting] = useState(false);
   const [slaForm, setSlaForm] = useState({ complexity: 'simple', assessment_days: 14, public_notice_days: 0, buffer_days: 0, requires_public_notice: false });
+  const [error, setError] = useState('');
   const detailsCache = useRef({});
 
-  useEffect(() => { api.authorities.list().then(setAuthorities).catch(() => {}); }, []);
+  useEffect(() => { api.authorities.list().then(setAuthorities).catch((e) => setError(e.status === 403 ? 'You do not have permission to view authorities.' : e.message || 'Failed to load authorities.')); }, []);
 
   const loadDetail = async (id) => {
     if (detailsCache.current[id]) {
@@ -114,6 +115,7 @@ export default function AuthorityList() {
 
   return (
     <div className="space-y-4">
+      {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="page-header">{pageTitle('authorities', 'WA Authorities')}</h1>

@@ -11,9 +11,13 @@ export default function ProjectList() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [clients, setClients] = useState([]);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', description: '', client_id: '', status: 'active', start_date: '', end_date: '' });
 
-  useEffect(() => { api.projects.list().then(setProjects).catch(() => {}); api.clients.list().then(setClients).catch(() => {}); }, []);
+  useEffect(() => {
+    api.projects.list().then(setProjects).catch((e) => setError(e.message || 'Failed to load projects.'));
+    api.clients.list().then(setClients).catch(() => {});
+  }, []);
 
   const resetForm = () => { setForm({ name: '', description: '', client_id: '', status: 'active', start_date: '', end_date: '' }); setEditId(null); setShowForm(false); };
 
@@ -38,6 +42,7 @@ export default function ProjectList() {
 
   return (
     <div className="space-y-4">
+      {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="page-header">{pageTitle('projects', 'Projects')}</h1>

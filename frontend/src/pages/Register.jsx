@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { apiUrl } from '../api';
 
 export default function Register() {
   const [form, setForm] = useState({ name:'', email:'', password:'', companyName:'' });
@@ -12,7 +13,7 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(form)});
+      const res = await fetch(apiUrl('/auth/register'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(form)});
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed');
       localStorage.setItem('token', data.token);

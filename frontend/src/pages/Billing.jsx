@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useEntitlements } from '../hooks/useEntitlement';
+import { apiUrl } from '../api';
 
 const TIERS = [
   { id:'starter', name:'Starter', price:'$79/mo', annual:'$756/yr', seats:2, projects:5, features:['5 active TCPs','10 PDFs/mo','Email 48h'] },
@@ -13,15 +14,15 @@ export default function Billing() {
   const [usage, setUsage] = useState(null);
   const [annual, setAnnual] = useState(false);
   const [seats, setSeats] = useState(1);
-  useEffect(()=>{ fetch('/api/billing/plans').then(r=>r.json()).then(setPlans).catch(()=>{}); },[]);
-  useEffect(()=>{ fetch('/api/billing/usage', { headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(setUsage).catch(()=>{}); },[]);
+  useEffect(()=>{ fetch(apiUrl('/billing/plans')).then(r=>r.json()).then(setPlans).catch(()=>{}); },[]);
+  useEffect(()=>{ fetch(apiUrl('/billing/usage'), { headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(setUsage).catch(()=>{}); },[]);
 
   const checkout = async (tier) => {
     // Server-provided priceIds from GET /api/billing/plans
     const plan = plans.find(p=>p.id===tier);
     const priceId = annual ? plan?.priceIdAnnual : plan?.priceIdMonthly;
     if (!priceId) return alert('Price ID not configured for ' + tier + (annual?' annual':' monthly') + ' — set STRIPE_PRICE_* in backend/Netlify env and redeploy');
-    const res = await fetch('/api/billing/checkout', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('token')}`}, body: JSON.stringify({ priceId, seats, planId: tier, annual })});
+    const res = await fetch(apiUrl('/billing/checkout'), { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('token')}`}, body: JSON.stringify({ priceId, seats, planId: tier, annual })});
     const data = await res.json();
     if (data.url) window.location = data.url;
     else alert(data.error || 'Stripe not configured — contact AusGreek Developments');
@@ -55,7 +56,7 @@ export default function Billing() {
       <div className="mt-6 border rounded p-4">
         <h3 className="font-semibold">Manage Subscription</h3>
         <button onClick={async()=>{
-          const r=await fetch('/api/billing/portal',{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}});
+          const r=await fetch(apiUrl('/billing/portal'),{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}});
           const d=await r.json(); if(d.url) window.location=d.url; else alert(d.message);
         }} className="mt-2 border px-3 py-1 rounded">Open Customer Portal (upgrade/cancel/seats)</button>
         <p className="text-xs text-gray-500 mt-2">Seat billing: Starter $39, Pro $39, Agency $29 per extra seat (beyond included). PDF overage $0.99. Charged as base qty 1 + extra seats separate line item.</p>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiUrl } from '../api';
 
 export default function AdminOverride() {
   const [tenants, setTenants] = useState([]);
@@ -6,31 +7,37 @@ export default function AdminOverride() {
   const [ent, setEnt] = useState(null);
   const [featureKey, setFeatureKey] = useState('gis_generator');
   const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/admin/tenants', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
-      .then(r => r.json()).then(setTenants).catch(()=>{});
+    fetch(apiUrl('/admin/tenants'), { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then(r => r.json()).then(setTenants).catch(()=>setError('Failed to load tenants'));
   }, []);
 
   const loadEnt = (id) => {
     setSelected(id);
-    fetch(`/api/admin/tenants/${id}/entitlements`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
-      .then(r => r.json()).then(setEnt);
+    fetch(apiUrl(`/admin/tenants/${id}/entitlements`), { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then(r => r.json()).then(setEnt).catch(()=>setError('Failed to load entitlements'));
   };
 
   const grant = async () => {
-    await fetch(`/api/admin/tenants/${selected}/override`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-      body: JSON.stringify({ featureKey, reason, expiresAt: null }),
-    });
-    loadEnt(selected);
+    try {
+      const res = await fetch(apiUrl(`/admin/tenants/${selected}/override`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ featureKey, reason, expiresAt: null }),
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(data.error || 'Grant failed');
+      loadEnt(selected);
+    } catch (e) { setError(e.message); }
   };
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold mb-2">Developer Override — Delux TPM CRM</h1>
       <p className="text-sm text-gray-500 mb-6">Super-admin: bypass paywalls, grant features, extend trials, pause accounts. All actions are audited.</p>
+      {error && <div className="p-3 mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       <div className="grid grid-cols-3 gap-6">
         <div className="border rounded p-4">
           <h2 className="font-semibold mb-2">Tenants</h2>

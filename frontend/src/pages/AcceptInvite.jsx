@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { apiUrl } from '../api';
 
 export default function AcceptInvite() {
   const [params] = useSearchParams();
@@ -11,14 +12,14 @@ export default function AcceptInvite() {
 
   useEffect(()=>{
     if (!token) return;
-    fetch(`/api/auth/invitation/${encodeURIComponent(token)}`).then(r=>r.json()).then(d=>{ if(d.error) setError(d.error); else setInfo(d); }).catch(()=>setError('Failed to load invitation'));
+    fetch(apiUrl(`/auth/invitation/${encodeURIComponent(token)}`)).then(r=>r.json()).then(d=>{ if(d.error) setError(d.error); else setInfo(d); }).catch(()=>setError('Failed to load invitation'));
   },[token]);
 
   const submit = async (e)=>{
     e.preventDefault();
     setError('');
     try {
-      const res = await fetch('/api/auth/accept', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token, name: form.name, password: form.password })});
+      const res = await fetch(apiUrl('/auth/accept'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token, name: form.name, password: form.password })});
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       localStorage.setItem('token', data.token);

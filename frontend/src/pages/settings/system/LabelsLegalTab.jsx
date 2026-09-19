@@ -80,6 +80,7 @@ export default function LabelsLegalTab() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     api.settings.get()
@@ -93,7 +94,7 @@ export default function LabelsLegalTab() {
         setComplexityLabels(parseJson(s.complexity_labels_json));
         setLegal({ privacy_policy: s.privacy_policy || '', terms_of_service: s.terms_of_service || '' });
       })
-      .catch(() => {})
+      .catch((e) => setError(e.status === 403 ? 'You do not have permission to load settings (requires Developer).' : e.message || 'Failed to load settings.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -109,6 +110,7 @@ export default function LabelsLegalTab() {
 
   return (
     <div>
+      {error && <div className="p-3 mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       <SectionCard title="App branding" description="Applied to the login screen, sidebar and exported documents. Leave blank to keep defaults.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="App name"><TextField value={branding.app_name} onChange={(v) => setBranding(b => ({ ...b, app_name: v }))} placeholder="LUX Traffic Management" /></Field>

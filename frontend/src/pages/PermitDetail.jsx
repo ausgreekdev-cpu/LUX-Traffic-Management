@@ -15,6 +15,7 @@ export default function PermitDetail() {
   const canDelete = hasRole(user, 'manager');
   const [permit, setPermit] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [feeForm, setFeeForm] = useState({ fee_type: 'application_fee', amount: '', status: 'pending' });
   const [agentRuns, setAgentRuns] = useState([]);
 
@@ -22,7 +23,12 @@ export default function PermitDetail() {
     api.permits.get(id),
     api.agents.runs({ entity_type: 'permit', entity_id: id }).then(r => r.data)
   ]).then(([p, runs]) => { setPermit(p); setAgentRuns(runs); });
-  useEffect(() => { loadPermit().catch(() => setPermit(null)).finally(() => setLoading(false)); }, [id]);
+  useEffect(() => {
+    setLoading(true); setError('');
+    loadPermit()
+      .catch((e) => { setPermit(null); setError(e.status === 404 ? 'Permit not found.' : e.message || 'Failed to load permit.'); })
+      .finally(() => setLoading(false));
+  }, [id]);
 
   const handleStatusChange = async (newStatus) => {
     try {
@@ -62,7 +68,7 @@ export default function PermitDetail() {
   };
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
-  if (!permit) return <p className="text-red-500">Permit not found</p>;
+  if (!permit) return <div className="p-4"><div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error || 'Permit not found'}</div></div>;
 
   return (
     <div className="space-y-6">

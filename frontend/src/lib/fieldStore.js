@@ -1,5 +1,6 @@
 // IndexedDB-backed offline cache + photo upload queue for Field mode.
 // Gated by mobile_offline entitlement (pro/agency true, starter false = read-only mobile).
+import { apiUrl } from '../api';
 let _entCache = null;
 let _entCacheAt = 0;
 const ENT_TTL_MS = 5 * 60 * 1000;
@@ -10,7 +11,7 @@ async function hasMobileOffline() {
   try {
     const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
     if (!token) { _entCache = false; _entCacheAt = now; return false; }
-    const res = await fetch('/api/billing/entitlements', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(apiUrl('/billing/entitlements'), { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) { _entCache = false; _entCacheAt = now; return false; }
     const data = await res.json();
     _entCache = !!data?.features?.mobile_offline;

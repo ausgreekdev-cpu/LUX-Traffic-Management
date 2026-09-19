@@ -4,7 +4,8 @@ import SectionCard from '../../../components/settings/SectionCard';
 import SaveBar from '../../../components/settings/SaveBar';
 
 export default function ExportStandardsTab() {
-  const { draft, setValue, save, reset, saving, saved, error } = useSettingsGroup('export', 'export');
+  const { draft, setValue, save, reset, saving, saved, error, groupsError } = useSettingsGroup('export', 'export');
+  if (groupsError) return <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{groupsError}</div>;
   if (!draft) return <p className="text-gray-500">Loading…</p>;
 
   const zones = Array.isArray(draft.speed_zone_colors) ? draft.speed_zone_colors : [];

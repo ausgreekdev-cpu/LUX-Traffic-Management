@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import api from '../../api';
+import api, { apiUrl } from '../../api';
 
 const SLOTS = [
   { slot: 'logo_light', label: 'Logo — light background', hint: 'PNG or SVG with transparency. Min ~512px or vector. Shown on light surfaces.', accept: 'image/png,image/svg+xml,image/webp' },
@@ -47,7 +47,7 @@ export default function AssetsManager({ assets, onChanged, onError, domain }) {
             <div className="flex items-start gap-4">
               <div className={`h-20 w-20 shrink-0 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center bg-white ${s.slot === 'logo_dark' ? 'dark:bg-gray-900' : ''}`}>
                 {has ? (
-                  <img src={`/api/branding/assets/${s.slot}${qs}`} alt={s.label} className="max-h-16 max-w-16 object-contain" />
+                  <img src={apiUrl(`/branding/assets/${s.slot}${qs}`)} alt={s.label} className="max-h-16 max-w-16 object-contain" />
                 ) : (
                   <span className="text-[10px] text-gray-400 text-center px-1">No asset</span>
                 )}

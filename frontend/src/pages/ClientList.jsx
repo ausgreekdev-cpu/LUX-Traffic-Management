@@ -12,8 +12,9 @@ export default function ClientList() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', address: '', abn: '' });
+  const [error, setError] = useState('');
 
-  useEffect(() => { api.clients.list().then(setClients).catch(() => {}); }, []);
+  useEffect(() => { api.clients.list().then(setClients).catch((e) => setError(e.message || 'Failed to load clients.')); }, []);
 
   const resetForm = () => { setForm({ name: '', company: '', email: '', phone: '', address: '', abn: '' }); setEditId(null); setShowForm(false); };
 
@@ -47,6 +48,7 @@ export default function ClientList() {
 
   return (
     <div className="space-y-4">
+      {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="page-header">{pageTitle('clients', 'Clients')}</h1>

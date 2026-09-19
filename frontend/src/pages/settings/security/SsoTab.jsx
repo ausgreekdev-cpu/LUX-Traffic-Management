@@ -6,8 +6,9 @@ import SaveBar from '../../../components/settings/SaveBar';
 import { FeatureGate } from '../../../components/EntitlementGate';
 
 export default function SsoTab() {
-  const { draft, setValue, save, reset, saving, saved, error } = useSettingsGroup('sso', 'sso');
+  const { draft, setValue, save, reset, saving, saved, error, groupsError } = useSettingsGroup('sso', 'sso');
   const [reveal, setReveal] = useState(false);
+  if (groupsError) return <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{groupsError}</div>;
   if (!draft) return <p className="text-gray-500">Loading…</p>;
 
   const isSAML = draft.provider === 'saml';

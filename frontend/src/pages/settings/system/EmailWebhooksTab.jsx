@@ -20,6 +20,7 @@ export default function EmailWebhooksTab() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     api.settings.get()
@@ -27,8 +28,8 @@ export default function EmailWebhooksTab() {
         setWebhookHas(!!s.webhook_secret);
         setDigest({ reminder_email_enabled: s.reminder_email_enabled === 'true', reminder_email_to: s.reminder_email_to || '' });
       })
-      .catch(() => {});
-    api.email.getConfig().then(setSmtp).catch(() => {});
+      .catch(() => setError('Failed to load settings — shown as defaults.'));
+    api.email.getConfig().then(setSmtp).catch(() => setError((e) => e || 'Failed to load email config.'));
     api.email.logs().then(setEmailLogs).catch(() => {});
     Promise.allSettled([api.email.getConfig(), api.email.logs()])
       .then(() => setLoading(false));
@@ -83,6 +84,7 @@ export default function EmailWebhooksTab() {
 
   return (
     <div>
+      {error && <div className="p-3 mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">{error}</div>}
       <SectionCard title="Email (Postmark or SMTP)" description="Outgoing mail used for notifications, rule emails and tests. Settings persist in the database and override the POSTMARK_* / SMTP_* environment variables at runtime. Postmark is used automatically when an API token is saved.">
         <div className="mb-4">
           <span className="label">Active provider</span>
