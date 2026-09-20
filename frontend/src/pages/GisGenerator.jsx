@@ -31,8 +31,11 @@ export default function GisGenerator() {
         const mapboxgl = mod.default;
         let token = import.meta.env.VITE_MAPBOX_TOKEN;
         try {
+          // Flat settings response uses dotted keys (api_keys.mapbox_token);
+          // also accept the nested shape from /settings/groups.
           const s = await api.settings.get().catch(()=>null);
-          if (s?.api_keys?.mapbox_token) token = s.api_keys.mapbox_token;
+          if (s?.['api_keys.mapbox_token']) token = s['api_keys.mapbox_token'];
+          else if (s?.api_keys?.mapbox_token) token = s.api_keys.mapbox_token;
         } catch {}
         if (!token) {
           console.warn('Mapbox token missing — set VITE_MAPBOX_TOKEN or Settings > API Keys');

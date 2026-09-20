@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { encryptSecret, SECRET_SETTING_KEYS, shouldPersistSecret } from '../secrets-crypto.js';
+import { encryptSecret, decryptSecret, SECRET_SETTING_KEYS, shouldPersistSecret } from '../secrets-crypto.js';
 import { can } from '../saas/entitlements.js';
 import { getTenantId } from '../middleware/tenant.js';
 import {
@@ -95,9 +95,16 @@ router.put('/groups', authorize('developer'), (req, res) => {
 router.get('/', (req, res) => {
   const rows = db.prepare('SELECT key, value FROM settings').all();
   const settings = {};
+  // Mapbox access tokens are public-by-design (embedded client-side for the
+  // GIS map renderer) so they are returned unmasked here; all other secrets
+  // stay masked.
+  const PUBLIC_CLIENT_KEYS = new Set(['api_keys.mapbox_token']);
   for (const row of rows) {
-    if (LEGACY_MASKED_KEYS.has(row.key) || (isGroupedKey(row.key) && isSecretMember(groupMember(row.key)))) {
+    const isPublic = PUBLIC_CLIENT_KEYS.has(row.key);
+    if (!isPublic && (LEGACY_MASKED_KEYS.has(row.key) || (isGroupedKey(row.key) && isSecretMember(groupMember(row.key))))) {
       settings[row.key] = row.value ? MASK_PLACEHOLDER : '';
+    } else if (isPublic && row.value) {
+      settings[row.key] = decryptSecret(row.value);
     } else {
       settings[row.key] = row.value;
     }
